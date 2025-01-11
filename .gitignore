@@ -1,0 +1,8 @@
+extratos/
+venv/
+*.pyc
+pylintrc
+*.env
+*.db
+*.exe
+*pyc
