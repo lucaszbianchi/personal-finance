@@ -24,22 +24,23 @@ options = webdriver.ChromeOptions()
 driver = webdriver.Chrome(service=service, options=options)
 load_dotenv()
 
-try:
-    driver.get(URL)
+
+def send_email_for_login(chrome_driver):
+    chrome_driver.get(URL)
     time.sleep(2)
-
-    driver.find_element(By.XPATH, '//*[@id="1-email"]').send_keys(os.environ.get("EMAIL"))
-    driver.find_element(By.XPATH, '//*[@id="1-submit"]').click()
-
-    WebDriverWait(driver, 60).until(
+    chrome_driver.find_element(By.XPATH, '//*[@id="1-email"]').send_keys(os.environ.get("EMAIL"))
+    chrome_driver.find_element(By.XPATH, '//*[@id="1-submit"]').click()
+    return
+def extract_credit_data(chrome_driver):
+    WebDriverWait(chrome_driver, 60).until(
         EC.presence_of_element_located((By.XPATH, '//*[@id="__next"]/div/div/div[4]/div/div/div/div[3]/div[2]/button'))
     ).click()
 
-    WebDriverWait(driver, 60).until(
+    WebDriverWait(chrome_driver, 60).until(
         EC.presence_of_element_located((By.XPATH, '//*[@id="__next"]/div/div/div[6]/div/div[1]/div[1]/div/div[3]/span'))
     ).click()
 
-    dados = driver.find_elements(By.XPATH, '//*[@id="__next"]/div/div/div[6]/div/div[1]/div[1]')
+    dados = chrome_driver.find_elements(By.XPATH, '//*[@id="__next"]/div/div/div[6]/div/div[1]/div[1]')
     texto = dados[0].text
 
     linhas = texto.split("\n")[texto.split("\n").index("Ocultar Transações") + 1:]
@@ -48,10 +49,39 @@ try:
     for i, _ in enumerate(linhas):
         if re.match(r"\d{2}/\d{2}/\d{4}", linhas[i]) and i + 3 < len(linhas):
             transacoes.append([linhas[i], linhas[i + 1], linhas[i + 2], linhas[i + 3]])
+    return transacoes
 
-    df = pd.DataFrame(transacoes, columns=["Data", "Descricao", "Categoria", "Valor"])[["Categoria", "Descricao", "Data", "Valor"]]
+def create_df(data):
+    df = pd.DataFrame(data, columns=["Data", "Descricao", "Categoria", "Valor"])[["Categoria", "Descricao", "Data", "Valor"]]
+    return df
+
+def save_csv(df, tabela):
     hoje = datetime.now().strftime("%Y-%m-%d")
-    df.to_csv(fr"extratos/extrato_crédito_{hoje}.csv", index=False, encoding="utf-8")
+    caminho = "extratos/"
+    arquivos_csv = [
+        os.path.join(caminho, arquivo)
+        for arquivo in os.listdir(caminho)
+        if os.path.isfile(os.path.join(caminho, arquivo)) and tabela in arquivo
+    ]
+
+    # Concatena df com os arquivos encontrados
+    dataframes = [df]
+    for arquivo in arquivos_csv:
+        tabela_csv = pd.read_csv(arquivo)
+        dataframes.append(tabela_csv)
+
+    # Concatenar e reorganizar as colunas
+    df_concatenado = pd.concat(dataframes, ignore_index=True)[df.columns].sort_values(by="Data", ascending=False)
+
+    # Salvar tabela concatenada
+    df_concatenado.to_csv(rf"extratos\extrato_{tabela}_{hoje}.csv", index=False, encoding="utf-8")
+
+    # Excluir arquivos processados
+    for arquivo in arquivos_csv:
+        if not hoje in arquivo:
+            os.remove(arquivo)
+
+def insert_credit_data(df):
     gastos_cadastrados: pd.DataFrame = pd.read_sql("SELECT * FROM Credito", lite.connect('dados.db'))
     for _, row in df.iterrows():
         valor_limpo = -float(re.sub(r"[^\d.,-]", "", row["Valor"]).replace(".", "").replace(",", "."))  # Remove caracteres inválidos
@@ -72,12 +102,13 @@ try:
         
         db_manager.insert_data("Credito", [categoria_limpa, descricao_formatada, data_formatada, valor_limpo])
         db_manager.inserir_categoria_unica(row["Categoria"])
-
-    WebDriverWait(driver, 60).until(
+        return
+def extract_account_data(chrome_driver):
+    WebDriverWait(chrome_driver, 60).until(
         EC.presence_of_element_located((By.XPATH, '//*[@id="__next"]/div/div/div[6]/div/div[2]/div/div/div[3]/span'))
     ).click()
 
-    page_source = driver.page_source
+    page_source = chrome_driver.page_source
     soup = BeautifulSoup(page_source, "html.parser")
     table = soup.find("table", class_="Table pluggy Transactions pluggy")
     rows = table.find_all("tr")
@@ -102,11 +133,9 @@ try:
 
     if current_row:
         reformatted_data.append(current_row)
+    return reformatted_data
 
-    df = pd.DataFrame(reformatted_data, columns=["Data", "Descricao", "Categoria", "Valor"])[["Categoria", "Descricao", "Data", "Valor"]]
-    hoje = datetime.now().strftime("%Y-%m-%d")
-    df.to_csv(fr"extratos/extrato_conta_{hoje}.csv", index=False, encoding="utf-8")
-    
+def insert_account_data(df):
     gastos_cadastrados: pd.DataFrame = pd.read_sql("SELECT * FROM Gastos", lite.connect('dados.db'))
     receitas_cadastradas: pd.DataFrame = pd.read_sql("SELECT * FROM Receitas", lite.connect('dados.db'))
     df['Valor'] = df['Valor'].round(2)
@@ -138,7 +167,19 @@ try:
             db_manager.inserir_categoria_unica(row["Categoria"])
         else:
             db_manager.insert_data("Receitas", [categoria_limpa, descricao_limpa, data_formatada, valor_limpo])
-            db_manager.inserir_categoria_unica(row["Categoria"])        
+            db_manager.inserir_categoria_unica(row["Categoria"])
+    return  
+
+try:
+    send_email_for_login(driver)
+    credit_data = extract_credit_data(driver)
+    df_credit = create_df(credit_data)
+    save_csv(df_credit, tabela="crédito")
+    insert_credit_data(df_credit)
+    account_data = extract_account_data(driver)
+    df_account = create_df(account_data)
+    save_csv(df_account, tabela = "conta")
+    insert_account_data(df_account)
 
 finally:
     driver.quit()
