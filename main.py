@@ -1,7 +1,7 @@
 from datetime import datetime
 import flet as ft
-from database_manager import DatabaseManager
-from create_cards import CreateCards
+from database.database_manager import DatabaseManager
+from view.create_cards import CreateCards
 
 
 def main(page: ft.Page):

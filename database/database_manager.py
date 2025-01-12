@@ -1,7 +1,7 @@
 import sqlite3 as lite
 
 class DatabaseManager:
-    def __init__(self, db_name="dados.db"):
+    def __init__(self, db_name=r"dados.db"):
         self.db_name = db_name
         self._initialize_database()
 

@@ -82,7 +82,7 @@ class CreateCards:
 
 
 if __name__ == "__main__":
-    from database_manager import DatabaseManager
+    from database.database_manager import DatabaseManager
     db_manager = DatabaseManager()
     view = CreateCards(db_manager)
     dados_resumo = view.calcular_dados_resumo()

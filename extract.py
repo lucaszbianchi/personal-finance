@@ -12,11 +12,11 @@ from selenium.webdriver.support import expected_conditions as EC
 from bs4 import BeautifulSoup
 import pandas as pd
 
-from database_manager import DatabaseManager
+from database.database_manager import DatabaseManager
 
 db_manager = DatabaseManager()
 
-DRIVER_PATH = r"refactor\driver\chromedriver.exe"
+DRIVER_PATH = r"driver\chromedriver.exe"
 URL = "https://meu.pluggy.ai/account"
 
 service = Service(DRIVER_PATH)
