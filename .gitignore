@@ -1,4 +1,4 @@
-extratos/
+extracts/
 venv/
 *.pyc
 pylintrc

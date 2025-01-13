@@ -1,16 +1,16 @@
 import sqlite3 as lite
 
 class DatabaseManager:
-    def __init__(self, db_name=r"dados.db"):
+    def __init__(self, db_name=r"data.db"):
         self.db_name = db_name
         self._initialize_database()
 
     def _connect(self):
-        """Estabelece uma conexão com o banco de dados."""
+        """Estabelece uma conexão com o banco de data."""
         return lite.connect(self.db_name)
 
     def _initialize_database(self):
-        """Cria as tabelas no banco de dados se elas não existirem."""
+        """Cria as tabelas no banco de data se elas não existirem."""
         with self._connect() as con:
             cur = con.cursor()
             # Tabela para categorias de gastos
@@ -20,56 +20,56 @@ class DatabaseManager:
             )''')
 
             # Tabela para registrar receitas
-            cur.execute('''CREATE TABLE IF NOT EXISTS Receitas (
+            cur.execute('''CREATE TABLE IF NOT EXISTS Revenue (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
-                categoria TEXT,
-                descricao TEXT,
+                category TEXT,
+                description TEXT,
                 data DATE,
                 valor DECIMAL
             )''')
 
             # Tabela para registrar gastos
-            cur.execute('''CREATE TABLE IF NOT EXISTS Gastos (
+            cur.execute('''CREATE TABLE IF NOT EXISTS Expenses (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
-                categoria TEXT,
-                descricao TEXT,
+                category TEXT,
+                description TEXT,
                 data DATE,
                 valor DECIMAL
             )''')
 
             # Tabela para registrar transações de crédito
-            cur.execute('''CREATE TABLE IF NOT EXISTS Credito (
+            cur.execute('''CREATE TABLE IF NOT EXISTS Credit (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
-                categoria TEXT,
-                descricao TEXT,
+                category TEXT,
+                description TEXT,
                 data DATE,
                 valor DECIMAL
             )''')
 
     def reset_database(self):
-        """Remove todas as tabelas e recria a estrutura inicial do banco de dados."""
+        """Remove todas as tabelas e recria a estrutura inicial do banco de data."""
         with self._connect() as con:
             cur = con.cursor()
             # Remove tabelas existentes
             cur.execute("DROP TABLE IF EXISTS Categorias")
-            cur.execute("DROP TABLE IF EXISTS Receitas")
-            cur.execute("DROP TABLE IF EXISTS Gastos")
-            cur.execute("DROP TABLE IF EXISTS Credito")
+            cur.execute("DROP TABLE IF EXISTS Revenue")
+            cur.execute("DROP TABLE IF EXISTS Expenses")
+            cur.execute("DROP TABLE IF EXISTS Credit")
             # Recria as tabelas
             self._initialize_database()
 
 
     # Função para inserir categorias únicas
-    def inserir_categoria_unica(self,categoria):
+    def inserir_categoria_unica(self,category):
         query = "SELECT 1 FROM Categorias WHERE nome = ?"
         with self._connect() as con:
             cur = con.cursor()
-            cur.execute(query, (categoria,))
+            cur.execute(query, (category,))
             if not cur.fetchone():  # Categoria não existe
-                self.insert_data("Categorias", [categoria])
+                self.insert_data("Categorias", [category])
 
     def insert_data(self, table, data):
-        """Insere dados em uma tabela específica.
+        """Insere data em uma tabela específica.
 
         Args:
             table (str): Nome da tabela.
@@ -114,7 +114,7 @@ class DatabaseManager:
             table (str): Nome da tabela.
 
         Returns:
-            list: Lista de tuplas com os dados das linhas.
+            list: Lista de tuplas com os data das linhas.
         """
         with self._connect() as con:
             cur = con.cursor()
@@ -127,11 +127,11 @@ class DatabaseManager:
 
         Args:
             table (str): Nome da tabela.
-            condition (str): Condição SQL para filtrar os dados.
+            condition (str): Condição SQL para filtrar os data.
             params (tuple): Valores a serem utilizados na condição.
 
         Returns:
-            list: Lista de tuplas com os dados das linhas.
+            list: Lista de tuplas com os data das linhas.
         """
         with self._connect() as con:
             cur = con.cursor()

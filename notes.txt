@@ -5,11 +5,11 @@ Front End
 - Função para apagar Categorias     
 - DateEntry para colocar datas de inicio e de fim   
 - Grafico de consumo de VR por tempo    !
-- Sistema de cadastro das entradas dos extratos
+- Sistema de cadastro das entradas dos extracts
 
 
 
 Back End
-- Coletar os dados dos extratos     
-- Separar os dados dos extratos (talvez criando mais tabelas)   
+- Coletar os dados dos extracts     
+- Separar os dados dos extracts (talvez criando mais tabelas)   
 - Arrumar a formatação do Data de forma que possa ser filtrada 

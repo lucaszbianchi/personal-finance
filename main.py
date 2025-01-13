@@ -5,25 +5,20 @@ from view.create_cards import CreateCards
 
 
 def main(page: ft.Page):
-    # Configurações da página
     page.title = "Personal Finance"
     page.theme_mode = ft.ThemeMode.LIGHT
     page.horizontal_alignment = ft.CrossAxisAlignment.CENTER
 
     db_manager = DatabaseManager()
     create_cards = CreateCards(db_manager)
-    dados_resumo = create_cards.calcular_dados_resumo()
+    summary_data = create_cards.calculate_summary_data()
 
-    # Criar os cards de resumo
-    cards = [create_cards.criar_card_resumo(titulo, valor) for titulo, valor in dados_resumo.items()]
-    # Mês e ano atual
-    mes_atual = datetime.now().month
-    ano_atual = datetime.now().year
-    # Criar layout principal
+    cards = [create_cards.create_cards(title, value) for title, value in summary_data.items()]
+
     layout = ft.Column(
         [
             ft.Text(
-                f"Summary of {mes_atual}/{ano_atual}",
+                f"Summary of {datetime.now().month}/{datetime.now().year}",
                 size=20,
                 weight=ft.FontWeight.BOLD,
                 color=ft.Colors.BLUE_ACCENT
@@ -34,9 +29,6 @@ def main(page: ft.Page):
         spacing=10,
     )
 
-    # Adicionar layout à página
     page.add(layout)
 
-
-# Inicializa o aplicativo Flet
 ft.app(target=main)
