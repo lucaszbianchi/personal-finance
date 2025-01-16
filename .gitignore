@@ -4,5 +4,7 @@ venv/
 pylintrc
 *.env
 *.db
-*.exe
+driver/
 *pyc
+.coder/
+.coderignore

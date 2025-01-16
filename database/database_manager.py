@@ -1,5 +1,6 @@
 import sqlite3 as lite
 
+
 class DatabaseManager:
     def __init__(self, db_name=r"data.db"):
         self.db_name = db_name
@@ -13,60 +14,63 @@ class DatabaseManager:
         """Cria as tabelas no banco de data se elas não existirem."""
         with self._connect() as con:
             cur = con.cursor()
-            # Tabela para categorias de gastos
-            cur.execute('''CREATE TABLE IF NOT EXISTS Categorias (
+            cur.execute(
+                """CREATE TABLE IF NOT EXISTS Categories (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 nome TEXT
-            )''')
+            )"""
+            )
 
-            # Tabela para registrar receitas
-            cur.execute('''CREATE TABLE IF NOT EXISTS Revenue (
+            cur.execute(
+                """CREATE TABLE IF NOT EXISTS Revenue (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 category TEXT,
                 description TEXT,
                 data DATE,
                 valor DECIMAL
-            )''')
+            )"""
+            )
 
-            # Tabela para registrar gastos
-            cur.execute('''CREATE TABLE IF NOT EXISTS Expenses (
+            cur.execute(
+                """CREATE TABLE IF NOT EXISTS Expenses (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 category TEXT,
                 description TEXT,
                 data DATE,
                 valor DECIMAL
-            )''')
+            )"""
+            )
 
-            # Tabela para registrar transações de crédito
-            cur.execute('''CREATE TABLE IF NOT EXISTS Credit (
+            cur.execute(
+                """CREATE TABLE IF NOT EXISTS Credit (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 category TEXT,
                 description TEXT,
                 data DATE,
                 valor DECIMAL
-            )''')
+            )"""
+            )
 
     def reset_database(self):
         """Remove todas as tabelas e recria a estrutura inicial do banco de data."""
         with self._connect() as con:
             cur = con.cursor()
             # Remove tabelas existentes
-            cur.execute("DROP TABLE IF EXISTS Categorias")
+            cur.execute("DROP TABLE IF EXISTS Categories")
             cur.execute("DROP TABLE IF EXISTS Revenue")
             cur.execute("DROP TABLE IF EXISTS Expenses")
             cur.execute("DROP TABLE IF EXISTS Credit")
             # Recria as tabelas
             self._initialize_database()
 
-
-    # Função para inserir categorias únicas
-    def inserir_categoria_unica(self,category):
-        query = "SELECT 1 FROM Categorias WHERE nome = ?"
+    # Função para inserir Categories únicas
+    def inserir_categoria_unica(self, category):
+        query = "SELECT 1 FROM Categories WHERE nome = ?"
         with self._connect() as con:
             cur = con.cursor()
             cur.execute(query, (category,))
             if not cur.fetchone():  # Categoria não existe
-                self.insert_data("Categorias", [category])
+                self.insert_data("Categories", [category])
 
     def insert_data(self, table, data):
         """Insere data em uma tabela específica.
@@ -139,8 +143,9 @@ class DatabaseManager:
             cur.execute(query, params)
             return cur.fetchall()
 
+
 # Exemplo de uso
 if __name__ == "__main__":
     db = DatabaseManager()
-    credito = db.fetch_all("credito")
-    print("credito:", credito)
+    credit = db.fetch_all("Credit")
+    print(credit)

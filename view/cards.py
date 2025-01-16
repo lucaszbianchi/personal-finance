@@ -2,7 +2,7 @@ from datetime import datetime
 import flet as ft
 
 
-class CreateCards:
+class Cards:
     def __init__(self, db_manager):
         """
         Inicializa a classe de visualizações.
@@ -19,22 +19,21 @@ class CreateCards:
 
         month_revenue = self.db_manager.fetch_by_condition(
             "Revenue",
-            "strftime('%Y', data) = ? AND strftime('%m', data) = ? AND " + 
-            "category NOT IN ('Receita - Investments', 'Receita - Fixed income')",
-            (str(actual_year), f"{actual_month:02d}")
+            "strftime('%Y', data) = ? AND strftime('%m', data) = ? AND "
+            + "category NOT IN ('Receita - Investments', 'Receita - Fixed income')",
+            (str(actual_year), f"{actual_month:02d}"),
         )
         month_expenses = self.db_manager.fetch_by_condition(
             "Expenses",
-            "strftime('%Y', data) = ? AND strftime('%m', data) = ? AND " + 
-            "category NOT IN ('Investments', 'Fixed income') AND " + 
-            "description NOT IN ('Pagamento de fatura', 'Transferência enviada|Latam Gateway')",
-            (str(actual_year), f"{actual_month:02d}")
+            "strftime('%Y', data) = ? AND strftime('%m', data) = ? AND "
+            + "category NOT IN ('Investments', 'Fixed income') AND "
+            + "description NOT IN ('Pagamento de fatura', 'Transferência enviada|Latam Gateway')",
+            (str(actual_year), f"{actual_month:02d}"),
         ) + self.db_manager.fetch_by_condition(
             "Credit",
             "strftime('%Y', data) = ? AND strftime('%m', data) = ?",
-            (str(actual_year), f"{actual_month:02d}")
+            (str(actual_year), f"{actual_month:02d}"),
         )
-
 
         revenue = sum(r[4] for r in month_revenue)
         expenses = sum(g[4] for g in month_expenses)
@@ -42,12 +41,16 @@ class CreateCards:
 
         all_time_expenses = self.db_manager.fetch_by_condition(
             "Expenses",
-            "category NOT IN ('Investments', 'Fixed income') AND " + 
-            "description NOT IN ('Pagamento de fatura', 'Transferência enviada|Latam Gateway')",
-            ()
+            "category NOT IN ('Investments', 'Fixed income') AND "
+            + "description NOT IN ('Pagamento de fatura', 'Transferência enviada|Latam Gateway')",
+            (),
         ) + self.db_manager.fetch_all("Credit")
         number_of_months = set((g[3][:7] for g in all_time_expenses))  # YYYY-MM format
-        average_spending_by_month = sum(g[4] for g in all_time_expenses) / len(number_of_months) if number_of_months else 0
+        average_spending_by_month = (
+            sum(g[4] for g in all_time_expenses) / len(number_of_months)
+            if number_of_months
+            else 0
+        )
 
         return {
             "Revenue": revenue,
@@ -62,7 +65,9 @@ class CreateCards:
                 content=ft.Row(
                     [
                         ft.Text(title, size=18, weight=ft.FontWeight.BOLD),
-                        ft.Text(f": R${value:,.2f}", size=18, weight=ft.FontWeight.BOLD),
+                        ft.Text(
+                            f": R${value:,.2f}", size=18, weight=ft.FontWeight.BOLD
+                        ),
                     ],
                     alignment=ft.MainAxisAlignment.CENTER,
                     spacing=5,
@@ -79,7 +84,8 @@ class CreateCards:
 
 if __name__ == "__main__":
     from database.database_manager import DatabaseManager
+
     db_manager = DatabaseManager()
-    view = CreateCards(db_manager)
+    view = Cards(db_manager)
     data_resumo = view.calculate_summary_data()
     print(data_resumo)
