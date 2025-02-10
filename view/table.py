@@ -26,17 +26,17 @@ class Table:
         """
         if period == "All":
             return self.db_manager.fetch_all(table_name)
-        elif len(period) == 4:  # Ano completo
+        if len(period) == 4:  # Ano completo
             return self.db_manager.fetch_by_condition(
                 table_name, "strftime('%Y', data) = ?", (period,)
             )
-        else:  # Mês/Ano específico
-            year, month = period.split("-")
-            return self.db_manager.fetch_by_condition(
-                table_name,
-                "strftime('%Y', data) = ? AND strftime('%m', data) = ?",
-                (year, month),
-            )
+        # Mês/Ano específico
+        year, month = period.split("-")
+        return self.db_manager.fetch_by_condition(
+            table_name,
+            "strftime('%Y', data) = ? AND strftime('%m', data) = ?",
+            (year, month),
+        )
 
     def get_available_periods(self, table_name):
         """Obtém os períodos disponíveis (mês/ano e ano) nas tabelas.
@@ -53,7 +53,7 @@ class Table:
 
         dates = [row[3] for row in data]  # Coluna de data
         unique_periods = set(
-            datetime.strptime(date, "%Y-%m-%d").strftime("%Y-%m") for date in dates
+            datetime.strptime(date.split()[0], "%Y-%m-%d").strftime("%Y-%m") for date in dates
         )
         unique_years = set(date[:4] for date in unique_periods)
 
@@ -68,7 +68,7 @@ class Table:
             period (str): Período selecionado no formato "YYYY-MM" ou "YYYY".
 
         Returns:
-            ft.DataTable: Componente de tabela do Flet.
+            ft.Container: Tabela dentro de um container com scrollbar.
         """
         data = self.fetch_table_data(table_name, period)
         if not data:
@@ -83,12 +83,22 @@ class Table:
             for row in data
         ]
 
-        return ft.DataTable(
+        table = ft.DataTable(
             columns=[ft.DataColumn(ft.Text(header)) for header in headers],
             rows=rows,
             border=ft.border.all(1, ft.Colors.GREY),
             column_spacing=10,
             heading_text_style=ft.TextStyle(weight=ft.FontWeight.BOLD),
+        )
+
+        # Envolver a tabela em um Container com rolagem vertical
+        return ft.Container(
+            content=ft.Column(
+                [table],
+                scroll=ft.ScrollMode.AUTO,  # Habilita a rolagem se necessário
+            ),
+            height=300,  # Altura fixa da tabela (ajuste conforme necessário)
+            clip_behavior=ft.ClipBehavior.HARD_EDGE,  # Recorta conteúdo extra
         )
 
     def create_dropdown(self, options, value, on_change, width=200):
