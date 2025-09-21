@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>Home</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 2em; }
+        nav { display: flex; gap: 2em; margin-bottom: 2em; }
+        .nav-item { background: #f0f0f0; padding: 1em 2em; border-radius: 8px; font-size: 1.2em; }
+        h1 { margin-bottom: 1em; }
+    </style>
+    <button onclick="window.location.href='dataframe.html'">Ir para Dataframe</button>
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+</head>
+<body>
+    <h1>Summary <span id="summary-date">09/2025</span></h1>
+    <nav>
+        <div class="nav-item">Income: <span id="income">R$ 0,00</span></div>
+        <div class="nav-item">Expenses: <span id="expenses">R$ 0,00</span></div>
+        <div class="nav-item">Balance: <span id="balance">R$ 0,00</span></div>
+        <div class="nav-item">Average Spending: <span id="avg-spending">R$ 0,00</span></div>
+        <div class="nav-item">Salary: <span id="salary">R$ 0,00</span></div>
+        <div class="nav-item">Investments: <span id="investments">R$ 0,00</span></div>
+    </nav>
+    <!-- Containers para os gráficos -->
+    <div style="display:flex;gap:2em;">
+        <div id="bank_pie" style="width:45%;"></div>
+        <div id="credit_pie" style="width:45%;"></div>
+    </div>
+    <div id="line_chart" style="width:90%;height:400px;margin-top:2em;"></div>
+<script>
+    function formatBRL(value) {
+        return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+    }
+
+    async function fetchSummary() {
+        let res = await fetch('/bank');
+        const data = await res.json();
+        const month = '09';
+        const year = '2025';
+        let income = 0, expenses = 0, months = new Set(), totalExpenses = 0, salary = 0;
+
+        data.forEach(row => {
+            let [d, t] = row.date.split('\n');
+            let [y, m] = d.split('-');
+            if (m === month && y === year) {
+                // Ignora transferência do parceiro para income/salary e ajusta expenses
+                if (row.description === "Transferência Recebida|Geane de Souza Duarte") { // TODO: cadastrar parceiro para essa descrição se tornar uma variável
+                    expenses -= row.amount;
+                    return;
+                }
+                if (row.amount > 0 && row.category == 'Same person transfer' && row.description !== 'Transferência Recebida|Geane de Souza Duarte') salary = row.amount;
+                if (row.amount > 0 && row.description !== "Resgate RDB") income += row.amount;
+                else if (row.amount < 0 && !["Aplicação RDB", "Pagamento de fatura", "Aplicação em CDB"].includes(row.description)) expenses += Math.abs(row.amount);
+            }
+            // Para média de gastos
+            if (row.amount < 0) {
+                totalExpenses += Math.abs(row.amount);
+                months.add(d.slice(0,7));
+            }
+        });
+
+        // Soma gastos da tabela de crédito
+        res = await fetch('/credit');
+        const creditData = await res.json();
+        creditData.forEach(row => {
+            let [d, t] = row.date.split('\n');
+            let [y, m] = d.split('-');
+            if (m === month && y === year && row.amount > 0) {
+                expenses += row.amount;
+                totalExpenses += row.amount;
+            }
+            // Para média de gastos, considera também os meses da tabela de crédito
+            if (row.amount > 0) {
+                months.add(d.slice(0,7));
+            }
+        });
+        // Soma investimentos
+        res = await fetch('/investments');
+        const investData = await res.json();
+        let investments = 0;
+
+        investData.forEach(row => {
+            investments += row.amount;
+        });
+
+        const balance = income - expenses;
+        const avgSpending = months.size ? totalExpenses / months.size : 0;
+        document.getElementById('income').textContent = formatBRL(income);
+        document.getElementById('expenses').textContent = formatBRL(expenses);
+        document.getElementById('balance').textContent = formatBRL(balance);
+        document.getElementById('avg-spending').textContent = formatBRL(avgSpending);
+        document.getElementById('salary').textContent = formatBRL(salary);
+        document.getElementById('investments').textContent = formatBRL(investments);
+    }
+    fetchSummary();
+
+    // Gráficos
+    async function plotCharts() {
+        const res = await fetch('/dashboard-data');
+        const data = await res.json();
+
+        // Piechart banking
+        Plotly.newPlot('bank_pie', [{
+            type: 'pie',
+            labels: data.bank_pie.map(x => x.category),
+            values: data.bank_pie.map(x => x.total),
+            textinfo: "label+percent",
+        }], {title: "Gastos Banking por Categoria"});
+
+        // Piechart credit
+        Plotly.newPlot('credit_pie', [{
+            type: 'pie',
+            labels: data.credit_pie.map(x => x.category),
+            values: data.credit_pie.map(x => x.total),
+            textinfo: "label+percent",
+        }], {title: "Gastos Credit por Categoria"});
+
+        // Line chart
+        Plotly.newPlot('line_chart', [
+            {
+                x: data.line_data.map(x => x.month),
+                y: data.line_data.map(x => x.expenses),
+                name: "Despesas",
+                type: "scatter",
+                mode: "lines+markers",
+                line: {color: "red"}
+            },
+            {
+                x: data.line_data.map(x => x.month),
+                y: data.line_data.map(x => x.income),
+                name: "Receitas",
+                type: "scatter",
+                mode: "lines+markers",
+                line: {color: "green"}
+            }
+        ], {title: "Despesas/Receitas por Mês (BRL)", yaxis: {title: "BRL"}, xaxis: {title: "Mês"}});
+    }
+    plotCharts();
+</script>
+</body>
+</html>

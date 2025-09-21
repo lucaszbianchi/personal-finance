@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>Dataframe Dinâmico</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 2em; }
+        select { margin-right: 1em; }
+        table { border-collapse: collapse; width: 100%; margin-top: 2em; }
+        th, td { border: 1px solid #ccc; padding: 8px; }
+        th { background: #f0f0f0; }
+    </style>
+    <button onclick="window.location.href='home.html'">Ir para Home</button>
+</head>
+<body>
+    <h1>Dataframe Dinâmico</h1>
+    <label for="table-select">Tabela:</label>
+    <select id="table-select">
+        <option value="/bank">Transações Bancárias</option>
+        <option value="/credit">Transações de Crédito</option>
+        <option value="/investments">Investimentos</option>
+    </select>
+    <label for="period-select" id="period-label">Período:</label>
+    <select id="period-select"></select>
+    <!-- Campo de filtro por categoria -->
+    <label for="category-filter" id="category-label">Filtrar Categoria:</label>
+    <input type="text" id="category-filter" placeholder="Digite a categoria...">
+    <div id="content"></div>
+    <script>
+        const columns = {
+            "/bank": ["id", "description", "amount", "date", "category", "operationType"],
+            "/credit": ["id", "description", "amount", "date", "category", "status"],
+            "/investments": ["id", "name", "amount", "dueDate", "rate", "type", "subtype"]
+        };
+
+        async function fetchPeriods(endpoint) {
+            if (endpoint === "/investments") return [];
+            const res = await fetch(endpoint);
+            const data = await res.json();
+            const periods = [...new Set(data.map(row => (row.date.split('\n')[0].slice(0,7))))];
+            return periods.sort().reverse();
+        }
+
+        let lastData = [];
+        let lastCols = [];
+        let lastEndpoint = "";
+        let lastPeriod = "__all__";
+
+        function renderTable(data, cols) {
+            lastData = data;
+            lastCols = cols;
+            let html = `<table><tr>`;
+            cols.forEach(key => html += `<th>${key}</th>`);
+            html += "</tr>";
+            data.forEach(row => {
+                let style = "";
+                if (lastEndpoint === "/bank") {
+                    if (row.amount < 0) style = "color:red;";
+                    else if (row.amount > 0) style = "color:green;";
+                }
+                html += `<tr style="${style}">`;
+                cols.forEach(key => html += `<td>${row[key] ?? ''}</td>`);
+                html += "</tr>";
+            });
+            html += "</table>";
+            document.getElementById("content").innerHTML = html;
+        }
+
+        function filterAndRender() {
+            // Sempre filtra sobre lastData original
+            let filtered = lastData;
+            const endpoint = lastEndpoint;
+            // Filtro por período
+            if (lastPeriod && lastPeriod !== "__all__" && endpoint !== "/investments") {
+                filtered = filtered.filter(row => row.date.split('\n')[0].slice(0,7) === lastPeriod);
+            }
+            // Filtro por categoria
+            if (endpoint === "/bank" || endpoint === "/credit") {
+                const cat = document.getElementById("category-filter").value.trim().toLowerCase();
+                if (cat) {
+                    filtered = filtered.filter(row => (row.category ?? '').toLowerCase().includes(cat));
+                }
+            }
+            renderTable(filtered, lastCols);
+        }
+
+        async function fetchAndRender(endpoint, period = null) {
+            lastEndpoint = endpoint;
+            lastPeriod = period;
+            const res = await fetch(endpoint);
+            let data = await res.json();
+            const cols = columns[endpoint];
+            lastData = data;
+            lastCols = cols;
+            filterAndRender();
+        }
+
+        async function updateDashboard() {
+            const endpoint = document.getElementById("table-select").value;
+            const periodSelect = document.getElementById("period-select");
+            const periodLabel = document.getElementById("period-label");
+            const categoryLabel = document.getElementById("category-label");
+            const categoryFilter = document.getElementById("category-filter");
+            if (endpoint === "/investments") {
+                periodSelect.style.display = "none";
+                periodLabel.style.display = "none";
+                categoryLabel.style.display = "none";
+                categoryFilter.style.display = "none";
+                await fetchAndRender(endpoint);
+            } else {
+                periodSelect.style.display = "";
+                periodLabel.style.display = "";
+                categoryLabel.style.display = "";
+                categoryFilter.style.display = "";
+                const periods = await fetchPeriods(endpoint);
+                periodSelect.innerHTML = `<option value="__all__">Todos</option>` +
+                    periods.map(p => `<option value="${p}">${p}</option>`).join('');
+                lastPeriod = "__all__";
+                await fetchAndRender(endpoint, "__all__");
+            }
+        }
+
+        document.getElementById("table-select").addEventListener("change", updateDashboard);
+        document.getElementById("period-select").addEventListener("change", () => {
+            const endpoint = document.getElementById("table-select").value;
+            const period = document.getElementById("period-select").value;
+            lastPeriod = period;
+            filterAndRender();
+        });
+        document.getElementById("category-filter").addEventListener("input", filterAndRender);
+
+        updateDashboard();
+    </script>
+</body>
+</html>
