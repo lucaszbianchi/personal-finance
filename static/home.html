@@ -10,6 +10,7 @@
         h1 { margin-bottom: 1em; }
     </style>
     <button onclick="window.location.href='dataframe.html'">Ir para Dataframe</button>
+    <button onclick="importData()">Importar Dados</button>
     <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
 </head>
 <body>
@@ -32,66 +33,27 @@
     function formatBRL(value) {
         return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
     }
+    async function importData() {
+        const res = await fetch('/import-data', { method: 'POST' });
+        if (res.ok) {
+            alert('Dados importados com sucesso!');
+            location.reload();
+        } else {
+            alert('Erro ao importar dados.');
+        }
+    }
 
     async function fetchSummary() {
-        let res = await fetch('/bank');
+        const res = await fetch('/summary');
         const data = await res.json();
-        const month = '09';
-        const year = '2025';
-        let income = 0, expenses = 0, months = new Set(), totalExpenses = 0, salary = 0;
 
-        data.forEach(row => {
-            let [d, t] = row.date.split('\n');
-            let [y, m] = d.split('-');
-            if (m === month && y === year) {
-                // Ignora transferência do parceiro para income/salary e ajusta expenses
-                if (row.description === "Transferência Recebida|Geane de Souza Duarte") { // TODO: cadastrar parceiro para essa descrição se tornar uma variável
-                    expenses -= row.amount;
-                    return;
-                }
-                if (row.amount > 0 && row.category == 'Same person transfer' && row.description !== 'Transferência Recebida|Geane de Souza Duarte') salary = row.amount;
-                if (row.amount > 0 && row.description !== "Resgate RDB") income += row.amount;
-                else if (row.amount < 0 && !["Aplicação RDB", "Pagamento de fatura", "Aplicação em CDB"].includes(row.description)) expenses += Math.abs(row.amount);
-            }
-            // Para média de gastos
-            if (row.amount < 0) {
-                totalExpenses += Math.abs(row.amount);
-                months.add(d.slice(0,7));
-            }
-        });
-
-        // Soma gastos da tabela de crédito
-        res = await fetch('/credit');
-        const creditData = await res.json();
-        creditData.forEach(row => {
-            let [d, t] = row.date.split('\n');
-            let [y, m] = d.split('-');
-            if (m === month && y === year && row.amount > 0) {
-                expenses += row.amount;
-                totalExpenses += row.amount;
-            }
-            // Para média de gastos, considera também os meses da tabela de crédito
-            if (row.amount > 0) {
-                months.add(d.slice(0,7));
-            }
-        });
-        // Soma investimentos
-        res = await fetch('/investments');
-        const investData = await res.json();
-        let investments = 0;
-
-        investData.forEach(row => {
-            investments += row.amount;
-        });
-
-        const balance = income - expenses;
-        const avgSpending = months.size ? totalExpenses / months.size : 0;
-        document.getElementById('income').textContent = formatBRL(income);
-        document.getElementById('expenses').textContent = formatBRL(expenses);
-        document.getElementById('balance').textContent = formatBRL(balance);
-        document.getElementById('avg-spending').textContent = formatBRL(avgSpending);
-        document.getElementById('salary').textContent = formatBRL(salary);
-        document.getElementById('investments').textContent = formatBRL(investments);
+        document.getElementById('summary-date').textContent = data.month;
+        document.getElementById('income').textContent = formatBRL(data.income);
+        document.getElementById('expenses').textContent = formatBRL(data.expenses);
+        document.getElementById('balance').textContent = formatBRL(data.balance);
+        document.getElementById('avg-spending').textContent = formatBRL(data.avg_spending);
+        document.getElementById('salary').textContent = formatBRL(data.salary);
+        document.getElementById('investments').textContent = formatBRL(data.investments);
     }
     fetchSummary();
 
