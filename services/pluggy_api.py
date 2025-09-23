@@ -13,9 +13,19 @@ class PluggyAPI:
         dotenv.load_dotenv()
         self.base_url = "https://api.pluggy.ai"
         self.item_id = os.getenv("ITEM_ID")
-        self.api_key = self._get_auth_token()
+        self.api_key = self._create_api_key()
 
-    def _get_auth_token(self):
+    def _create_api_key(self):
+        """API Key: This access token has an expiration time of 2 hours and it's meant to be used by backend applications to recover users' data.
+
+        With this token you can:
+
+        Create Connect Tokens
+        Read User's Data for all products (Account, Transaction, Investment, Identity, Opportunity).
+        Configure Webhooks.
+        Create, Update & Delete Items.
+        Review Connectors (Financial Institutions) & Transaction's Category tree."""
+
         payload = {
             "clientId": os.getenv("CLIENT_ID"),
             "clientSecret": os.getenv("CLIENT_SECRET"),
@@ -27,35 +37,55 @@ class PluggyAPI:
 
         return json.loads(response.content).get("apiKey")
 
-    def fetch_accounts(self):
+    def retrieve_items(self):
+        url = f"{self.base_url}/items/{self.item_id}"
+
+        headers = {"accept": "application/json", "X-API-KEY": f"{self.api_key}"}
+
+        response = requests.get(url, headers=headers, timeout=30)
+        return json.loads(response.content)
+
+    def list_consents(self):
+        url = f"{self.base_url}/consents?itemId={self.item_id}"
+
+        headers = {"accept": "application/json", "X-API-KEY": f"{self.api_key}"}
+
+        response = requests.get(url, headers=headers, timeout=30)
+        return json.loads(response.content)
+
+    def list_accounts(self):
 
         url = f"{self.base_url}/accounts?itemId={self.item_id}"
 
         headers = {"accept": "application/json", "X-API-KEY": f"{self.api_key}"}
 
         response = requests.get(url, headers=headers, timeout=30)
-        return response
+        return json.loads(response.content)
+
+    def list_transactions(self, account_id, page_size=100, page=1):
+
+        url = f"{self.base_url}/transactions?accountId={account_id}&pageSize={page_size}&page={page}"
+        headers = {"accept": "application/json", "X-API-KEY": f"{self.api_key}"}
+        response = requests.get(url, headers=headers, timeout=30)
+        return json.loads(response.content)
 
     def fetch_and_store_data(self):
-        headers = {"accept": "application/json", "X-API-KEY": f"{self.api_key}"}
-        accounts = json.loads(self.fetch_accounts().content).get("results")
+        accounts = self.list_accounts().get("results")
         for account in accounts:
             account_type = account.get("type")
             if account_type in ["BANK", "CREDIT"]:
                 account_id = account.get("id")
-
-                url = f"{self.base_url}/transactions?accountId={account_id}&pageSize=100&page=1"
-
-                response = requests.get(url, headers=headers, timeout=30)
                 transactions = []
-                total_pages = json.loads(response.content).get("totalPages")
-                transactions.extend(json.loads(response.content).get("results"))
+                first_100_transactions = self.list_transactions(
+                    account_id, page_size=100, page=1
+                )
+                total_pages = first_100_transactions.get("totalPages")
+                transactions.extend(first_100_transactions.get("results"))
                 for page in range(2, total_pages + 1):
-                    url = f"{self.base_url}/transactions?accountId={account_id}&pageSize=100&page={page}"
-                    response = requests.get(url, headers=headers, timeout=30)
-                    transactions.extend(json.loads(response.content).get("results"))
-                if account_type == "BANK":
-                    print(transactions[0])
+                    page_transactions = self.list_transactions(
+                        account_id, page_size=100, page=page
+                    )
+                    transactions.extend(page_transactions.get("results"))
                 # Salva incrementalmente as transações em um arquivo .json
                 self._save_incremental_json(
                     f"data/{account_type}_transactions.json", transactions
@@ -84,3 +114,8 @@ class PluggyAPI:
             existing[item["id"]] = item
         with open(filepath, "w", encoding="utf-8") as f:
             json.dump(list(existing.values()), f, ensure_ascii=False, indent=4)
+
+
+if __name__ == "__main__":
+    pluggy = PluggyAPI()
+    print(pluggy.api_key)
