@@ -3,3 +3,6 @@ docs/*
 scripts/*
 *.db
 *.env
+
+*.pyc
+*.sql

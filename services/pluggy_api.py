@@ -15,6 +15,11 @@ class PluggyAPI:
         self.item_id = os.getenv("ITEM_ID")
         self.api_key = self._create_api_key()
 
+        consents = self.list_consents()
+        accounts = self.list_accounts()
+        self._save_base_data_first_time("data/consents.json", consents.get("results"))
+        self._save_base_data_first_time("data/accounts.json", accounts.get("results"))
+
     def _create_api_key(self):
         """API Key: This access token has an expiration time of 2 hours and it's meant to be used by backend applications to recover users' data.
 
@@ -36,14 +41,6 @@ class PluggyAPI:
         response = requests.post(url, json=payload, headers=headers, timeout=30)
 
         return json.loads(response.content).get("apiKey")
-
-    def retrieve_items(self):
-        url = f"{self.base_url}/items/{self.item_id}"
-
-        headers = {"accept": "application/json", "X-API-KEY": f"{self.api_key}"}
-
-        response = requests.get(url, headers=headers, timeout=30)
-        return json.loads(response.content)
 
     def list_consents(self):
         url = f"{self.base_url}/consents?itemId={self.item_id}"
@@ -115,7 +112,7 @@ class PluggyAPI:
         with open(filepath, "w", encoding="utf-8") as f:
             json.dump(list(existing.values()), f, ensure_ascii=False, indent=4)
 
-
-if __name__ == "__main__":
-    pluggy = PluggyAPI()
-    print(pluggy.api_key)
+    def _save_base_data_first_time(self, filepath, items):
+        if not os.path.exists(filepath):
+            with open(filepath, "w", encoding="utf-8") as f:
+                json.dump(items, f, ensure_ascii=False, indent=4)
