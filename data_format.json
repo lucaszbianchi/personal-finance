@@ -1,0 +1,172 @@
+{
+  "investments.json": {
+    "id": "<id>",
+    "number": null,
+    "name": "<name>",
+    "balance": 0,
+    "currencyCode": "BRL",
+    "type": "FIXED_INCOME",
+    "subtype": "CDB",
+    "lastMonthRate": null,
+    "lastTwelveMonthsRate": null,
+    "annualRate": null,
+    "itemId": "<itemId>",
+    "code": null,
+    "isin": null,
+    "metadata": null,
+    "value": 0.01,
+    "quantity": 0,
+    "amount": 0,
+    "taxes": 0,
+    "taxes2": 0,
+    "date": "2025-09-24T23:00:00.000Z",
+    "owner": null,
+    "amountProfit": null,
+    "amountWithdrawal": 0,
+    "amountOriginal": 0,
+    "dueDate": "2027-05-14T03:00:00.000Z",
+    "issuer": "<issuer>",
+    "issuerCNPJ": "<issuerCNPJ>",
+    "issueDate": "2025-05-14T03:00:00.000Z",
+    "rate": 115,
+    "rateType": "CDI",
+    "fixedAnnualRate": null,
+    "status": "TOTAL_WITHDRAWAL",
+    "institution": null,
+    "createdAt": "2025-09-17T23:03:36.999Z",
+    "updatedAt": "2025-09-24T23:12:03.734Z"
+  },
+  "accounts.json": {
+    "id": "<id>",
+    "type": "<type>",
+    "subtype": "<subtype>",
+    "name": "<name>",
+    "balance": 0,
+    "currencyCode": "BRL",
+    "itemId": "<itemId>",
+    "number": "<number>",
+    "createdAt": "<createdAt>",
+    "updatedAt": "<updatedAt>",
+    "marketingName": null,
+    "taxNumber": null,
+    "owner": "<owner>",
+    "bankData": {
+      "transferNumber": "<transferNumber>",
+      "closingBalance": 0,
+      "automaticallyInvestedBalance": 0,
+      "overdraftContractedLimit": 0,
+      "overdraftUsedLimit": 0,
+      "unarrangedOverdraftAmount": 0
+    },
+    "creditData": null
+  },
+  "BANK_transactions.json": {
+    "id": "<id>",
+    "description": "<description>",
+    "descriptionRaw": "<descriptionRaw>",
+    "currencyCode": "<currencyCode>",
+    "amount": 10.0,
+    "amountInAccountCurrency": 10.0,
+    "date": "<date>",
+    "category": "Services",
+    "categoryId": "07000000",
+    "balance": null,
+    "accountId": "3ede3237-e80c-46ab-93f2-90f0460e1990",
+    "providerCode": null,
+    "status": "POSTED",
+    "paymentData": {
+      "payer": {
+        "accountNumber": null,
+        "branchNumber": null,
+        "documentNumber": {
+          "type": "CPF",
+          "value": "000.000.000-00"
+        },
+        "name": null,
+        "routingNumber": null,
+        "routingNumberISPB": null
+      },
+      "paymentMethod": "PIX",
+      "reason": null,
+      "receiver": {
+        "accountNumber": "<accountNumber>",
+        "branchNumber": "<branchNumber>",
+        "documentNumber": {
+          "type": "CNPJ",
+          "value": "000.000.000/0000-00"
+        },
+        "name": "<name>",
+        "routingNumber": "<routingNumber>",
+        "routingNumberISPB": "00000000"
+      },
+      "receiverReferenceId": null,
+      "referenceNumber": null,
+      "boletoMetadata": null
+    },
+    "type": "DEBIT",
+    "operationType": "PIX",
+    "creditCardMetadata": null,
+    "acquirerData": null,
+    "merchant": {
+      "cnae": "<cnae>",
+      "cnpj": "<cnpj>",
+      "name": "<name>",
+      "category": "Services",
+      "businessName": "<businessName>"
+    },
+    "providerId": null,
+    "createdAt": "2025-09-18T23:04:52.052Z",
+    "updatedAt": "2025-09-18T23:04:52.052Z"
+  },
+  "CREDIT_transactions.json": {
+    "id": "<id>",
+    "description": "<description>",
+    "descriptionRaw": "<descriptionRaw>",
+    "currencyCode": "BRL",
+    "amount": 45,
+    "amountInAccountCurrency": null,
+    "date": "2025-09-18T17:15:21.527Z",
+    "category": "Transfers",
+    "categoryId": "05000000",
+    "balance": null,
+    "accountId": "<accountId>",
+    "providerCode": null,
+    "status": "PENDING",
+    "paymentData": null,
+    "type": "DEBIT",
+    "operationType": null,
+    "creditCardMetadata": {
+      "cardNumber": "<cardNumber>"
+    },
+    "acquirerData": null,
+    "merchant": null,
+    "providerId": null,
+    "createdAt": "2025-09-18T23:04:53.891Z",
+    "updatedAt": "2025-09-18T23:04:53.891Z"
+  },
+  "consents.json": {
+    "id": "<id>",
+    "itemId": "<itemId>",
+    "products": [
+      "ACCOUNTS",
+      "CREDIT_CARDS",
+      "TRANSACTIONS",
+      "INVESTMENTS",
+      "IDENTITY",
+      "INVESTMENTS_TRANSACTIONS",
+      "PAYMENT_DATA",
+      "BROKERAGE_NOTE",
+      "LOANS"
+    ],
+    "openFinancePermissionsGranted": [
+      "REGISTRATION_ALL",
+      "ACCOUNTS_ALL",
+      "CREDIT_CARDS_ALL",
+      "CREDIT_OPERATIONS_ALL",
+      "INVESTMENTS_ALL"
+    ],
+    "createdAt": "2025-09-17T23:03:33.492Z",
+    "expiresAt": null,
+    "revokedAt": null
+  }
+}
