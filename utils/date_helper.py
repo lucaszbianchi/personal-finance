@@ -1,7 +1,7 @@
 import datetime
 
 
-class FormatHelpers:
+class DateHelper:
 
     def __init__(self):
         self.date_format = "%Y-%m-%dT%H:%M:%S.%fZ"

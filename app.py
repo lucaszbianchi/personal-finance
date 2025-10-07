@@ -2,7 +2,7 @@ from flask import Flask, jsonify
 import sqlite3
 
 from fetch_data import FetchData
-from helpers.query_db import QueryDB
+from utils.query_db import QueryDB
 from services.finance_summary_service import FinanceSummaryService
 
 app = Flask(__name__)
