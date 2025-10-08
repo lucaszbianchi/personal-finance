@@ -1,5 +1,8 @@
+from typing import List
+
+
 class Category:
-    def __init__(self, id_: str, name: str, type_: str):
+    def __init__(self, id_: str, name: str, types: List[str]):
         self.id = id_
         self.name = name
-        self.type = type_  # essencial, opcional, fixa, compartilhada
+        self.types = types  # essencial, opcional, fixa, compartilhada
