@@ -48,11 +48,10 @@ class FetchData:
             description TEXT,
             amount REAL,
             category_id TEXT,
+            type TEXT,
+            operation_type TEXT,
             partner_id TEXT,
-            accountId TEXT,
-            operationType TEXT,
-            status TEXT,
-            metadata_raw TEXT
+            payment_data TEXT
         )
         """
         )
@@ -66,14 +65,11 @@ class FetchData:
             description TEXT,
             amount REAL,
             category_id TEXT,
-            partner_id TEXT,
-            accountId TEXT,
             status TEXT,
-            metadata_raw TEXT
+            partner_id TEXT
         )
         """
         )
-
         # Tabela de investimentos
         self.cur.execute(
             """
@@ -82,13 +78,11 @@ class FetchData:
             name TEXT,
             type TEXT,
             subtype TEXT,
-            value REAL,
-            amount REAL,
-            rate REAL,
+            balance REAL,
             date TEXT,
             due_date TEXT,
             issuer TEXT,
-            metadata_raw TEXT
+            rate_type TEXT
         )
         """
         )
@@ -126,26 +120,19 @@ class FetchData:
             for item in data:
                 self.cur.execute(
                     """
-                INSERT OR REPLACE INTO bank_transactions
-                (id, date, description, amount, category, accountId, operationType, status, metadata_raw)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                INSERT OR IGNORE INTO bank_transactions
+                (id, date, description, amount, category_id, type, operation_type, payment_data)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                     (
                         item["id"],
                         item["date"],
                         item.get("description"),
                         item.get("amount"),
-                        item.get("category"),
-                        item.get("accountId"),
+                        item.get("categoryId"),
+                        item.get("type"),
                         item.get("operationType"),
-                        item.get("status"),
-                        json.dumps(
-                            {
-                                "paymentData": item.get("paymentData"),
-                                "merchant": item.get("merchant"),
-                            },
-                            ensure_ascii=False,
-                        ),
+                        str(item.get("paymentData")),
                     ),
                 )
                 self.cur.execute(
@@ -163,25 +150,21 @@ class FetchData:
             for item in data:
                 self.cur.execute(
                     """
-                INSERT OR REPLACE INTO credit_transactions
-                (id, date, description, amount, category, accountId, status, metadata_raw)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                INSERT OR IGNORE INTO credit_transactions
+                (id, date, description, amount, category_id, status)
+                VALUES (?, ?, ?, ?, ?, ?)
                 """,
                     (
                         item["id"],
                         item["date"],
                         item.get("description"),
-                        item.get("amount"),
-                        item.get("category"),
-                        item.get("accountId"),
-                        item.get("status"),
-                        json.dumps(
-                            {
-                                "creditCardMetadata": item.get("creditCardMetadata"),
-                                "acquirerData": item.get("acquirerData"),
-                            },
-                            ensure_ascii=False,
+                        (
+                            item.get("amountInAccountCurrency")
+                            if item.get("amountInAccountCurrency") is not None
+                            else item.get("amount")
                         ),
+                        item.get("categoryId"),
+                        item.get("status"),
                     ),
                 )
                 self.cur.execute(
@@ -199,27 +182,23 @@ class FetchData:
             for item in data:
                 self.cur.execute(
                     """
-                INSERT OR REPLACE INTO investments
-                (id, name, type, subtype, value, amount, rate, date, issuer, metadata_raw)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                INSERT OR IGNORE INTO investments
+                (id, name, type, subtype, balance, date, due_date, issuer, rate_type)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                     (
                         item["id"],
                         item.get("name"),
                         item.get("type"),
                         item.get("subtype"),
-                        item.get("value"),
-                        item.get("amount"),
-                        item.get("rate"),
+                        item.get("balance"),
                         item.get("date"),
+                        item.get("dueDate"),
                         item.get("issuer"),
-                        json.dumps(
-                            {
-                                "issuerCNPJ": item.get("issuerCNPJ"),
-                                "issueDate": item.get("issueDate"),
-                                "status": item.get("status"),
-                            },
-                            ensure_ascii=False,
-                        ),
+                        item.get("rateType"),
                     ),
                 )
+
+
+if __name__ == "__main__":
+    FetchData().execute()
