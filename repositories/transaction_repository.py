@@ -1,33 +1,50 @@
-from typing import List, Dict, Any
+from typing import List
+from utils.date_helper import DateHelper
 from repositories.base_repository import BaseRepository
+from models.transaction import BankTransaction, CreditTransaction
+from models.investment import Investment
 
 
 class TransactionRepository(BaseRepository):
     """Repositório para gerenciar operações de banco de dados relacionadas a transações."""
 
-    def get_bank_transactions(self) -> List[Dict[str, Any]]:
-        """Retorna todas as transações bancárias."""
-        bank_query = """
+    def __init__(self):
+        super().__init__()
+        self.date_helper = DateHelper()
+
+    def get_bank_transactions(self) -> List[BankTransaction]:
+        """Retorna todas as transações bancárias como objetos BankTransaction."""
+        query = """
             SELECT 
-                bank_transactions.id AS id,
+                bank_transactions.id,
                 date,
                 description,
                 amount,
                 categories.name AS category,
-                operationType
+                operation_type
             FROM bank_transactions
             JOIN categories ON bank_transactions.category_id = categories.id
             WHERE description NOT IN ('Resgate RDB', 'Aplicação RDB', 'Aplicação em CDB')
             ORDER BY date DESC
         """
-        bank_transactions = self.execute_query(bank_query)
-        return bank_transactions
+        rows = self.execute_query(query)
+        return [
+            BankTransaction(
+                id_=row["id"],
+                date=self.date_helper.format_date(row["date"]),
+                description=row["description"],
+                amount=row["amount"],
+                category=row["category"],
+                operation_type=row["operation_type"],
+            )
+            for row in rows
+        ]
 
-    def get_credit_transactions(self) -> List[Dict[str, Any]]:
-        """Retorna todas as transações de cartão de crédito."""
-        credit_query = """
+    def get_credit_transactions(self) -> List[CreditTransaction]:
+        """Retorna todas as transações de crédito como objetos CreditTransaction."""
+        query = """
             SELECT 
-                credit_transactions.id AS id,
+                credit_transactions.id,
                 date,
                 description,
                 amount,
@@ -37,10 +54,20 @@ class TransactionRepository(BaseRepository):
             JOIN categories ON credit_transactions.category_id = categories.id
             ORDER BY date DESC
         """
-        credit_transactions = self.execute_query(credit_query)
-        return credit_transactions
+        rows = self.execute_query(query)
+        return [
+            CreditTransaction(
+                id_=row["id"],
+                date=self.date_helper.format_date(row["date"]),
+                description=row["description"],
+                amount=row["amount"],
+                category=row["category"],
+                status=row["status"],
+            )
+            for row in rows
+        ]
 
-    def get_investments(self) -> List[Dict[str, Any]]:
+    def get_investments(self) -> List[Investment]:
         """Retorna todas as transações de investimentos."""
         investment_query = """
             SELECT 
@@ -52,15 +79,28 @@ class TransactionRepository(BaseRepository):
                 date,
                 due_date,
                 issuer,
-                rateType
+                rate_type
             FROM investments
             WHERE balance != 0
             ORDER BY date DESC
         """
-        investment_transactions = self.execute_query(investment_query)
-        return investment_transactions
+        rows = self.execute_query(investment_query)
+        return [
+            Investment(
+                investment_id=row["id"],
+                name=row["name"],
+                balance=row["balance"],
+                type_=row["type"],
+                subtype=row["subtype"],
+                date=self.date_helper.format_date(row["date"]),
+                due_date=self.date_helper.format_date(row["due_date"]),
+                issuer=row["issuer"],
+                rate_type=row["rate_type"],
+            )
+            for row in rows
+        ]
 
-    def get_bank_transaction_by_id(self, transaction_id: str) -> Dict[str, Any]:
+    def get_bank_transaction_by_id(self, transaction_id: str) -> BankTransaction:
         """Retorna uma transação bancária específica pelo ID."""
         query = """
             SELECT 
@@ -69,15 +109,22 @@ class TransactionRepository(BaseRepository):
                 description,
                 amount,
                 categories.name AS category,
-                operationType
+                operation_type
             FROM bank_transactions
             JOIN categories ON bank_transactions.category_id = categories.id
             WHERE bank_transactions.id = ?
         """
         result = self.execute_query(query, (transaction_id,))
-        return result[0] if result else None
+        return BankTransaction(
+            id_=result[0]["id"],
+            date=self.date_helper.format_date(result[0]["date"]),
+            description=result[0]["description"],
+            amount=result[0]["amount"],
+            category=result[0]["category"],
+            operation_type=result[0]["operation_type"],
+        )
 
-    def get_credit_transaction_by_id(self, transaction_id: str) -> Dict[str, Any]:
+    def get_credit_transaction_by_id(self, transaction_id: str) -> CreditTransaction:
         """Retorna uma transação de cartão de crédito específica pelo ID."""
         query = """
             SELECT 
@@ -92,7 +139,14 @@ class TransactionRepository(BaseRepository):
             WHERE credit_transactions.id = ?
         """
         result = self.execute_query(query, (transaction_id,))
-        return result[0] if result else None
+        return CreditTransaction(
+            id_=result[0]["id"],
+            date=self.date_helper.format_date(result[0]["date"]),
+            description=result[0]["description"],
+            amount=result[0]["amount"],
+            category=result[0]["category"],
+            status=result[0]["status"],
+        )
 
     def update_bank_transaction(
         self,
@@ -142,7 +196,7 @@ class TransactionRepository(BaseRepository):
 
     def get_bank_transactions_by_period(
         self, start_date: str, end_date: str
-    ) -> List[Dict[str, Any]]:
+    ) -> List[BankTransaction]:
         """Retorna transações bancárias em um período específico."""
         bank_query = """
             SELECT 
@@ -151,18 +205,32 @@ class TransactionRepository(BaseRepository):
                 description,
                 amount,
                 categories.name AS category,
-                operationType
+                operation_type
             FROM bank_transactions
             JOIN categories ON bank_transactions.category_id = categories.id
             WHERE date BETWEEN ? AND ?
             ORDER BY date DESC
         """
-        bank_transactions = self.execute_query(bank_query, (start_date, end_date))
-        return bank_transactions
+        rows = self.execute_query(bank_query, (start_date, end_date))
+        return (
+            [
+                BankTransaction(
+                    id_=row["id"],
+                    date=self.date_helper.format_date(row["date"]),
+                    description=row["description"],
+                    amount=row["amount"],
+                    category=row["category"],
+                    operation_type=row["operation_type"],
+                )
+                for row in rows
+            ]
+            if rows
+            else []
+        )
 
     def get_all_credit_transactions_by_period(
         self, start_date: str, end_date: str
-    ) -> List[Dict[str, Any]]:
+    ) -> List[CreditTransaction]:
         """Retorna transações de cartão de crédito em um período específico."""
         credit_query = """
             SELECT 
@@ -177,5 +245,19 @@ class TransactionRepository(BaseRepository):
             WHERE date BETWEEN ? AND ?
             ORDER BY date DESC
         """
-        credit_transactions = self.execute_query(credit_query, (start_date, end_date))
-        return credit_transactions
+        rows = self.execute_query(credit_query, (start_date, end_date))
+        return (
+            [
+                CreditTransaction(
+                    id_=row["id"],
+                    date=self.date_helper.format_date(row["date"]),
+                    description=row["description"],
+                    amount=row["amount"],
+                    category=row["category"],
+                    status=row["status"],
+                )
+                for row in rows
+            ]
+            if rows
+            else []
+        )

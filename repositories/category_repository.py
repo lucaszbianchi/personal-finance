@@ -1,16 +1,20 @@
-from typing import List, Dict, Any
+from typing import List
 from repositories.base_repository import BaseRepository
+from models.category import Category
 
 
 class CategoryRepository(BaseRepository):
     """Repositório para gerenciar operações de banco de dados relacionadas a categorias."""
 
-    def get_all_categories(self) -> List[Dict[str, Any]]:
+    def get_all_categories(self) -> List[Category]:
         """Retorna todas as categorias únicas de todas as transações."""
         query = """
-            SELECT id, name FROM categories ORDER BY name
+            SELECT id, name, types FROM categories ORDER BY name
         """
-        return self.execute_query(query)
+        return [
+            Category(id_=row["id"], name=row["name"], types=row["types"])
+            for row in self.execute_query(query)
+        ]
 
     def update_category(self, old_name: str, new_name: str) -> bool:
         """Atualiza o nome de uma categoria e ajusta todas as transações que referenciam ela."""
