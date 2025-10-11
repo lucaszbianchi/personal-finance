@@ -16,6 +16,14 @@ class CategoryRepository(BaseRepository):
             for row in self.execute_query(query)
         ]
 
+    def get_category_by_id(self, category_id: int) -> Category:
+        """Retorna uma categoria específica pelo ID."""
+        query = "SELECT id, name, types FROM categories WHERE id = ?"
+        result = self.execute_query(query, (category_id,))
+        return Category(
+            id_=result[0]["id"], name=result[0]["name"], types=result[0]["types"]
+        )
+
     def update_category(self, old_name: str, new_name: str) -> bool:
         """Atualiza o nome de uma categoria e ajusta todas as transações que referenciam ela."""
         # 1️⃣ Busca o id da categoria antiga

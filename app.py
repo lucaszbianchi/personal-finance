@@ -2,27 +2,47 @@ from flask import Flask, jsonify
 import sqlite3
 
 from fetch_data import FetchData
-from utils.query_db import QueryDB
-from services.finance_summary_service import FinanceSummaryService
+from services.transaction_service import TransactionService
+from services.category_service import CategoryService
 
 app = Flask(__name__)
 DB_PATH = "finance.db"
-query_db = QueryDB()
+category_service = CategoryService()
+transaction_service = TransactionService()
 
 
 @app.route("/bank", methods=["GET"])
 def get_bank_transactions():
-    return FinanceSummaryService().get_bank_transactions()
+    bank_transactions = transaction_service.get_bank_transactions()
+    transactions = []
+    for transaction in bank_transactions:
+        tx_dict = transaction.__dict__
+        if "category_id" in tx_dict:
+            category = category_service.get_category_by_id(tx_dict["category_id"])
+            tx_dict["category"] = category.name
+            del tx_dict["category_id"]
+        transactions.append(tx_dict)
+    return jsonify(transactions)
 
 
 @app.route("/credit", methods=["GET"])
 def get_credit_transactions():
-    return FinanceSummaryService().get_credit_transactions()
+    credit_transactions = transaction_service.get_credit_transactions()
+    transactions = []
+    for transaction in credit_transactions:
+        tx_dict = transaction.__dict__
+        if "category_id" in tx_dict:
+            category = category_service.get_category_by_id(tx_dict["category_id"])
+            tx_dict["category"] = category.name
+            del tx_dict["category_id"]
+        transactions.append(tx_dict)
+    return jsonify(transactions)
 
 
 @app.route("/investments", methods=["GET"])
 def get_investments():
-    return FinanceSummaryService().get_investments()
+    investments = transaction_service.get_investments()
+    return jsonify([inv.__dict__ for inv in investments])
 
 
 @app.route("/dashboard-data", methods=["GET"])
@@ -36,11 +56,12 @@ def dashboard_data():
     # Piechart: Gastos por categoria (banking)
     cur.execute(
         """
-        SELECT category, SUM(amount) as total
+        SELECT categories.name, SUM(amount) as total
         FROM bank_transactions
+        LEFT JOIN categories ON bank_transactions.category_id = categories.id
         WHERE amount < 0
-        AND category NOT IN ('Investments', 'Transfers', 'Same person transfer', 'Fixed income')
-        GROUP BY category
+        AND categories.name NOT IN ('Investments', 'Transfers', 'Same person transfer', 'Fixed income')
+        GROUP BY categories.name
     """
     )
     bank_pie = [
@@ -50,10 +71,11 @@ def dashboard_data():
     # Piechart: Gastos por categoria (credit)
     cur.execute(
         """
-        SELECT category, SUM(amount) as total
+        SELECT categories.name, SUM(amount) as total
         FROM credit_transactions
-        WHERE amount > 0 
-        GROUP BY category
+        LEFT JOIN categories ON credit_transactions.category_id = categories.id
+        WHERE amount > 0
+        GROUP BY categories.name
     """
     )
     credit_pie = [
@@ -72,7 +94,9 @@ def dashboard_data():
     # Expenses
     cur.execute(
         """
-        SELECT date, amount, category, description FROM bank_transactions WHERE description NOT IN ('Aplicação RDB', 'Pagamento de fatura', 'Aplicação em CDB')
+        SELECT date, amount, categories.name, description FROM bank_transactions
+        LEFT JOIN categories ON bank_transactions.category_id = categories.id
+        WHERE description NOT IN ('Aplicação RDB', 'Pagamento de fatura', 'Aplicação em CDB')
         """
     )
     expenses = {}
@@ -97,7 +121,9 @@ def dashboard_data():
     # Income
     cur.execute(
         """
-        SELECT date, amount, category, description FROM bank_transactions WHERE amount > 0 AND description != 'Resgate RDB'
+        SELECT date, amount, categories.name, description FROM bank_transactions
+        LEFT JOIN categories ON bank_transactions.category_id = categories.id
+        WHERE amount > 0 AND description != 'Resgate RDB'
     """
     )
     income = {}
@@ -161,8 +187,9 @@ def summary():
     # --- Transações bancárias ---
     cur.execute(
         """
-        SELECT date, description, amount, category
+        SELECT date, description, amount, categories.name
         FROM bank_transactions
+        LEFT JOIN categories ON bank_transactions.category_id = categories.id
         WHERE description NOT IN ('Resgate RDB', 'Aplicação RDB')
         """
     )
@@ -222,7 +249,7 @@ def summary():
         months.add(key)
 
     # --- Investimentos ---
-    cur.execute("SELECT amount FROM investments")
+    cur.execute("SELECT balance FROM investments")
     investments = sum(row[0] for row in cur.fetchall())
 
     conn.close()
@@ -261,7 +288,9 @@ def get_transactions():
     elif ttype == "credit":
         query = "SELECT id, description, amount, date, category, status FROM credit_transactions WHERE 1=1"
     elif ttype == "investments":
-        query = "SELECT id, name, amount, dueDate, rate, type, subtype FROM investments WHERE 1=1"
+        query = (
+            "SELECT id, name, balance, date, type, subtype FROM investments WHERE 1=1"
+        )
     else:
         return jsonify([])
 

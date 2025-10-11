@@ -2,7 +2,7 @@ import sqlite3
 import json
 import os
 
-from services.pluggy_api import PluggyAPI
+from pluggy_api import PluggyAPI
 
 
 class FetchData:
@@ -50,7 +50,7 @@ class FetchData:
             category_id TEXT,
             type TEXT,
             operation_type TEXT,
-            partner_id TEXT,
+            split_info TEXT,
             payment_data TEXT
         )
         """
@@ -66,7 +66,7 @@ class FetchData:
             amount REAL,
             category_id TEXT,
             status TEXT,
-            partner_id TEXT
+            split_info TEXT
         )
         """
         )
@@ -92,7 +92,7 @@ class FetchData:
         CREATE TABLE IF NOT EXISTS categories (
             id TEXT PRIMARY KEY,
             name TEXT,
-            type TEXT
+            types TEXT
         )
         """
         )
@@ -132,7 +132,7 @@ class FetchData:
                         item.get("categoryId"),
                         item.get("type"),
                         item.get("operationType"),
-                        str(item.get("paymentData")),
+                        json.dumps(item.get("paymentData")),
                     ),
                 )
                 self.cur.execute(
@@ -145,6 +145,27 @@ class FetchData:
                         item.get("category"),
                     ),
                 )
+                if item.get("operationType") == "PIX" and "|" in item["description"]:
+                    person_name = item["description"].split("|")[-1].strip()
+                    document_number = None
+                    if "transferência recebida|" in item["description"].lower():
+                        document_number = item["paymentData"]["payer"]["documentNumber"]
+                    elif "transferência enviada|" in item["description"].lower():
+                        document_number = item["paymentData"]["receiver"][
+                            "documentNumber"
+                        ]
+                    if (
+                        person_name
+                        and document_number
+                        and document_number["type"] == "CPF"
+                    ):
+                        self.cur.execute(
+                            """
+                        INSERT OR IGNORE INTO persons (id, name)
+                        VALUES (?, ?)
+                        """,
+                            (document_number["value"], person_name),
+                        )
 
         elif table == "credit_transactions":
             for item in data:
