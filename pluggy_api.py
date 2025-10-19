@@ -13,10 +13,11 @@ class PluggyAPI:
         dotenv.load_dotenv()
         self.base_url = "https://api.pluggy.ai"
         self.item_id = os.getenv("ITEM_ID")
+        self.splitwise_item_id = os.getenv("ITEM_ID_SPLITWISE")
         self.api_key = self._create_api_key()
 
         consents = self.list_consents()
-        accounts = self.list_accounts()
+        accounts = self.list_accounts(self.item_id)
         self._save_base_data_first_time("data/consents.json", consents.get("results"))
         self._save_base_data_first_time("data/accounts.json", accounts.get("results"))
 
@@ -50,9 +51,9 @@ class PluggyAPI:
         response = requests.get(url, headers=headers, timeout=30)
         return json.loads(response.content)
 
-    def list_accounts(self):
+    def list_accounts(self, item_id):
 
-        url = f"{self.base_url}/accounts?itemId={self.item_id}"
+        url = f"{self.base_url}/accounts?itemId={item_id}"
 
         headers = {"accept": "application/json", "X-API-KEY": f"{self.api_key}"}
 
@@ -67,7 +68,7 @@ class PluggyAPI:
         return json.loads(response.content)
 
     def fetch_and_store_data(self):
-        accounts = self.list_accounts().get("results")
+        accounts = self.list_accounts(self.item_id).get("results")
         for account in accounts:
             account_type = account.get("type")
             if account_type in ["BANK", "CREDIT"]:
@@ -98,6 +99,27 @@ class PluggyAPI:
         investments = json.loads(response.content).get("results")
         self._save_incremental_json("data/investments.json", investments)
 
+    def fetch_and_store_splitwise_data(self):
+        accounts = self.list_accounts(self.splitwise_item_id).get("results")
+        for account in accounts:
+            if account.get("name") == os.getenv("SPLITWISE_ACCOUNT_NAME"):
+                account_id = account.get("id")
+                transactions = []
+                first_100_transactions = self.list_transactions(
+                    account_id, page_size=100, page=1
+                )
+                total_pages = first_100_transactions.get("totalPages")
+                transactions.extend(first_100_transactions.get("results"))
+                for page in range(2, total_pages + 1):
+                    page_transactions = self.list_transactions(
+                        account_id, page_size=100, page=page
+                    )
+                    transactions.extend(page_transactions.get("results"))
+                # Salva incrementalmente as transações em um arquivo .json
+                self._save_incremental_json(
+                    "data/splitwise_transactions.json", transactions
+                )
+
     def _load_existing_json(self, filepath):
         if os.path.exists(filepath):
             print(f"Carregando dados existentes de {filepath}")
@@ -116,3 +138,7 @@ class PluggyAPI:
         if not os.path.exists(filepath):
             with open(filepath, "w", encoding="utf-8") as f:
                 json.dump(items, f, ensure_ascii=False, indent=4)
+
+
+if __name__ == "__main__":
+    api = PluggyAPI()

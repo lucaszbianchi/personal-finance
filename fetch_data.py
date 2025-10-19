@@ -15,6 +15,7 @@ class FetchData:
         "bank": "data/BANK_transactions.json",
         "credit": "data/CREDIT_transactions.json",
         "investments": "data/investments.json",
+        "splitwise": "data/splitwise_transactions.json",
     }
     DB_PATH = "finance.db"
 
@@ -32,6 +33,7 @@ class FetchData:
         self._import_json_to_db(self.FILES["bank"], "bank_transactions")
         self._import_json_to_db(self.FILES["credit"], "credit_transactions")
         self._import_json_to_db(self.FILES["investments"], "investments")
+        self._import_json_to_db(self.FILES["splitwise"], "splitwise")
 
         self.conn.commit()
         self.conn.close()
@@ -70,6 +72,21 @@ class FetchData:
         )
         """
         )
+
+        # Tabela do splitwise
+        self.cur.execute(
+            """
+        CREATE TABLE IF NOT EXISTS splitwise (
+            id TEXT PRIMARY KEY,
+            date TEXT,
+            description TEXT,
+            amount REAL,
+            category_id TEXT,
+            transaction_id TEXT
+        )
+        """
+        )
+
         # Tabela de investimentos
         self.cur.execute(
             """
@@ -102,7 +119,8 @@ class FetchData:
             """
         CREATE TABLE IF NOT EXISTS persons (
             id TEXT PRIMARY KEY,
-            name TEXT
+            name TEXT,
+            split_info TEXT
         )
         """
         )
@@ -217,6 +235,32 @@ class FetchData:
                         item.get("dueDate"),
                         item.get("issuer"),
                         item.get("rateType"),
+                    ),
+                )
+        elif table == "splitwise":
+            for item in data:
+                self.cur.execute(
+                    """
+                INSERT OR IGNORE INTO splitwise
+                (id, date, description, amount, category_id)
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                    (
+                        item["id"],
+                        item["date"],
+                        item.get("description"),
+                        item.get("amount"),
+                        item.get("categoryId"),
+                    ),
+                )
+                self.cur.execute(
+                    """
+                INSERT OR IGNORE INTO categories (id, name)
+                VALUES (?, ?)
+                """,
+                    (
+                        item.get("categoryId"),
+                        item.get("category"),
                     ),
                 )
 

@@ -6,3 +6,5 @@ scripts/*
 
 *.pyc
 *.sql
+
+.vscode/*

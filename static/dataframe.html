@@ -28,9 +28,9 @@
     <div id="content"></div>
     <script>
         const columns = {
-            "/bank": ["id", "description", "amount", "date", "category", "operationType"],
-            "/credit": ["id", "description", "amount", "date", "category", "status"],
-            "/investments": ["id", "name", "amount", "dueDate", "rate", "type", "subtype"]
+            "/bank": ["transaction_id", "description", "amount", "date", "category", "operation_type"],
+            "/credit": ["transaction_id", "description", "amount", "date", "category", "status"],
+            "/investments": ["investment_id", "name", "balance", "date", "type", "subtype"]
         };
 
         async function fetchPeriods(endpoint) {
