@@ -30,3 +30,10 @@ class PersonService:
     def get_partners_pending_settlement(self) -> List[Person]:
         """Retorna parceiros com pendências de quitação ou transferências sem categoria."""
         return self.person_repo.get_pending_settlements()
+
+    def update_split_info(self, person_id: str, split_info: dict) -> bool:
+        """Atualiza split_info de uma pessoa."""
+        person = self.person_repo.get_person_by_id(person_id)
+        if not person:
+            raise ValueError(f"Pessoa com ID {person_id} não encontrada.")
+        return self.person_repo.update_person_split_info(person_id, split_info)
