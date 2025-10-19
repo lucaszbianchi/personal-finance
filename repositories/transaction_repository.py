@@ -22,7 +22,9 @@ class TransactionRepository(BaseRepository):
                 description,
                 amount,
                 category_id,
-                operation_type
+                operation_type,
+                split_info,
+                payment_data
             FROM bank_transactions
             WHERE description NOT IN ('Resgate RDB', 'Aplicação RDB', 'Aplicação em CDB')
             ORDER BY date DESC
@@ -36,6 +38,12 @@ class TransactionRepository(BaseRepository):
                 amount=row["amount"],
                 category_id=row["category_id"],
                 operation_type=row["operation_type"],
+                split_info=(
+                    json.loads(row["split_info"]) if row["split_info"] else None
+                ),
+                payment_data=(
+                    json.loads(row["payment_data"]) if row["payment_data"] else None
+                ),
             )
             for row in rows
         ]
@@ -108,7 +116,9 @@ class TransactionRepository(BaseRepository):
                 description,
                 amount,
                 category_id,
-                operation_type
+                operation_type,
+                split_info,
+                payment_data
             FROM bank_transactions
             WHERE bank_transactions.id = ?
         """
@@ -120,6 +130,10 @@ class TransactionRepository(BaseRepository):
             amount=result[0]["amount"],
             category_id=result[0]["category_id"],
             operation_type=result[0]["operation_type"],
+            split_info=(
+                json.loads(result[0]["split_info"]) if result[0]["split_info"] else None
+            ),
+            payment_data=(json.loads(result[0]["payment_data"])),
         )
 
     def get_credit_transaction_by_id(self, transaction_id: str) -> CreditTransaction:
@@ -174,7 +188,9 @@ class TransactionRepository(BaseRepository):
                     amount=row["amount"],
                     category_id=row["category_id"],
                     operation_type=row["operation_type"],
-                    split_info=json.loads(row["split_info"]),
+                    split_info=(
+                        json.loads(row["split_info"]) if row["split_info"] else None
+                    ),
                     payment_data=json.loads(row["payment_data"]),
                 )
                 for row in rows
@@ -194,7 +210,8 @@ class TransactionRepository(BaseRepository):
                 description,
                 amount,
                 category_id,
-                status
+                status,
+                split_info
             FROM credit_transactions
             WHERE date BETWEEN ? AND ?
             ORDER BY date DESC
@@ -209,6 +226,9 @@ class TransactionRepository(BaseRepository):
                     amount=row["amount"],
                     category_id=row["category_id"],
                     status=row["status"],
+                    split_info=(
+                        json.loads(row["split_info"]) if row["split_info"] else None
+                    ),
                 )
                 for row in rows
             ]
@@ -260,7 +280,7 @@ class TransactionRepository(BaseRepository):
         self,
         transaction_id: str,
         description: Optional[str],
-        category: Optional[str],
+        category_id: Optional[str],
         split_info: Optional[dict],
     ) -> bool:
         """Atualiza uma transação bancária existente."""
@@ -286,7 +306,7 @@ class TransactionRepository(BaseRepository):
         """
         values = (
             description,
-            category,
+            category_id,
             transaction_id,
         )
 
@@ -297,7 +317,7 @@ class TransactionRepository(BaseRepository):
         self,
         transaction_id: str,
         description: Optional[str],
-        category: Optional[str],
+        category_id: Optional[str],
         split_info: Optional[dict],
     ) -> bool:
         """Atualiza uma transação de cartão de crédito existente."""
@@ -324,9 +344,46 @@ class TransactionRepository(BaseRepository):
         """
         values = (
             description,
-            category,
+            category_id,
             transaction_id,
         )
 
         result = self.execute_update(query, values)
         return result > 0
+
+    def category_in_use(self, category_id: int) -> bool:
+        """Verifica se uma categoria está em uso em transações."""
+        query = """
+            SELECT COUNT(*) as count FROM (
+                SELECT id FROM bank_transactions WHERE category_id = ?
+                UNION ALL
+                SELECT id FROM credit_transactions WHERE category_id = ?
+            )
+        """
+        values = (category_id, category_id)
+
+        result = self.execute_query(query, values)
+        return result[0]["count"] > 0
+
+    def get_unlinked_transactions(self) -> List[BankTransaction]:
+        """Retorna transações bancárias que não estão vinculadas a nenhum splitwise (split_info vazio ou None)."""
+        query = """
+            SELECT id, date, description, amount, category_id, operation_type, split_info, payment_data
+            FROM bank_transactions
+            WHERE split_info IS NULL OR split_info = ''
+            ORDER BY date DESC
+        """
+        rows = self.execute_query(query)
+        return [
+            BankTransaction(
+                transaction_id=row["id"],
+                date=self.date_helper.format_date(row["date"]),
+                description=row["description"],
+                amount=row["amount"],
+                category_id=row["category_id"],
+                operation_type=row["operation_type"],
+                split_info=None,
+                payment_data=json.loads(row["payment_data"]),
+            )
+            for row in rows
+        ]

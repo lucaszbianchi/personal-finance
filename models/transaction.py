@@ -5,48 +5,56 @@ from datetime import datetime
 class Transaction:
     def __init__(
         self,
-        id_: str,
+        transaction_id: str,
         date: datetime,
         description: str,
         amount: float,
-        category: str,
+        category_id: str,
         type_: str,
-        partner_id: Optional[str] = None,
+        split_info: Optional[dict] = None,
     ):
-        self.id = id_
+        self.transaction_id = transaction_id
         self.date = date
         self.description = description
         self.amount = amount
-        self.category = category
-        self.type = type_  # 'bank', 'credit'
-        self.partner_id = partner_id
+        self.category_id = category_id
+        self.transaction_type = type_  # 'bank', 'credit'
+        self.split_info = split_info
 
 
 class BankTransaction(Transaction):
     def __init__(
         self,
-        id_: str,
+        transaction_id: str,
         date: datetime,
         description: str,
         amount: float,
-        category: str,
+        category_id: str,
+        type_: Optional[str] = None,
         operation_type: Optional[str] = None,
-        partner_id: Optional[str] = None,
+        split_info: Optional[dict] = None,
+        payment_data: Optional[dict] = None,
     ):
-        super().__init__(id_, date, description, amount, category, "bank", partner_id)
+        super().__init__(
+            transaction_id, date, description, amount, category_id, "bank", split_info
+        )
         self.operation_type = operation_type
+        self.payment_data = payment_data
+        self.type_ = type_  # 'debit' ou 'credit'
 
 
 class CreditTransaction(Transaction):
     def __init__(
         self,
-        id_: str,
+        transaction_id: str,
         date: datetime,
         description: str,
         amount: float,
-        category: str,
+        category_id: str,
         status: Optional[str] = None,
-        partner_id: Optional[str] = None,
+        split_info: Optional[dict] = None,
     ):
-        super().__init__(id_, date, description, amount, category, "credit", partner_id)
+        super().__init__(
+            transaction_id, date, description, amount, category_id, "credit", split_info
+        )
         self.status = status
