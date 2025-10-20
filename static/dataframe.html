@@ -10,15 +10,15 @@
         th, td { border: 1px solid #ccc; padding: 8px; }
         th { background: #f0f0f0; }
     </style>
-    <button onclick="window.location.href='home.html'">Ir para Home</button>
+    <button onclick="window.location.href='/'">Ir para Home</button>
 </head>
 <body>
     <h1>Dataframe Dinâmico</h1>
     <label for="table-select">Tabela:</label>
     <select id="table-select">
-        <option value="/bank">Transações Bancárias</option>
-        <option value="/credit">Transações de Crédito</option>
-        <option value="/investments">Investimentos</option>
+        <option value="/api/transactions/bank">Transações Bancárias</option>
+        <option value="/api/transactions/credit">Transações de Crédito</option>
+        <option value="/api/transactions/investments">Investimentos</option>
     </select>
     <label for="period-select" id="period-label">Período:</label>
     <select id="period-select"></select>
@@ -28,9 +28,9 @@
     <div id="content"></div>
     <script>
         const columns = {
-            "/bank": ["transaction_id", "description", "amount", "date", "category", "operation_type"],
-            "/credit": ["transaction_id", "description", "amount", "date", "category", "status"],
-            "/investments": ["investment_id", "name", "balance", "date", "type", "subtype"]
+            "/api/transactions/bank": ["id", "description", "amount", "date", "category", "operation_type"],
+            "/api/transactions/credit": ["id", "description", "amount", "date", "category", "status"],
+            "/api/transactions/investments": ["id", "name", "balance", "date", "type", "subtype"]
         };
 
         async function fetchPeriods(endpoint) {
@@ -89,6 +89,23 @@
             lastPeriod = period;
             const res = await fetch(endpoint);
             let data = await res.json();
+            
+            // Se tem category_id, buscar as categorias
+            if (endpoint !== "/api/transactions/investments") {
+                const categories = {};
+                const catRes = await fetch('/api/categories');
+                const catData = await catRes.json();
+                catData.forEach(cat => {
+                    categories[cat.id] = cat.name;
+                });
+                
+                // Adicionar nome da categoria aos dados
+                data = data.map(item => ({
+                    ...item,
+                    category: categories[item.category_id] || ''
+                }));
+            }
+            
             const cols = columns[endpoint];
             lastData = data;
             lastCols = cols;

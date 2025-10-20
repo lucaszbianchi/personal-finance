@@ -8,7 +8,7 @@ from fetch_data import FetchData
 bp = Blueprint("import", __name__)
 
 
-@bp.route("/import-data", methods=["POST"])
+@bp.route("/data", methods=["POST"])
 def import_data():
     """Importa todos os dados das APIs externas."""
     try:

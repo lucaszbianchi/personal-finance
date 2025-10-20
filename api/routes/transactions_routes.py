@@ -4,7 +4,6 @@ Módulo de rotas relacionadas a transações bancárias.
 
 from flask import Blueprint, jsonify, request
 from services.transaction_service import TransactionService
-from datetime import datetime
 
 bp = Blueprint("transactions", __name__)
 transaction_service = TransactionService()
@@ -18,7 +17,7 @@ def get_bank_transactions():
         [
             {
                 "id": t.transaction_id,
-                "date": t.date.strftime("%Y-%m-%d"),
+                "date": t.date,
                 "description": t.description,
                 "amount": t.amount,
                 "category_id": t.category_id,
@@ -40,7 +39,7 @@ def get_credit_transactions():
         [
             {
                 "id": t.transaction_id,
-                "date": t.date.strftime("%Y-%m-%d"),
+                "date": t.date,
                 "description": t.description,
                 "amount": t.amount,
                 "category_id": t.category_id,
@@ -62,10 +61,10 @@ def get_investments():
                 "id": i.investment_id,
                 "name": i.name,
                 "balance": i.balance,
-                "type": i.type_,
+                "type": i.type,
                 "subtype": i.subtype,
-                "date": i.date.strftime("%Y-%m-%d"),
-                "due_date": i.due_date.strftime("%Y-%m-%d") if i.due_date else None,
+                "date": i.date,
+                "due_date": i.due_date,
                 "issuer": i.issuer,
                 "rate_type": i.rate_type,
             }
