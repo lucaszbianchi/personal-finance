@@ -8,6 +8,8 @@ from api.routes.import_routes import bp as import_bp
 from api.routes.splitwise_routes import bp as splitwise_bp
 from api.routes.person_routes import bp as person_bp
 from api.routes.dashboard_routes import bp as dashboard_bp
+from api.routes.settings_routes import bp as settings_bp
+from api.routes.finance_history_routes import bp as finance_history_bp
 
 app = Flask(__name__)
 
@@ -18,7 +20,9 @@ app.register_blueprint(summary_bp, url_prefix="/api/summary")
 app.register_blueprint(import_bp, url_prefix="/api/import")
 app.register_blueprint(splitwise_bp, url_prefix="/api/splitwise")
 app.register_blueprint(person_bp, url_prefix="/api/persons")
+app.register_blueprint(settings_bp, url_prefix="/api/settings")
 app.register_blueprint(dashboard_bp, url_prefix="/api/dashboard")
+app.register_blueprint(finance_history_bp, url_prefix="/api/finance-history")
 
 
 @app.route("/")
