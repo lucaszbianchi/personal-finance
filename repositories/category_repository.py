@@ -1,3 +1,5 @@
+import json
+import uuid
 from typing import List
 from repositories.base_repository import BaseRepository
 from models.category import Category
@@ -6,90 +8,101 @@ from models.category import Category
 class CategoryRepository(BaseRepository):
     """Repositório para gerenciar operações de banco de dados relacionadas a categorias."""
 
+    def __init__(self, db_path: str = "finance.db"):
+        super().__init__(db_path=db_path)
+
     def get_all_categories(self) -> List[Category]:
         """Retorna todas as categorias únicas de todas as transações."""
         query = """
             SELECT id, name, types FROM categories ORDER BY name
         """
+        cursor = self.execute_query(query)
         return [
             Category(id_=row["id"], name=row["name"], types=row["types"])
-            for row in self.execute_query(query)
+            for row in cursor.fetchall()
         ]
 
     def get_category_by_id(self, category_id: int) -> Category:
         """Retorna uma categoria específica pelo ID."""
         query = "SELECT id, name, types FROM categories WHERE id = ?"
-        result = self.execute_query(query, (category_id,))
-        return Category(
-            id_=result[0]["id"], name=result[0]["name"], types=result[0]["types"]
-        )
+        cursor = self.execute_query(query, (category_id,))
+        row = cursor.fetchone()
+        if row:
+            types = json.loads(row["types"]) if row["types"] else []
+            return Category(id_=row["id"], name=row["name"], types=types)
+        return None
 
     def get_category_by_name(self, name: str) -> Category:
         """Retorna uma categoria específica pelo nome."""
         query = "SELECT id, name, types FROM categories WHERE name = ?"
-        result = self.execute_query(query, (name,))
-        if result:
-            return Category(
-                id_=result[0]["id"], name=result[0]["name"], types=result[0]["types"]
-            )
+        cursor = self.execute_query(query, (name,))
+        row = cursor.fetchone()
+        if row:
+            types = json.loads(row["types"]) if row["types"] else []
+            return Category(id_=row["id"], name=row["name"], types=types)
         return None
 
-    def update_category(self, old_name: str, new_name: str) -> bool:
-        """Atualiza o nome de uma categoria e ajusta todas as transações que referenciam ela."""
+    def update_category(self, old_name: str, new_name: str) -> str:
+        """Atualiza o nome de uma categoria e ajusta todas as transações que referenciam ela. Retorna o novo id da categoria."""
         # 1️⃣ Busca o id da categoria antiga
-        old_cat = self.execute_query(
+        cursor = self.execute_query(
             "SELECT id FROM categories WHERE name = ?", (old_name,)
         )
+        old_cat = cursor.fetchone()
         if not old_cat:
             raise ValueError(f"Categoria '{old_name}' não encontrada.")
-        old_id = old_cat[0]["id"]
+        old_id = old_cat["id"]
 
         # 2️⃣ Verifica se a nova categoria já existe
-        new_cat = self.execute_query(
+        cursor = self.execute_query(
             "SELECT id FROM categories WHERE name = ?", (new_name,)
         )
-        if new_cat:
-            new_id = new_cat[0]["id"]
+        new_cat_row = cursor.fetchone()
+        if new_cat_row:
+            new_id = new_cat_row["id"]
         else:
             # Cria nova categoria se não existir
             new_id = self.create_category(new_name)
+            # Commit explícito para garantir persistência antes de remover a antiga
+            self._get_connection().commit()
 
         # 3️⃣ Atualiza todas as transações (banco + crédito + splitwise) que usavam a antiga categoria
         bank_query = (
             "UPDATE bank_transactions SET category_id = ? WHERE category_id = ?"
         )
-        bank_result = self.execute_update(bank_query, (new_id, old_id))
+        self.execute_query(bank_query, (new_id, old_id))
 
         credit_query = (
             "UPDATE credit_transactions SET category_id = ? WHERE category_id = ?"
         )
-        credit_result = self.execute_update(credit_query, (new_id, old_id))
+        self.execute_query(credit_query, (new_id, old_id))
 
         splitwise_query = "UPDATE splitwise SET category_id = ? WHERE category_id = ?"
-        splitwise_result = self.execute_update(splitwise_query, (new_id, old_id))
+        self.execute_query(splitwise_query, (new_id, old_id))
 
         # 4️⃣ (opcional) Remove a categoria antiga se ela não tiver mais vínculos
-        self.execute_update("DELETE FROM categories WHERE id = ?", (old_id,))
+        self.execute_query("DELETE FROM categories WHERE id = ?", (old_id,))
+        return new_id
 
-        return bank_result > 0 or credit_result > 0 or splitwise_result > 0
-
-    def create_category(self, name: str, types: List[str] | None = None) -> str:
+    def create_category(
+        self, name: str, types: List[str] | None = None, id_: str = None
+    ) -> str:
         """Cria uma nova categoria e retorna seu ID."""
-        self.execute_update(
-            "INSERT INTO categories (name, types) VALUES (?, ?)",
-            (name, types),
+        types_str = json.dumps(types) if types is not None else json.dumps([])
+        if id_ is None:
+            id_ = str(uuid.uuid4())
+        self.execute_query(
+            "INSERT INTO categories (id, name, types) VALUES (?, ?, ?)",
+            (id_, name, types_str),
         )
-        new_cat = self.execute_query(
-            "SELECT id FROM categories WHERE name = ?", (name,)
-        )
-        return new_cat[0]["id"]
+        return id_
 
     def delete_category(self, category_id: str) -> bool:
         """Deleta uma categoria pelo seu ID."""
-        result = self.execute_update(
+        cursor = self.execute_query(
             "DELETE FROM categories WHERE id = ?", (category_id,)
         )
-        return result > 0
+        return cursor.rowcount > 0
 
 
 if __name__ == "__main__":

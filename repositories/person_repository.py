@@ -7,40 +7,40 @@ from models.person import Person
 class PersonRepository(BaseRepository):
     """Repositório para gerenciar operações de banco de dados relacionadas a pessoas."""
 
+    def __init__(self, db_path: str = "finance.db"):
+        super().__init__(db_path=db_path)
+
     def get_all_people(self) -> List[Person]:
         """Retorna todas as pessoas"""
         query = "SELECT * FROM persons ORDER BY name"
-        rows = self.execute_query(query)
+        cursor = self.execute_query(query)
         return [
             Person(
                 person_id=row["id"],
                 name=row["name"],
-                split_info=(
-                    json.loads(row["split_info"]) if row.get("split_info") else {}
-                ),
+                split_info=(json.loads(row["split_info"]) if row["split_info"] else {}),
             )
-            for row in rows
+            for row in cursor.fetchall()
         ]
 
     def get_person_by_id(self, person_id: str) -> Person:
         """Retorna uma pessoa específica pelo ID."""
         query = "SELECT * FROM persons WHERE id = ?"
-        rows = self.execute_query(query, (person_id,))
-        return (
-            Person(
-                rows[0]["id"],
-                rows[0]["name"],
-                json.loads(rows[0]["split_info"]) if rows[0].get("split_info") else {},
+        cursor = self.execute_query(query, (person_id,))
+        row = cursor.fetchone()
+        if row:
+            return Person(
+                person_id=row["id"],
+                name=row["name"],
+                split_info=(json.loads(row["split_info"]) if row["split_info"] else {}),
             )
-            if rows
-            else None
-        )
+        return None
 
     def update_person_split_info(self, person_id: str, split_info: dict) -> bool:
         """Atualiza as informações de divisão de uma pessoa."""
         query = "UPDATE persons SET split_info = ? WHERE id = ?"
-        result = self.execute_update(query, (json.dumps(split_info), person_id))
-        return result > 0
+        cursor = self.execute_query(query, (json.dumps(split_info), person_id))
+        return cursor.rowcount > 0
 
     def set_splitwise_partner(self, person_id: str) -> None:
         """Define uma pessoa como parceira no Splitwise."""

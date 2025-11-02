@@ -9,8 +9,8 @@ from models.investment import Investment
 class TransactionRepository(BaseRepository):
     """Repositório para gerenciar operações de banco de dados relacionadas a transações."""
 
-    def __init__(self):
-        super().__init__()
+    def __init__(self, db_path: str = "finance.db"):
+        super().__init__(db_path=db_path)
         self.date_helper = DateHelper()
 
     def get_bank_transactions(self) -> List[BankTransaction]:
@@ -29,7 +29,7 @@ class TransactionRepository(BaseRepository):
             WHERE description NOT IN ('Resgate RDB', 'Aplicação RDB', 'Aplicação em CDB')
             ORDER BY date DESC
         """
-        rows = self.execute_query(query)
+        cursor = self.execute_query(query)
         return [
             BankTransaction(
                 transaction_id=row["id"],
@@ -45,7 +45,7 @@ class TransactionRepository(BaseRepository):
                     json.loads(row["payment_data"]) if row["payment_data"] else None
                 ),
             )
-            for row in rows
+            for row in cursor.fetchall()
         ]
 
     def get_credit_transactions(self) -> List[CreditTransaction]:
@@ -61,7 +61,7 @@ class TransactionRepository(BaseRepository):
             FROM credit_transactions
             ORDER BY date DESC
         """
-        rows = self.execute_query(query)
+        cursor = self.execute_query(query)
         return [
             CreditTransaction(
                 transaction_id=row["id"],
@@ -71,7 +71,7 @@ class TransactionRepository(BaseRepository):
                 category_id=row["category_id"],
                 status=row["status"],
             )
-            for row in rows
+            for row in cursor.fetchall()
         ]
 
     def get_investments(self) -> List[Investment]:
@@ -91,7 +91,7 @@ class TransactionRepository(BaseRepository):
             WHERE balance != 0
             ORDER BY date DESC
         """
-        rows = self.execute_query(investment_query)
+        cursor = self.execute_query(investment_query)
         return [
             Investment(
                 investment_id=row["id"],
@@ -104,7 +104,7 @@ class TransactionRepository(BaseRepository):
                 issuer=row["issuer"],
                 rate_type=row["rate_type"],
             )
-            for row in rows
+            for row in cursor.fetchall()
         ]
 
     def get_bank_transaction_by_id(self, transaction_id: str) -> BankTransaction:
@@ -122,18 +122,24 @@ class TransactionRepository(BaseRepository):
             FROM bank_transactions
             WHERE bank_transactions.id = ?
         """
-        result = self.execute_query(query, (transaction_id,))
+        cursor = self.execute_query(query, (transaction_id,))
+        row = cursor.fetchone()
+        if not row:
+            raise ValueError(
+                f"Transação bancária com ID {transaction_id} não encontrada."
+            )
         return BankTransaction(
-            transaction_id=result[0]["id"],
-            date=self.date_helper.format_date(result[0]["date"]),
-            description=result[0]["description"],
-            amount=result[0]["amount"],
-            category_id=result[0]["category_id"],
-            operation_type=result[0]["operation_type"],
-            split_info=(
-                json.loads(result[0]["split_info"]) if result[0]["split_info"] else None
+            transaction_id=row["id"],
+            date=self.date_helper.format_date(row["date"]),
+            description=row["description"],
+            amount=row["amount"],
+            category_id=row["category_id"],
+            type_=row["type"] if "type" in row.keys() else None,
+            operation_type=row["operation_type"],
+            split_info=(json.loads(row["split_info"]) if row["split_info"] else None),
+            payment_data=(
+                json.loads(row["payment_data"]) if row["payment_data"] else None
             ),
-            payment_data=(json.loads(result[0]["payment_data"])),
         )
 
     def get_credit_transaction_by_id(self, transaction_id: str) -> CreditTransaction:
@@ -149,14 +155,19 @@ class TransactionRepository(BaseRepository):
             FROM credit_transactions
             WHERE credit_transactions.id = ?
         """
-        result = self.execute_query(query, (transaction_id,))
+        cursor = self.execute_query(query, (transaction_id,))
+        row = cursor.fetchone()
+        if not row:
+            raise ValueError(
+                f"Transação de crédito com ID {transaction_id} não encontrada."
+            )
         return CreditTransaction(
-            transaction_id=result[0]["id"],
-            date=self.date_helper.format_date(result[0]["date"]),
-            description=result[0]["description"],
-            amount=result[0]["amount"],
-            category_id=result[0]["category_id"],
-            status=result[0]["status"],
+            transaction_id=row["id"],
+            date=self.date_helper.format_date(row["date"]),
+            description=row["description"],
+            amount=row["amount"],
+            category_id=row["category_id"],
+            status=row["status"],
         )
 
     def get_bank_transactions_by_period(
@@ -178,26 +189,22 @@ class TransactionRepository(BaseRepository):
             AND description NOT IN ('Resgate RDB', 'Aplicação RDB', 'Aplicação em CDB')
             ORDER BY date DESC
         """
-        rows = self.execute_query(bank_query, (start_date, end_date))
-        return (
-            [
-                BankTransaction(
-                    transaction_id=row["id"],
-                    date=self.date_helper.format_date(row["date"]),
-                    description=row["description"],
-                    amount=row["amount"],
-                    category_id=row["category_id"],
-                    operation_type=row["operation_type"],
-                    split_info=(
-                        json.loads(row["split_info"]) if row["split_info"] else None
-                    ),
-                    payment_data=json.loads(row["payment_data"]),
-                )
-                for row in rows
-            ]
-            if rows
-            else []
-        )
+        cursor = self.execute_query(bank_query, (start_date, end_date))
+        return [
+            BankTransaction(
+                transaction_id=row["id"],
+                date=self.date_helper.format_date(row["date"]),
+                description=row["description"],
+                amount=row["amount"],
+                category_id=row["category_id"],
+                operation_type=row["operation_type"],
+                split_info=(
+                    json.loads(row["split_info"]) if row["split_info"] else None
+                ),
+                payment_data=json.loads(row["payment_data"]),
+            )
+            for row in cursor.fetchall()
+        ]
 
     def get_credit_transactions_by_period(
         self, start_date: str, end_date: str
@@ -216,33 +223,29 @@ class TransactionRepository(BaseRepository):
             WHERE date BETWEEN ? AND ?
             ORDER BY date DESC
         """
-        rows = self.execute_query(credit_query, (start_date, end_date))
-        return (
-            [
-                CreditTransaction(
-                    transaction_id=row["id"],
-                    date=self.date_helper.format_date(row["date"]),
-                    description=row["description"],
-                    amount=row["amount"],
-                    category_id=row["category_id"],
-                    status=row["status"],
-                    split_info=(
-                        json.loads(row["split_info"]) if row["split_info"] else None
-                    ),
-                )
-                for row in rows
-            ]
-            if rows
-            else []
-        )
+        cursor = self.execute_query(credit_query, (start_date, end_date))
+        return [
+            CreditTransaction(
+                transaction_id=row["id"],
+                date=self.date_helper.format_date(row["date"]),
+                description=row["description"],
+                amount=row["amount"],
+                category_id=row["category_id"],
+                status=row["status"],
+                split_info=(
+                    json.loads(row["split_info"]) if row["split_info"] else None
+                ),
+            )
+            for row in cursor.fetchall()
+        ]
 
     def add_bank_transaction(self, bank_transaction: BankTransaction) -> bool:
         """Adiciona uma nova transação bancária."""
         query = """
-                INSERT OR IGNORE INTO bank_transactions
-                (id, date, description, amount, category_id, type, operation_type, payment_data)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                """
+            INSERT OR IGNORE INTO bank_transactions
+            (id, date, description, amount, category_id, type, operation_type, split_info, payment_data)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """
         values = (
             bank_transaction.transaction_id,
             bank_transaction.date,
@@ -251,19 +254,27 @@ class TransactionRepository(BaseRepository):
             bank_transaction.category_id,
             bank_transaction.type_,
             bank_transaction.operation_type,
-            json.dumps(bank_transaction.payment_data),
+            (
+                json.dumps(bank_transaction.split_info)
+                if bank_transaction.split_info
+                else None
+            ),
+            (
+                json.dumps(bank_transaction.payment_data)
+                if bank_transaction.payment_data
+                else None
+            ),
         )
-
-        result = self.execute_update(query, values)
-        return result > 0
+        cursor = self.execute_query(query, values)
+        return cursor.rowcount > 0
 
     def add_credit_transaction(self, credit_transaction: CreditTransaction) -> bool:
         """Adiciona uma nova transação de cartão de crédito."""
         query = """
-                INSERT OR IGNORE INTO credit_transactions
-                (id, date, description, amount, category_id, status)
-                VALUES (?, ?, ?, ?, ?, ?)
-                """
+            INSERT OR IGNORE INTO credit_transactions
+            (id, date, description, amount, category_id, status)
+            VALUES (?, ?, ?, ?, ?, ?)
+        """
         values = (
             credit_transaction.transaction_id,
             credit_transaction.date,
@@ -272,9 +283,8 @@ class TransactionRepository(BaseRepository):
             credit_transaction.category_id,
             credit_transaction.status,
         )
-
-        result = self.execute_update(query, values)
-        return result > 0
+        cursor = self.execute_query(query, values)
+        return cursor.rowcount > 0
 
     def update_bank_transaction(
         self,
@@ -294,9 +304,8 @@ class TransactionRepository(BaseRepository):
                 json.dumps(split_info),
                 transaction_id,
             )
-
-            result = self.execute_update(query, values)
-            return result > 0
+            cursor = self.execute_query(query, values)
+            return cursor.rowcount > 0
         query = """
             UPDATE bank_transactions
             SET description = ?, category_id = (
@@ -309,9 +318,8 @@ class TransactionRepository(BaseRepository):
             category_id,
             transaction_id,
         )
-
-        result = self.execute_update(query, values)
-        return result > 0
+        cursor = self.execute_query(query, values)
+        return cursor.rowcount > 0
 
     def update_credit_transaction(
         self,
@@ -321,7 +329,6 @@ class TransactionRepository(BaseRepository):
         split_info: Optional[dict],
     ) -> bool:
         """Atualiza uma transação de cartão de crédito existente."""
-
         if split_info:
             query = """
                 UPDATE credit_transactions
@@ -332,9 +339,8 @@ class TransactionRepository(BaseRepository):
                 json.dumps(split_info),
                 transaction_id,
             )
-
-            result = self.execute_update(query, values)
-            return result > 0
+            cursor = self.execute_query(query, values)
+            return cursor.rowcount > 0
         query = """
             UPDATE credit_transactions
             SET description = ?, category_id = (
@@ -347,9 +353,8 @@ class TransactionRepository(BaseRepository):
             category_id,
             transaction_id,
         )
-
-        result = self.execute_update(query, values)
-        return result > 0
+        cursor = self.execute_query(query, values)
+        return cursor.rowcount > 0
 
     def category_in_use(self, category_id: int) -> bool:
         """Verifica se uma categoria está em uso em transações."""
@@ -361,9 +366,9 @@ class TransactionRepository(BaseRepository):
             )
         """
         values = (category_id, category_id)
-
-        result = self.execute_query(query, values)
-        return result[0]["count"] > 0
+        cursor = self.execute_query(query, values)
+        row = cursor.fetchone()
+        return row["count"] > 0
 
     def get_unlinked_transactions(self) -> List[BankTransaction]:
         """Retorna transações bancárias que não estão vinculadas a nenhum splitwise (split_info vazio ou None)."""
@@ -373,7 +378,7 @@ class TransactionRepository(BaseRepository):
             WHERE split_info IS NULL OR split_info = ''
             ORDER BY date DESC
         """
-        rows = self.execute_query(query)
+        cursor = self.execute_query(query)
         return [
             BankTransaction(
                 transaction_id=row["id"],
@@ -385,5 +390,5 @@ class TransactionRepository(BaseRepository):
                 split_info=None,
                 payment_data=json.loads(row["payment_data"]),
             )
-            for row in rows
+            for row in cursor.fetchall()
         ]

@@ -8,8 +8,8 @@ from models.transaction import Transaction
 class SplitwiseRepository(BaseRepository):
     """Repositório para gerenciar operações de banco de dados relacionadas ao Splitwise."""
 
-    def __init__(self):
-        super().__init__()
+    def __init__(self, db_path: str = "finance.db"):
+        super().__init__(db_path=db_path)
         self.date_helper = DateHelper()
 
     def get_all_splitwise(self) -> List[Splitwise]:
@@ -17,9 +17,9 @@ class SplitwiseRepository(BaseRepository):
         query = """
             SELECT id, amount, date, description, category_id, transaction_id FROM splitwise ORDER BY date DESC
         """
-        results = self.execute_query(query)
+        cursor = self.execute_query(query)
         splitwise_list = []
-        for row in results:
+        for row in cursor.fetchall():
             splitwise = Splitwise(
                 splitwise_id=row["id"],
                 amount=row["amount"],
@@ -35,26 +35,26 @@ class SplitwiseRepository(BaseRepository):
         self, transaction_id: str
     ) -> Optional[Splitwise]:
         """Retorna uma transação do Splitwise que contém a transação especificada."""
-        query = "SELECT id, amount, date, description, category_id, transaction_id FROM splitwise"
-        results = self.execute_query(query)
-        for row in results:
-            if row["transaction_id"] == transaction_id:
-                return Splitwise(
-                    splitwise_id=row["id"],
-                    amount=row["amount"],
-                    date=self.date_helper.format_date(row["date"]),
-                    description=row["description"],
-                    category_id=row["category_id"],
-                    transaction_id=row["transaction_id"],
-                )
+        query = "SELECT id, amount, date, description, category_id, transaction_id FROM splitwise WHERE transaction_id = ?"
+        cursor = self.execute_query(query, (transaction_id,))
+        row = cursor.fetchone()
+        if row:
+            return Splitwise(
+                splitwise_id=row["id"],
+                amount=row["amount"],
+                date=self.date_helper.format_date(row["date"]),
+                description=row["description"],
+                category_id=row["category_id"],
+                transaction_id=row["transaction_id"],
+            )
         return None
 
     def get_splitwise_by_id(self, splitwise_id: str) -> Optional[Splitwise]:
         """Retorna uma transação do Splitwise pelo ID."""
         query = "SELECT id, amount, date, description, category_id, transaction_id FROM splitwise WHERE id = ?"
-        result = self.execute_query(query, (splitwise_id,))
-        if result:
-            row = result[0]
+        cursor = self.execute_query(query, (splitwise_id,))
+        row = cursor.fetchone()
+        if row:
             return Splitwise(
                 splitwise_id=row["id"],
                 amount=row["amount"],
@@ -90,15 +90,16 @@ class SplitwiseRepository(BaseRepository):
     def category_in_use(self, category_id: str) -> bool:
         """Verifica se uma categoria está em uso no Splitwise."""
         query = "SELECT COUNT(*) as count FROM splitwise WHERE category_id = ?"
-        result = self.execute_query(query, (category_id,))
-        return result[0]["count"] > 0
+        cursor = self.execute_query(query, (category_id,))
+        row = cursor.fetchone()
+        return row and row["count"] > 0
 
     def get_unsettled_splitwise(self) -> List[Splitwise]:
         """Retorna todos os splitwise que não estão quitados (faltam transações vinculadas)."""
         query = "SELECT id, amount, date, description, category_id, transaction_id FROM splitwise"
-        results = self.execute_query(query)
+        cursor = self.execute_query(query)
         unsettled = []
-        for row in results:
+        for row in cursor.fetchall():
             # Considera quitado se há pelo menos uma transação vinculada
             if not row["transaction_id"]:
                 unsettled.append(

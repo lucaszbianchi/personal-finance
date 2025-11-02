@@ -1,6 +1,5 @@
 import sqlite3
-from contextlib import contextmanager
-from typing import List, Dict, Any
+import threading
 
 
 class BaseRepository:
@@ -8,28 +7,35 @@ class BaseRepository:
 
     def __init__(self, db_path: str = "finance.db"):
         self.db_path = db_path
+        self._local = threading.local()
 
-    @contextmanager
-    def get_connection(self):
-        """Gerencia a conexão com o banco de dados usando context manager."""
-        conn = sqlite3.connect(self.db_path)
-        conn.row_factory = sqlite3.Row  # Permite acesso por nome das colunas
-        try:
-            yield conn
-        finally:
-            conn.close()
+    def _get_connection(self):
+        """Retorna a conexão da thread atual"""
+        if not hasattr(self._local, "connection"):
+            self._local.connection = sqlite3.connect(self.db_path)
+            self._local.connection.row_factory = sqlite3.Row
+        return self._local.connection
 
-    def execute_query(self, query: str, params: tuple = ()) -> List[Dict[str, Any]]:
-        """Executa uma query e retorna os resultados como lista de dicionários."""
-        with self.get_connection() as conn:
-            cur = conn.cursor()
-            cur.execute(query, params)
-            return [dict(row) for row in cur.fetchall()]
+    def close(self):
+        """Fecha a conexão com o banco de dados da thread atual"""
+        if hasattr(self._local, "connection"):
+            self._local.connection.close()
+            del self._local.connection
 
-    def execute_update(self, query: str, params: tuple = ()) -> int:
-        """Executa uma query de atualização e retorna o número de linhas afetadas."""
-        with self.get_connection() as conn:
-            cur = conn.cursor()
-            cur.execute(query, params)
-            conn.commit()
-            return cur.rowcount
+    def execute_query(self, query: str, params: tuple = ()):
+        """Executa uma query e retorna o cursor.
+        Para SELECTs: use fetchone() ou fetchall() no resultado
+        Para INSERTs/UPDATEs: o commit é feito automaticamente
+        """
+        connection = self._get_connection()
+        cursor = connection.cursor()
+        cursor.execute(query, params)
+
+        # Se for uma query de modificação (INSERT, UPDATE, DELETE)
+        if any(
+            query.strip().upper().startswith(op)
+            for op in ["INSERT", "UPDATE", "DELETE"]
+        ):
+            connection.commit()
+
+        return cursor
