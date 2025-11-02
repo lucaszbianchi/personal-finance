@@ -28,6 +28,7 @@ class FetchData:
         self._create_tables()
         self.pluggy.fetch_and_store_data()
         self.pluggy.fetch_and_store_investments()
+        self.pluggy.fetch_and_store_splitwise_data()
 
         # Executar importações
         self._import_json_to_db(self.FILES["bank"], "bank_transactions")
@@ -125,6 +126,31 @@ class FetchData:
         """
         )
 
+        # Tabela de configurações
+        self.cur.execute(
+            """
+        CREATE TABLE IF NOT EXISTS settings (
+            key TEXT PRIMARY KEY,
+            value TEXT
+        )"""
+        )
+
+        # Tabela de histórico financeiro
+        self.cur.execute(
+            """
+        CREATE TABLE IF NOT EXISTS finance_history (
+            month TEXT PRIMARY KEY,
+            meal_allowance REAL,
+            credit_card_bill REAL,
+            credit_card_future_bill REAL,
+            total_cash REAL,
+            investments TEXT, -- JSON string
+            expenses REAL,
+            income REAL,
+            risk_management REAL
+        )"""
+        )
+
     # Função para importar JSON
     def _import_json_to_db(self, file_path, table):
         if not os.path.exists(file_path):
@@ -187,6 +213,7 @@ class FetchData:
 
         elif table == "credit_transactions":
             for item in data:
+                # Tenta inserir primeiro
                 self.cur.execute(
                     """
                 INSERT OR IGNORE INTO credit_transactions
@@ -205,6 +232,16 @@ class FetchData:
                         item.get("categoryId"),
                         item.get("status"),
                     ),
+                )
+
+                # Sempre atualiza o status
+                self.cur.execute(
+                    """
+                UPDATE credit_transactions 
+                SET status = ?
+                WHERE id = ?
+                """,
+                    (item.get("status"), item["id"]),
                 )
                 self.cur.execute(
                     """
@@ -237,6 +274,21 @@ class FetchData:
                         item.get("rateType"),
                     ),
                 )
+                # Sempre atualiza o status
+                self.cur.execute(
+                    """
+                UPDATE investments
+                SET balance = ?, date = ?, due_date = ?
+                WHERE id = ?
+                """,
+                    (
+                        item.get("balance"),
+                        item.get("date"),
+                        item.get("dueDate"),
+                        item["id"],
+                    ),
+                )
+
         elif table == "splitwise":
             for item in data:
                 self.cur.execute(

@@ -93,7 +93,7 @@ class PluggyAPI:
         headers = {"accept": "application/json", "X-API-KEY": f"{self.api_key}"}
         item_id = os.getenv("ITEM_ID")
 
-        url = f"{self.base_url}/investments?itemId={item_id}&pageSize=57"
+        url = f"{self.base_url}/investments?itemId={item_id}&pageSize=100"
 
         response = requests.get(url, headers=headers, timeout=30)
         investments = json.loads(response.content).get("results")
