@@ -54,3 +54,18 @@ class SplitwiseService:
         }
 
         return summary
+
+    def update_splitwise(
+        self, splitwise_id: str, category_id: str, transaction_id: str
+    ):
+        """Atualiza um registro do Splitwise."""
+        splitwise = self.splitwise_repository.get_splitwise_by_id(splitwise_id)
+        if not splitwise:
+            raise ValueError("Splitwise não encontrado")
+        return self.splitwise_repository.update_splitwise(
+            splitwise_id, category_id, transaction_id
+        )
+
+    def category_in_use(self, category_id: str) -> bool:
+        """Verifica se uma categoria está em uso no Splitwise."""
+        return self.splitwise_repository.category_in_use(category_id)

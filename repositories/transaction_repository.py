@@ -392,3 +392,121 @@ class TransactionRepository(BaseRepository):
             )
             for row in cursor.fetchall()
         ]
+
+    # Métodos de Upsert usando a nova funcionalidade do BaseRepository
+
+    def upsert_bank_transaction(self, transaction_data: dict) -> dict:
+        """
+        Insere ou atualiza uma transação bancária usando strategy insert_only.
+        Transações bancárias são consideradas imutáveis, então apenas novos registros são inseridos.
+
+        Args:
+            transaction_data: Dict com dados da transação da API Pluggy
+
+        Returns:
+            Dict com resultado da operação
+        """
+        # Mapeia dados da API para schema do banco
+        mapped_data = {
+            "id": transaction_data["id"],
+            "date": transaction_data["date"],
+            "description": transaction_data.get("description"),
+            "amount": transaction_data.get("amount"),
+            "category_id": transaction_data.get("categoryId"),
+            "type": transaction_data.get("type"),
+            "operation_type": transaction_data.get("operationType"),
+            "payment_data": transaction_data.get("paymentData")  # Será serializado automaticamente
+        }
+
+        result = self.upsert("bank_transactions", "id", mapped_data, strategy="insert_only")
+
+        # Processa lógica de negócio adicional se inseriu nova transação
+        if result["action"] == "inserted":
+            self._process_pix_person_extraction(transaction_data)
+            self._process_category_creation(transaction_data)
+
+        return result
+
+    def upsert_credit_transaction(self, transaction_data: dict) -> dict:
+        """
+        Insere ou atualiza uma transação de cartão de crédito usando strategy smart_merge.
+        O status das transações pode mudar, então usa upsert inteligente.
+
+        Args:
+            transaction_data: Dict com dados da transação da API Pluggy
+
+        Returns:
+            Dict com resultado da operação
+        """
+        # Mapeia dados da API para schema do banco
+        mapped_data = {
+            "id": transaction_data["id"],
+            "date": transaction_data["date"],
+            "description": transaction_data.get("description"),
+            "amount": (
+                transaction_data.get("amountInAccountCurrency")
+                if transaction_data.get("amountInAccountCurrency") is not None
+                else transaction_data.get("amount")
+            ),
+            "category_id": transaction_data.get("categoryId"),
+            "status": transaction_data.get("status")
+        }
+
+        # Campos que podem ser atualizados (status é o principal)
+        update_fields = ["status"]
+
+        result = self.upsert(
+            "credit_transactions", "id", mapped_data,
+            strategy="smart_merge",
+            update_fields=update_fields
+        )
+
+        # Processa lógica de negócio adicional
+        self._process_category_creation(transaction_data)
+
+        return result
+
+    def _process_pix_person_extraction(self, transaction_data: dict) -> None:
+        """
+        Extrai informações de pessoa de transações PIX e cria registro de pessoa.
+        Mantém a lógica existente de fetch_data.py.
+        """
+        if (transaction_data.get("operationType") == "PIX"
+            and "|" in transaction_data.get("description", "")):
+
+            person_name = transaction_data["description"].split("|")[-1].strip()
+            document_number = None
+
+            payment_data = transaction_data.get("paymentData", {})
+            if "transferência recebida|" in transaction_data["description"].lower():
+                document_number = payment_data.get("payer", {}).get("documentNumber")
+            elif "transferência enviada|" in transaction_data["description"].lower():
+                document_number = payment_data.get("receiver", {}).get("documentNumber")
+
+            if (person_name and document_number
+                and document_number.get("type") == "CPF"):
+
+                # Usa upsert para pessoa com insert_only (pessoas não mudam)
+                person_data = {
+                    "id": document_number["value"],
+                    "name": person_name
+                }
+
+                self.upsert("persons", "id", person_data, strategy="insert_only")
+
+    def _process_category_creation(self, transaction_data: dict) -> None:
+        """
+        Cria categoria automaticamente se não existir.
+        Mantém a lógica existente de fetch_data.py.
+        """
+        category_id = transaction_data.get("categoryId")
+        category_name = transaction_data.get("category")
+
+        if category_id and category_name:
+            category_data = {
+                "id": category_id,
+                "name": category_name
+            }
+
+            # Usa insert_only para categorias (não devem ser alteradas automaticamente)
+            self.upsert("categories", "id", category_data, strategy="insert_only")

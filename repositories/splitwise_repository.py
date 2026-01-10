@@ -113,3 +113,58 @@ class SplitwiseRepository(BaseRepository):
                     )
                 )
         return unsettled
+
+    # Método de Upsert usando a nova funcionalidade do BaseRepository
+
+    def upsert_splitwise_transaction(self, transaction_data: dict) -> dict:
+        """
+        Insere ou atualiza uma transação Splitwise usando strategy smart_merge.
+        Transações Splitwise podem ser alteradas, então usa upsert inteligente.
+
+        Args:
+            transaction_data: Dict com dados da transação da API Pluggy
+
+        Returns:
+            Dict com resultado da operação
+        """
+        # Mapeia dados da API para schema do banco
+        mapped_data = {
+            "id": transaction_data["id"],
+            "date": transaction_data["date"],
+            "description": transaction_data.get("description"),
+            "amount": transaction_data.get("amount"),
+            "category_id": transaction_data.get("categoryId"),
+            "transaction_id": None  # Inicialmente vazio, será preenchido por lógica de negócio
+        }
+
+        # Transações Splitwise podem ter alterações nos dados básicos
+        # Mantém transaction_id se já existir para não quebrar vinculações
+        update_fields = ["date", "description", "amount", "category_id"]
+
+        result = self.upsert(
+            "splitwise", "id", mapped_data,
+            strategy="smart_merge",
+            update_fields=update_fields
+        )
+
+        # Processa lógica de negócio adicional
+        self._process_category_creation(transaction_data)
+
+        return result
+
+    def _process_category_creation(self, transaction_data: dict) -> None:
+        """
+        Cria categoria automaticamente se não existir.
+        Mantém a lógica existente de fetch_data.py.
+        """
+        category_id = transaction_data.get("categoryId")
+        category_name = transaction_data.get("category")
+
+        if category_id and category_name:
+            category_data = {
+                "id": category_id,
+                "name": category_name
+            }
+
+            # Usa insert_only para categorias (não devem ser alteradas automaticamente)
+            self.upsert("categories", "id", category_data, strategy="insert_only")

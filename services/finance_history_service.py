@@ -76,6 +76,21 @@ class FinanceHistoryService:
         self.finance_history_repository.calculate_and_save_risk_management(month)
         return self._format_net_worth_history(self.finance_history_repository.get_all())
 
+    def update_finance_history_net_worth(
+        self, month: str, bank_account: float
+    ) -> Dict[str, Dict[str, Any]]:
+        """Atualiza patrimônio líquido de forma programática."""
+        investments_list = self.transaction_repository.get_investments()
+        investments = {}
+        for inv in investments_list:
+            if inv.name not in investments:
+                investments[inv.name] = 0.0
+            investments[inv.name] += inv.balance
+
+        total_cash = bank_account
+        self.finance_history_repository.save_net_worth(month, total_cash, investments)
+        return self._format_net_worth_history(self.finance_history_repository.get_all())
+
     def update_all(self) -> Dict[str, Dict[str, Any]]:
         """Atualiza todas as informações financeiras de uma vez"""
         month = datetime.now().strftime("%Y-%m")

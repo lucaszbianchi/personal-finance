@@ -10,7 +10,7 @@ class CategoryService:
     Serviço para edição e unificação de categorias.
     """
 
-    VALID_TYPES = ["essencial", "opcional", "fixa", "compartilhada"]
+    VALID_TYPES = {"essencial", "opcional", "fixa", "compartilhada"}
 
     def __init__(self):
         self.category_repo = CategoryRepository()
