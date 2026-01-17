@@ -1,0 +1,33 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    @apply border-gray-200;
+  }
+
+  html {
+    font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    @apply bg-gray-50 text-gray-900 min-h-screen;
+    margin: 0;
+    line-height: 1.5;
+  }
+
+  #root {
+    @apply w-full min-h-screen;
+  }
+}
+
+@layer components {
+  /* Componentes customizados podem ser adicionados aqui */
+}
+
+@layer utilities {
+  /* Utilitários customizados podem ser adicionados aqui */
+}

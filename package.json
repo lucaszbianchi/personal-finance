@@ -1,0 +1,22 @@
+{
+  "name": "personal-finance",
+  "version": "1.0.0",
+  "description": "Personal Finance Management System",
+  "private": true,
+  "scripts": {
+    "frontend:install": "cd frontend && npm install",
+    "frontend:dev": "cd frontend && npm run dev",
+    "frontend:build": "cd frontend && npm run build",
+    "frontend:preview": "cd frontend && npm run preview",
+    "backend:dev": "python app.py",
+    "backend:sync": "python pluggy_api.py",
+    "dev": "concurrently \"npm run backend:dev\" \"npm run frontend:dev\"",
+    "setup": "npm run frontend:install"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  },
+  "keywords": ["finance", "python", "flask", "react", "typescript"],
+  "author": "",
+  "license": "ISC"
+}
