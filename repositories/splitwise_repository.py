@@ -16,9 +16,12 @@ class SplitwiseRepository(BaseRepository):
         self.date_helper = DateHelper()
 
     def get_all_splitwise(self) -> List[Splitwise]:
-        """Retorna todas as transações do Splitwise."""
+        """Retorna todas as transações do Splitwise válidas (excluindo as inválidas)."""
         query = """
-            SELECT id, amount, date, description, category_id, transaction_id FROM splitwise ORDER BY date DESC
+            SELECT id, amount, date, description, category_id, transaction_id, is_invalid
+            FROM splitwise
+            WHERE is_invalid = 0
+            ORDER BY date DESC
         """
         cursor = self.execute_query(query)
         splitwise_list = []
@@ -30,6 +33,7 @@ class SplitwiseRepository(BaseRepository):
                 description=row["description"],
                 category_id=row["category_id"],
                 transaction_id=row["transaction_id"],
+                is_invalid=bool(row["is_invalid"]),
             )
             splitwise_list.append(splitwise)
         return splitwise_list
@@ -38,7 +42,7 @@ class SplitwiseRepository(BaseRepository):
         self, transaction_id: str
     ) -> Optional[Splitwise]:
         """Retorna uma transação do Splitwise que contém a transação especificada."""
-        query = "SELECT id, amount, date, description, category_id, transaction_id FROM splitwise WHERE transaction_id = ?"
+        query = "SELECT id, amount, date, description, category_id, transaction_id, is_invalid FROM splitwise WHERE transaction_id = ?"
         cursor = self.execute_query(query, (transaction_id,))
         row = cursor.fetchone()
         if row:
@@ -49,12 +53,13 @@ class SplitwiseRepository(BaseRepository):
                 description=row["description"],
                 category_id=row["category_id"],
                 transaction_id=row["transaction_id"],
+                is_invalid=bool(row["is_invalid"]),
             )
         return None
 
     def get_splitwise_by_id(self, splitwise_id: str) -> Optional[Splitwise]:
         """Retorna uma transação do Splitwise pelo ID."""
-        query = "SELECT id, amount, date, description, category_id, transaction_id FROM splitwise WHERE id = ?"
+        query = "SELECT id, amount, date, description, category_id, transaction_id, is_invalid FROM splitwise WHERE id = ?"
         cursor = self.execute_query(query, (splitwise_id,))
         row = cursor.fetchone()
         if row:
@@ -65,6 +70,7 @@ class SplitwiseRepository(BaseRepository):
                 description=row["description"],
                 category_id=row["category_id"],
                 transaction_id=row["transaction_id"],
+                is_invalid=bool(row["is_invalid"]),
             )
         return None
 
@@ -98,8 +104,8 @@ class SplitwiseRepository(BaseRepository):
         return row and row["count"] > 0
 
     def get_unsettled_splitwise(self) -> List[Splitwise]:
-        """Retorna todos os splitwise que não estão quitados (faltam transações vinculadas)."""
-        query = "SELECT id, amount, date, description, category_id, transaction_id FROM splitwise"
+        """Retorna todos os splitwise válidos que não estão quitados (faltam transações vinculadas)."""
+        query = "SELECT id, amount, date, description, category_id, transaction_id, is_invalid FROM splitwise WHERE is_invalid = 0"
         cursor = self.execute_query(query)
         unsettled = []
         for row in cursor.fetchall():
@@ -113,6 +119,7 @@ class SplitwiseRepository(BaseRepository):
                         description=row["description"],
                         category_id=row["category_id"],
                         transaction_id=row["transaction_id"],
+                        is_invalid=bool(row["is_invalid"]),
                     )
                 )
         return unsettled
@@ -148,8 +155,7 @@ class SplitwiseRepository(BaseRepository):
             "splitwise",
             "id",
             mapped_data,
-            strategy="smart_merge",
-            update_fields=update_fields,
+            strategy="insert_only",
         )
 
         # Processa lógica de negócio adicional
@@ -229,3 +235,52 @@ class SplitwiseRepository(BaseRepository):
         """Atualiza o campo match_type de uma entrada do Splitwise."""
         query = "UPDATE splitwise SET match_type = ? WHERE id = ?"
         self.execute_query(query, (match_type, splitwise_id))
+
+    def mark_splitwise_invalid(self, splitwise_id: str) -> bool:
+        """Marca um item do Splitwise como inválido."""
+        try:
+            query = "UPDATE splitwise SET is_invalid = 1 WHERE id = ?"
+            cursor = self.execute_query(query, (splitwise_id,))
+            return cursor.rowcount > 0
+        except Exception:
+            return False
+
+    def mark_splitwise_valid(self, splitwise_id: str) -> bool:
+        """Marca um item do Splitwise como válido."""
+        try:
+            query = "UPDATE splitwise SET is_invalid = 0 WHERE id = ?"
+            cursor = self.execute_query(query, (splitwise_id,))
+            return cursor.rowcount > 0
+        except Exception:
+            return False
+
+    def update_splitwise_content(self, splitwise_id: str, date: str, amount: float) -> bool:
+        """Atualiza data e valor de um item do Splitwise."""
+        try:
+            query = "UPDATE splitwise SET date = ?, amount = ? WHERE id = ?"
+            cursor = self.execute_query(query, (date, amount, splitwise_id))
+            return cursor.rowcount > 0
+        except Exception:
+            return False
+
+    def get_all_splitwise_including_invalid(self) -> List[Splitwise]:
+        """Retorna todas as transações do Splitwise, incluindo as inválidas (para administração)."""
+        query = """
+            SELECT id, amount, date, description, category_id, transaction_id, is_invalid
+            FROM splitwise
+            ORDER BY date DESC
+        """
+        cursor = self.execute_query(query)
+        splitwise_list = []
+        for row in cursor.fetchall():
+            splitwise = Splitwise(
+                splitwise_id=row["id"],
+                amount=row["amount"],
+                date=self.date_helper.format_date(row["date"]),
+                description=row["description"],
+                category_id=row["category_id"],
+                transaction_id=row["transaction_id"],
+                is_invalid=bool(row["is_invalid"]),
+            )
+            splitwise_list.append(splitwise)
+        return splitwise_list

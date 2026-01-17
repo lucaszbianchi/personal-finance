@@ -415,10 +415,14 @@ class TransactionRepository(BaseRepository):
             "category_id": transaction_data.get("categoryId"),
             "type": transaction_data.get("type"),
             "operation_type": transaction_data.get("operationType"),
-            "payment_data": transaction_data.get("paymentData")  # Será serializado automaticamente
+            "payment_data": transaction_data.get(
+                "paymentData"
+            ),  # Será serializado automaticamente
         }
 
-        result = self.upsert("bank_transactions", "id", mapped_data, strategy="insert_only")
+        result = self.upsert(
+            "bank_transactions", "id", mapped_data, strategy="insert_only"
+        )
 
         # Processa lógica de negócio adicional se inseriu nova transação
         if result["action"] == "inserted":
@@ -449,16 +453,18 @@ class TransactionRepository(BaseRepository):
                 else transaction_data.get("amount")
             ),
             "category_id": transaction_data.get("categoryId"),
-            "status": transaction_data.get("status")
+            "status": transaction_data.get("status"),
         }
 
         # Campos que podem ser atualizados (status é o principal)
         update_fields = ["status"]
 
         result = self.upsert(
-            "credit_transactions", "id", mapped_data,
+            "credit_transactions",
+            "id",
+            mapped_data,
             strategy="smart_merge",
-            update_fields=update_fields
+            update_fields=update_fields,
         )
 
         # Processa lógica de negócio adicional
@@ -471,8 +477,9 @@ class TransactionRepository(BaseRepository):
         Extrai informações de pessoa de transações PIX e cria registro de pessoa.
         Mantém a lógica existente de fetch_data.py.
         """
-        if (transaction_data.get("operationType") == "PIX"
-            and "|" in transaction_data.get("description", "")):
+        if transaction_data.get(
+            "operationType"
+        ) == "PIX" and "|" in transaction_data.get("description", ""):
 
             person_name = transaction_data["description"].split("|")[-1].strip()
             document_number = None
@@ -483,14 +490,10 @@ class TransactionRepository(BaseRepository):
             elif "transferência enviada|" in transaction_data["description"].lower():
                 document_number = payment_data.get("receiver", {}).get("documentNumber")
 
-            if (person_name and document_number
-                and document_number.get("type") == "CPF"):
+            if person_name and document_number and document_number.get("type") == "CPF":
 
                 # Usa upsert para pessoa com insert_only (pessoas não mudam)
-                person_data = {
-                    "id": document_number["value"],
-                    "name": person_name
-                }
+                person_data = {"id": document_number["value"], "name": person_name}
 
                 self.upsert("persons", "id", person_data, strategy="insert_only")
 
@@ -503,10 +506,7 @@ class TransactionRepository(BaseRepository):
         category_name = transaction_data.get("category")
 
         if category_id and category_name:
-            category_data = {
-                "id": category_id,
-                "name": category_name
-            }
+            category_data = {"id": category_id, "name": category_name}
 
             # Usa insert_only para categorias (não devem ser alteradas automaticamente)
             self.upsert("categories", "id", category_data, strategy="insert_only")

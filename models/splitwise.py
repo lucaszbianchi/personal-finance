@@ -10,6 +10,7 @@ class Splitwise:
         description: str,
         category_id: str,
         transaction_id: str,
+        is_invalid: bool = False,
     ):
         self.splitwise_id = splitwise_id
         self.amount = amount
@@ -17,3 +18,4 @@ class Splitwise:
         self.description = description
         self.category_id = category_id
         self.transaction_id = transaction_id
+        self.is_invalid = is_invalid

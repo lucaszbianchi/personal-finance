@@ -19,7 +19,7 @@ class SplitwiseService:
         return self.splitwise_repository.get_all_splitwise()
 
     def get_all_splitwise_with_match_info(self) -> List[dict]:
-        """Retorna todas as transações do Splitwise com informações de match."""
+        """Retorna todas as transações do Splitwise válidas com informações de match."""
         query = """
             SELECT
                 s.id,
@@ -29,9 +29,11 @@ class SplitwiseService:
                 s.category_id,
                 s.transaction_id,
                 s.match_type,
+                s.is_invalid,
                 c.name as category_name
             FROM splitwise s
             LEFT JOIN categories c ON s.category_id = c.id
+            WHERE s.is_invalid = 0
             ORDER BY s.date DESC
         """
         cursor = self.splitwise_repository.execute_query(query)
@@ -207,14 +209,14 @@ class SplitwiseService:
             )
             same_date_transactions.extend(credit_transactions)
 
-            # Filter by amount (±2% tolerance)
+            # Filter by amount (exact matching only)
             # Splitwise values are typically half of the transaction (what user lent to person)
             amount_matches = []
             for transaction in same_date_transactions:
                 tx_amount = abs(transaction.amount)
                 splitwise_amount = abs(splitwise_entry.amount)
 
-                # Check if Splitwise amount matches ~50% of transaction (±2% tolerance on each)
+                # Check if Splitwise amount matches exactly 50% of transaction
                 half_tx_amount = tx_amount / 2
                 if self._amounts_match(splitwise_amount, half_tx_amount):
                     # Check if transaction is already linked to another Splitwise entry
@@ -323,23 +325,16 @@ class SplitwiseService:
         except (ValueError, TypeError):
             return None
 
-    def _amounts_match(
-        self, amount1: float, amount2: float, tolerance: float = 0
-    ) -> bool:
+    def _amounts_match(self, amount1: float, amount2: float) -> bool:
         """
-        Check if two amounts match within tolerance.
+        Check if two amounts match exactly (no tolerance).
 
         Args:
             amount1: First amount (Splitwise)
             amount2: Second amount (transaction)
-            tolerance: Tolerance percentage (0.02 = 2%)
         """
-        if amount1 == 0 or amount2 == 0:
-            return amount1 == amount2
-
-        # Calculate the percentage difference
-        diff = abs(amount1 - amount2) / max(abs(amount1), abs(amount2))
-        return diff <= tolerance
+        # Always use exact matching
+        return amount1 == amount2
 
     def _is_transaction_already_linked(self, transaction_id: str) -> bool:
         """Check if a transaction is already linked to another Splitwise entry."""
@@ -347,3 +342,76 @@ class SplitwiseService:
             transaction_id
         )
         return existing_splitwise is not None
+
+    def invalidate_splitwise_item(self, splitwise_id: str) -> dict:
+        """Marca um item do Splitwise como inválido."""
+        try:
+            # Check if item exists
+            item = self.splitwise_repository.get_splitwise_by_id(splitwise_id)
+            if not item:
+                return {"success": False, "error": "Item não encontrado"}
+
+            # Mark as invalid
+            success = self.splitwise_repository.mark_splitwise_invalid(splitwise_id)
+            if success:
+                return {"success": True, "message": "Item marcado como inválido"}
+            else:
+                return {"success": False, "error": "Falha ao marcar item como inválido"}
+
+        except Exception as e:
+            return {"success": False, "error": f"Erro interno: {str(e)}"}
+
+    def validate_splitwise_item(self, splitwise_id: str) -> dict:
+        """Marca um item do Splitwise como válido."""
+        try:
+            # Check if item exists
+            item = self.splitwise_repository.get_splitwise_by_id(splitwise_id)
+            if not item:
+                return {"success": False, "error": "Item não encontrado"}
+
+            # Mark as valid
+            success = self.splitwise_repository.mark_splitwise_valid(splitwise_id)
+            if success:
+                return {"success": True, "message": "Item marcado como válido"}
+            else:
+                return {"success": False, "error": "Falha ao marcar item como válido"}
+
+        except Exception as e:
+            return {"success": False, "error": f"Erro interno: {str(e)}"}
+
+    def edit_splitwise_item(self, splitwise_id: str, date: str, amount: float) -> dict:
+        """Edita data e valor de um item do Splitwise."""
+        try:
+            # Validate required fields
+            if not date or not date.strip():
+                return {"success": False, "error": "Data é obrigatória"}
+
+            if amount is None or amount == 0:
+                return {"success": False, "error": "Valor é obrigatório e deve ser diferente de zero"}
+
+            # Validate date format
+            try:
+                datetime.strptime(date, "%Y-%m-%d")
+            except ValueError:
+                return {"success": False, "error": "Formato de data inválido. Use YYYY-MM-DD"}
+
+            # Check if item exists
+            item = self.splitwise_repository.get_splitwise_by_id(splitwise_id)
+            if not item:
+                return {"success": False, "error": "Item não encontrado"}
+
+            # Update the item
+            success = self.splitwise_repository.update_splitwise_content(
+                splitwise_id, date, amount
+            )
+            if success:
+                return {"success": True, "message": "Item editado com sucesso"}
+            else:
+                return {"success": False, "error": "Falha ao editar item"}
+
+        except Exception as e:
+            return {"success": False, "error": f"Erro interno: {str(e)}"}
+
+    def get_all_splitwise_including_invalid(self) -> List[Splitwise]:
+        """Retorna todas as transações do Splitwise, incluindo as inválidas (para administração)."""
+        return self.splitwise_repository.get_all_splitwise_including_invalid()
