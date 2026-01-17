@@ -1,8 +1,11 @@
+import json
 from typing import List, Optional
 from utils.date_helper import DateHelper
 from repositories.base_repository import BaseRepository
 from models.splitwise import Splitwise
 from models.transaction import Transaction
+from models.transaction import BankTransaction
+from models.transaction import CreditTransaction
 
 
 class SplitwiseRepository(BaseRepository):
@@ -134,7 +137,7 @@ class SplitwiseRepository(BaseRepository):
             "description": transaction_data.get("description"),
             "amount": transaction_data.get("amount"),
             "category_id": transaction_data.get("categoryId"),
-            "transaction_id": None  # Inicialmente vazio, será preenchido por lógica de negócio
+            "transaction_id": None,  # Inicialmente vazio, será preenchido por lógica de negócio
         }
 
         # Transações Splitwise podem ter alterações nos dados básicos
@@ -142,9 +145,11 @@ class SplitwiseRepository(BaseRepository):
         update_fields = ["date", "description", "amount", "category_id"]
 
         result = self.upsert(
-            "splitwise", "id", mapped_data,
+            "splitwise",
+            "id",
+            mapped_data,
             strategy="smart_merge",
-            update_fields=update_fields
+            update_fields=update_fields,
         )
 
         # Processa lógica de negócio adicional
@@ -161,10 +166,66 @@ class SplitwiseRepository(BaseRepository):
         category_name = transaction_data.get("category")
 
         if category_id and category_name:
-            category_data = {
-                "id": category_id,
-                "name": category_name
-            }
+            category_data = {"id": category_id, "name": category_name}
 
             # Usa insert_only para categorias (não devem ser alteradas automaticamente)
             self.upsert("categories", "id", category_data, strategy="insert_only")
+
+    def get_bank_transactions_by_date(self, date_str: str) -> list:
+        """Retorna transações bancárias de uma data específica."""
+        query = """
+            SELECT
+                id, date, description, amount, category_id,
+                operation_type, split_info, payment_data
+            FROM bank_transactions
+            WHERE DATE(date) = DATE(?)
+            AND description NOT IN ('Resgate RDB', 'Aplicação RDB', 'Aplicação em CDB')
+            ORDER BY date DESC
+        """
+        cursor = self.execute_query(query, (date_str,))
+        transactions = []
+        for row in cursor.fetchall():
+            transaction = BankTransaction(
+                transaction_id=row["id"],
+                date=self.date_helper.format_date(row["date"]),
+                description=row["description"],
+                amount=row["amount"],
+                category_id=row["category_id"],
+                operation_type=row["operation_type"],
+                split_info=json.loads(row["split_info"]) if row["split_info"] else None,
+                payment_data=(
+                    json.loads(row["payment_data"]) if row["payment_data"] else None
+                ),
+            )
+            transactions.append(transaction)
+        return transactions
+
+    def get_credit_transactions_by_date(self, date_str: str) -> list:
+        """Retorna transações de cartão de crédito de uma data específica."""
+        query = """
+            SELECT
+                id, date, description, amount, category_id,
+                split_info, status
+            FROM credit_transactions
+            WHERE DATE(date) = DATE(?)
+            ORDER BY date DESC
+        """
+        cursor = self.execute_query(query, (date_str,))
+        transactions = []
+        for row in cursor.fetchall():
+            transaction = CreditTransaction(
+                transaction_id=row["id"],
+                date=self.date_helper.format_date(row["date"]),
+                description=row["description"],
+                amount=row["amount"],
+                category_id=row["category_id"],
+                split_info=json.loads(row["split_info"]) if row["split_info"] else None,
+                status=row["status"],
+            )
+            transactions.append(transaction)
+        return transactions
+
+    def update_match_type(self, splitwise_id: str, match_type: str) -> None:
+        """Atualiza o campo match_type de uma entrada do Splitwise."""
+        query = "UPDATE splitwise SET match_type = ? WHERE id = ?"
+        self.execute_query(query, (match_type, splitwise_id))
