@@ -1,6 +1,7 @@
 """
 Repository para gerenciar operações de banco de dados relacionadas a investimentos.
 """
+
 from typing import List, Dict, Any
 from repositories.base_repository import BaseRepository
 from models.investment import Investment
@@ -103,16 +104,18 @@ class InvestmentRepository(BaseRepository):
             "date": investment_data.get("date"),
             "due_date": investment_data.get("dueDate"),
             "issuer": investment_data.get("issuer"),
-            "rate_type": investment_data.get("rateType")
+            "rate_type": investment_data.get("rateType"),
         }
 
         # Campos que podem ser atualizados (baseado na lógica do fetch_data.py)
         update_fields = ["balance", "date", "due_date"]
 
         result = self.upsert(
-            "investments", "id", mapped_data,
+            "investments",
+            "id",
+            mapped_data,
             strategy="smart_merge",
-            update_fields=update_fields
+            update_fields=update_fields,
         )
 
         return result
@@ -124,30 +127,34 @@ class InvestmentRepository(BaseRepository):
         investment_data = {
             "id": investment.investment_id,
             "name": investment.name,
-            "type": investment.type_,
+            "type": investment.type,
             "subtype": investment.subtype,
             "balance": investment.balance,
             "date": investment.date,
             "due_date": investment.due_date,
             "issuer": investment.issuer,
-            "rate_type": investment.rate_type
+            "rate_type": investment.rate_type,
         }
 
         result = self.upsert_investment(investment_data)
         return result["success"] and result["action"] in ["inserted", "updated"]
 
-    def update_investment_balance(self, investment_id: str, balance: float, date: str, due_date: str = None) -> bool:
+    def update_investment_balance(
+        self, investment_id: str, balance: float, date: str, due_date: str = None
+    ) -> bool:
         """Atualiza saldo de um investimento (método legacy)."""
         investment_data = {
             "id": investment_id,
             "balance": balance,
             "date": date,
-            "due_date": due_date
+            "due_date": due_date,
         }
 
         result = self.upsert(
-            "investments", "id", investment_data,
+            "investments",
+            "id",
+            investment_data,
             strategy="smart_merge",
-            update_fields=["balance", "date", "due_date"]
+            update_fields=["balance", "date", "due_date"],
         )
         return result["success"]

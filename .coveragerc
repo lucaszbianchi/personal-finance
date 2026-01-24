@@ -1,0 +1,27 @@
+[run]
+branch = True
+source = services,repositories,utils
+omit =
+    */tests/*
+    */test_*.py
+    */site-packages/*
+
+[report]
+exclude_lines =
+    pragma: no cover
+    def __repr__
+    raise AssertionError
+    raise NotImplementedError
+    if __name__ == .__main__.:
+    if TYPE_CHECKING:
+    @abstractmethod
+    @abc.abstractmethod
+
+precision = 2
+show_missing = True
+
+[html]
+directory = coverage_html
+
+[xml]
+output = coverage.xml
