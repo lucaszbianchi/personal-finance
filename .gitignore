@@ -11,6 +11,8 @@ test_scripts/*
 .vscode/*
 
 .github/*
+!.github/workflows/
+!.github/workflows/**
 
 CLAUDE.md
 
