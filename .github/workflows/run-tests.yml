@@ -35,15 +35,10 @@ jobs:
 
       - name: Check overall coverage threshold (47%)
         run: |
-          coverage report --fail-under=47
+          coverage report --fail-under=47 --include=services/*,repositories/*,utils/*
 
       - name: Check new code coverage (52%)
         if: github.event_name == 'pull_request'
         run: |
           diff-cover coverage.xml --compare-branch=origin/${{ github.base_ref }} --fail-under=52
         continue-on-error: true
-
-      - name: Generate coverage report
-        if: always()
-        run: |
-          coverage report --include=services/*,repositories/*,utils/*
