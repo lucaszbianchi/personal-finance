@@ -124,7 +124,7 @@ class InvestmentRepository(BaseRepository):
         investment_data = {
             "id": investment.investment_id,
             "name": investment.name,
-            "type": investment.type_,
+            "type": investment.type,
             "subtype": investment.subtype,
             "balance": investment.balance,
             "date": investment.date,

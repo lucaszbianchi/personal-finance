@@ -1,6 +1,6 @@
 [run]
 branch = True
-source = services,repositories
+source = services,repositories,utils
 omit =
     */tests/*
     */test_*.py

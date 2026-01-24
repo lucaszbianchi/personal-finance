@@ -30,7 +30,7 @@ jobs:
 
       - name: Run pytest with coverage
         run: |
-          pytest tests/ --cov=services --cov=repositories --cov-report=xml --cov-report=term-missing
+          pytest tests/ --cov=services --cov=repositories --cov=utils --cov-report=xml --cov-report=term-missing
         continue-on-error: false
 
       - name: Check overall coverage threshold (47%)
@@ -46,4 +46,4 @@ jobs:
       - name: Generate coverage report
         if: always()
         run: |
-          coverage report --include=services/*,repositories/*
+          coverage report --include=services/*,repositories/*,utils/*
