@@ -1,5 +1,5 @@
 import unittest
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 from services.finance_history_service import FinanceHistoryService
 from models.finance_history import FinanceHistory
 
@@ -7,9 +7,13 @@ from models.finance_history import FinanceHistory
 class TestFinanceHistoryService(unittest.TestCase):
     def setUp(self):
         # Mock repositories
+        with patch("services.finance_history_service.FinanceHistoryRepository"), patch(
+            "services.finance_history_service.TransactionRepository"
+        ):
+            self.service = FinanceHistoryService()
+
         self.mock_repo = MagicMock()
         self.mock_txn_repo = MagicMock()
-        self.service = FinanceHistoryService()
         self.service.finance_history_repository = self.mock_repo
         self.service.transaction_repository = self.mock_txn_repo
 

@@ -1,12 +1,14 @@
 import unittest
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 from services.person_service import PersonService
 
 
 class TestPersonService(unittest.TestCase):
     def setUp(self):
+        with patch("services.person_service.PersonRepository"):
+            self.service = PersonService()
+
         self.mock_repo = MagicMock()
-        self.service = PersonService()
         self.service.person_repo = self.mock_repo
 
     def test_get_all_people(self):

@@ -1,12 +1,14 @@
 import unittest
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 from services.splitwise_service import SplitwiseService
 
 
 class TestSplitwiseService(unittest.TestCase):
     def setUp(self):
+        with patch("services.splitwise_service.SplitwiseRepository"):
+            self.service = SplitwiseService()
+
         self.mock_repo = MagicMock()
-        self.service = SplitwiseService()
         self.service.splitwise_repository = self.mock_repo
 
     def test_get_all_splitwise(self):

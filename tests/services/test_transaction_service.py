@@ -1,15 +1,19 @@
 import unittest
 from datetime import datetime
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 from services.transaction_service import TransactionService
 
 
 class TestTransactionService(unittest.TestCase):
     def setUp(self):
+        with patch("services.transaction_service.TransactionRepository"), patch(
+            "services.transaction_service.CategoryRepository"
+        ), patch("services.transaction_service.PersonRepository"):
+            self.service = TransactionService()
+
         self.mock_repo = MagicMock()
         self.mock_cat_repo = MagicMock()
         self.mock_person_repo = MagicMock()
-        self.service = TransactionService()
         self.service.transaction_repository = self.mock_repo
         self.service.category_repository = self.mock_cat_repo
         self.service.person_repository = self.mock_person_repo
