@@ -3,9 +3,12 @@ import { categoryService } from '@/services/api';
 import type { Category } from '@/types';
 
 export const useCategories = () => {
-  return useQuery({
+  return useQuery<Category[]>({
     queryKey: ['categories'],
-    queryFn: () => categoryService.getAll(),
+    queryFn: async () => {
+      const response = await categoryService.getAll();
+      return response as unknown as Category[];
+    },
   });
 };
 

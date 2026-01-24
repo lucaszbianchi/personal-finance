@@ -59,19 +59,19 @@ export const transactionService = {
 
 export const categoryService = {
   getAll: () =>
-    api.get<ApiResponse<Category[]>>('/categories'),
+    api.get<Category[]>('/categories/'),
 
   getById: (id: string) =>
-    api.get<ApiResponse<Category>>(`/categories/${id}`),
+    api.get<ApiResponse<Category>>(`/categories/${id}/`),
 
   create: (category: Omit<Category, 'id' | 'created_at' | 'updated_at'>) =>
-    api.post<ApiResponse<Category>>('/categories', category),
+    api.post<ApiResponse<Category>>('/categories/', category),
 
   update: (id: string, category: Partial<Category>) =>
-    api.put<ApiResponse<Category>>(`/categories/${id}`, category),
+    api.put<ApiResponse<Category>>(`/categories/${id}/`, category),
 
   delete: (id: string) =>
-    api.delete<ApiResponse<void>>(`/categories/${id}`),
+    api.delete<ApiResponse<void>>(`/categories/${id}/`),
 };
 
 export const personService = {

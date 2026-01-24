@@ -14,9 +14,7 @@ def list_categories():
     """Lista todas as categorias."""
     try:
         categories = category_service.get_all_categories()
-        return jsonify(
-            [{"id": cat.id, "name": cat.name, "types": cat.types} for cat in categories]
-        )
+        return jsonify([{"id": cat.id, "name": cat.name} for cat in categories])
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
@@ -36,7 +34,7 @@ def create_category():
         category = category_service.create_category(data["name"], types)
         return (
             jsonify(
-                {"id": category.id, "name": category.name, "types": category.types}
+                {"id": category.id, "name": category.name}
             ),
             201,
         )

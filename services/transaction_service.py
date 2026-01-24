@@ -2,7 +2,7 @@
 Serviço para gerenciar transações financeiras.
 """
 
-from typing import List
+from typing import List, Optional
 from repositories.transaction_repository import TransactionRepository
 from repositories.category_repository import CategoryRepository
 from repositories.person_repository import PersonRepository
@@ -16,33 +16,53 @@ class TransactionService:
         self.category_repository = CategoryRepository()
         self.person_repository = PersonRepository()
 
-    def get_bank_transactions(self) -> List[BankTransaction]:
-        """Retorna todas as transações bancárias."""
-        return self.transaction_repository.get_bank_transactions()
+    def get_bank_transactions(
+        self,
+        start_date: Optional[str] = None,
+        end_date: Optional[str] = None,
+        category_id: Optional[str] = None,
+    ) -> List[BankTransaction]:
+        """Retorna transações bancárias com filtros opcionais."""
+        transactions = self.transaction_repository.get_bank_transactions()
 
-    def get_credit_transactions(self) -> List[CreditTransaction]:
-        """Retorna todas as transações de crédito."""
-        return self.transaction_repository.get_credit_transactions()
+        # Aplicar filtros
+        if start_date and end_date:
+            transactions = [
+                t
+                for t in transactions
+                if start_date <= t.date.split("\n")[0] <= end_date
+            ]
+
+        if category_id:
+            transactions = [t for t in transactions if t.category_id == category_id]
+
+        return transactions
+
+    def get_credit_transactions(
+        self,
+        start_date: Optional[str] = None,
+        end_date: Optional[str] = None,
+        category_id: Optional[str] = None,
+    ) -> List[CreditTransaction]:
+        """Retorna transações de crédito com filtros opcionais."""
+        transactions = self.transaction_repository.get_credit_transactions()
+
+        # Aplicar filtros
+        if start_date and end_date:
+            transactions = [
+                t
+                for t in transactions
+                if start_date <= t.date.split("\n")[0] <= end_date
+            ]
+
+        if category_id:
+            transactions = [t for t in transactions if t.category_id == category_id]
+
+        return transactions
 
     def get_investments(self) -> List[Investment]:
         """Retorna todas as transações de investimento."""
         return self.transaction_repository.get_investments()
-
-    def get_bank_transactions_by_period(
-        self, start_date: str, end_date: str
-    ) -> List[BankTransaction]:
-        """Retorna todas as transações bancárias em um determinado período."""
-        return self.transaction_repository.get_bank_transactions_by_period(
-            start_date, end_date
-        )
-
-    def get_credit_transactions_by_period(
-        self, start_date: str, end_date: str
-    ) -> List[CreditTransaction]:
-        """Retorna todas as transações de crédito em um determinado período."""
-        return self.transaction_repository.get_credit_transactions_by_period(
-            start_date, end_date
-        )
 
     def update_transaction(
         self,

@@ -14,32 +14,34 @@ class CategoryRepository(BaseRepository):
     def get_all_categories(self) -> List[Category]:
         """Retorna todas as categorias únicas de todas as transações."""
         query = """
-            SELECT id, name, types FROM categories ORDER BY name
+            SELECT id, name FROM categories ORDER BY name
         """
         cursor = self.execute_query(query)
         return [
-            Category(id_=row["id"], name=row["name"], types=row["types"])
+            Category(
+                id_=row["id"],
+                name=row["name"],
+                types=[]
+            )
             for row in cursor.fetchall()
         ]
 
     def get_category_by_id(self, category_id: int) -> Category:
         """Retorna uma categoria específica pelo ID."""
-        query = "SELECT id, name, types FROM categories WHERE id = ?"
+        query = "SELECT id, name FROM categories WHERE id = ?"
         cursor = self.execute_query(query, (category_id,))
         row = cursor.fetchone()
         if row:
-            types = json.loads(row["types"]) if row["types"] else []
-            return Category(id_=row["id"], name=row["name"], types=types)
+            return Category(id_=row["id"], name=row["name"], types=[])
         return None
 
     def get_category_by_name(self, name: str) -> Category:
         """Retorna uma categoria específica pelo nome."""
-        query = "SELECT id, name, types FROM categories WHERE name = ?"
+        query = "SELECT id, name FROM categories WHERE name = ?"
         cursor = self.execute_query(query, (name,))
         row = cursor.fetchone()
         if row:
-            types = json.loads(row["types"]) if row["types"] else []
-            return Category(id_=row["id"], name=row["name"], types=types)
+            return Category(id_=row["id"], name=row["name"], types=[])
         return None
 
     def update_category(self, old_name: str, new_name: str) -> str:
@@ -88,12 +90,11 @@ class CategoryRepository(BaseRepository):
         self, name: str, types: List[str] | None = None, id_: str = None
     ) -> str:
         """Cria uma nova categoria e retorna seu ID."""
-        types_str = json.dumps(types) if types is not None else json.dumps([])
         if id_ is None:
             id_ = str(uuid.uuid4())
         self.execute_query(
-            "INSERT INTO categories (id, name, types) VALUES (?, ?, ?)",
-            (id_, name, types_str),
+            "INSERT INTO categories (id, name) VALUES (?, ?)",
+            (id_, name),
         )
         return id_
 

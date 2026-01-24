@@ -3,6 +3,7 @@ from repositories.transaction_repository import TransactionRepository
 from repositories.person_repository import PersonRepository
 from repositories.category_repository import CategoryRepository
 from repositories.splitwise_repository import SplitwiseRepository
+from services.transaction_service import TransactionService
 
 
 class FinanceSummaryService:
@@ -11,6 +12,7 @@ class FinanceSummaryService:
     """
 
     def __init__(self):
+        self.transaction_service = TransactionService()
         self.transaction_repository = TransactionRepository()
         self.person_repository = PersonRepository()
         self.category_repository = CategoryRepository()
@@ -18,8 +20,8 @@ class FinanceSummaryService:
 
     def get_income(self, start_date: str, end_date: str) -> float:
         """Calcula as receitas em um determinado período."""
-        transactions = self.transaction_repository.get_bank_transactions_by_period(
-            start_date, end_date
+        transactions = self.transaction_service.get_bank_transactions(
+            start_date=start_date, end_date=end_date
         )
         income_transactions = [
             t for t in transactions if t.amount > 0 and not t.split_info
@@ -29,13 +31,11 @@ class FinanceSummaryService:
 
     def get_expenses(self, start_date: str, end_date: str) -> float:
         """Calcula as despesas em um determinado período."""
-        bank_transactions = self.transaction_repository.get_bank_transactions_by_period(
-            start_date, end_date
+        bank_transactions = self.transaction_service.get_bank_transactions(
+            start_date=start_date, end_date=end_date
         )
-        credit_transactions = (
-            self.transaction_repository.get_credit_transactions_by_period(
-                start_date, end_date
-            )
+        credit_transactions = self.transaction_service.get_credit_transactions(
+            start_date=start_date, end_date=end_date
         )
         transactions = bank_transactions + credit_transactions
 
@@ -70,13 +70,11 @@ class FinanceSummaryService:
 
     def get_category_expenses(self, start_date: str, end_date: str) -> List[dict]:
         """Calcula as despesas por categoria em um determinado período."""
-        bank_transactions = self.transaction_repository.get_bank_transactions_by_period(
-            start_date, end_date
+        bank_transactions = self.transaction_service.get_bank_transactions(
+            start_date=start_date, end_date=end_date
         )
-        credit_transactions = (
-            self.transaction_repository.get_credit_transactions_by_period(
-                start_date, end_date
-            )
+        credit_transactions = self.transaction_service.get_credit_transactions(
+            start_date=start_date, end_date=end_date
         )
         transactions = bank_transactions + credit_transactions
         category_expenses = {}

@@ -18,16 +18,21 @@ class TestSplitwiseRepository(unittest.TestCase):
                 date TEXT,
                 description TEXT,
                 category_id TEXT,
-                persons TEXT,
-                paid_by TEXT,
-                split_info TEXT
+                transaction_id TEXT,
+                is_invalid INTEGER DEFAULT 0
             )
             """
         )
-        # Garante que a coluna transaction_id existe
+        # Garante que as colunas existem
         try:
             self.repo.execute_query(
                 "ALTER TABLE splitwise ADD COLUMN transaction_id TEXT"
+            )
+        except Exception:
+            pass
+        try:
+            self.repo.execute_query(
+                "ALTER TABLE splitwise ADD COLUMN is_invalid INTEGER DEFAULT 0"
             )
         except Exception:
             pass
@@ -43,7 +48,7 @@ class TestSplitwiseRepository(unittest.TestCase):
             transaction_id="",
         )
         self.repo.execute_query(
-            "INSERT INTO splitwise (id, amount, date, description, category_id, transaction_id) VALUES (?, ?, ?, ?, ?, ?)",
+            "INSERT INTO splitwise (id, amount, date, description, category_id, transaction_id, is_invalid) VALUES (?, ?, ?, ?, ?, ?, ?)",
             (
                 split.splitwise_id,
                 split.amount,
@@ -51,6 +56,7 @@ class TestSplitwiseRepository(unittest.TestCase):
                 split.description,
                 split.category_id,
                 split.transaction_id,
+                0,
             ),
         )
         found = self.repo.get_splitwise_by_id(self.test_id)
@@ -69,7 +75,7 @@ class TestSplitwiseRepository(unittest.TestCase):
             transaction_id="",
         )
         self.repo.execute_query(
-            "INSERT INTO splitwise (id, amount, date, description, category_id, transaction_id) VALUES (?, ?, ?, ?, ?, ?)",
+            "INSERT INTO splitwise (id, amount, date, description, category_id, transaction_id, is_invalid) VALUES (?, ?, ?, ?, ?, ?, ?)",
             (
                 split.splitwise_id,
                 split.amount,
@@ -77,6 +83,7 @@ class TestSplitwiseRepository(unittest.TestCase):
                 split.description,
                 split.category_id,
                 split.transaction_id,
+                0,
             ),
         )
         self.repo.update_splitwise(self.test_id, "cat999", "txn999")
@@ -94,7 +101,7 @@ class TestSplitwiseRepository(unittest.TestCase):
             transaction_id="",
         )
         self.repo.execute_query(
-            "INSERT INTO splitwise (id, amount, date, description, category_id, transaction_id) VALUES (?, ?, ?, ?, ?, ?)",
+            "INSERT INTO splitwise (id, amount, date, description, category_id, transaction_id, is_invalid) VALUES (?, ?, ?, ?, ?, ?, ?)",
             (
                 split.splitwise_id,
                 split.amount,
@@ -102,6 +109,7 @@ class TestSplitwiseRepository(unittest.TestCase):
                 split.description,
                 split.category_id,
                 split.transaction_id,
+                0,
             ),
         )
         unsettled = self.repo.get_unsettled_splitwise()

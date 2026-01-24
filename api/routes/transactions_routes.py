@@ -4,15 +4,31 @@ Módulo de rotas relacionadas a transações bancárias.
 
 from flask import Blueprint, jsonify, request
 from services.transaction_service import TransactionService
+from services.category_service import CategoryService
 
 bp = Blueprint("transactions", __name__)
 transaction_service = TransactionService()
+category_service = CategoryService()
+
+
+def _get_category_name(category_id):
+    """Helper para obter nome da categoria pelo ID."""
+    if not category_id:
+        return None
+    category = category_service.get_category_by_id(category_id)
+    return category.name if category else None
 
 
 @bp.route("/bank", methods=["GET"])
 def get_bank_transactions():
-    """Retorna todas as transações bancárias."""
-    transactions = transaction_service.get_bank_transactions()
+    """Retorna transações bancárias com filtros opcionais."""
+    start_date = request.args.get("start_date")
+    end_date = request.args.get("end_date")
+    category_id = request.args.get("category_id")
+
+    transactions = transaction_service.get_bank_transactions(
+        start_date=start_date, end_date=end_date, category_id=category_id
+    )
     return jsonify(
         [
             {
@@ -20,7 +36,7 @@ def get_bank_transactions():
                 "date": t.date,
                 "description": t.description,
                 "amount": t.amount,
-                "category_id": t.category_id,
+                "category": _get_category_name(t.category_id),
                 "operation_type": t.operation_type,
                 "split_info": t.split_info,
                 "payment_data": t.payment_data,
@@ -33,8 +49,14 @@ def get_bank_transactions():
 
 @bp.route("/credit", methods=["GET"])
 def get_credit_transactions():
-    """Retorna todas as transações de crédito."""
-    transactions = transaction_service.get_credit_transactions()
+    """Retorna transações de crédito com filtros opcionais."""
+    start_date = request.args.get("start_date")
+    end_date = request.args.get("end_date")
+    category_id = request.args.get("category_id")
+
+    transactions = transaction_service.get_credit_transactions(
+        start_date=start_date, end_date=end_date, category_id=category_id
+    )
     return jsonify(
         [
             {
@@ -42,7 +64,7 @@ def get_credit_transactions():
                 "date": t.date,
                 "description": t.description,
                 "amount": t.amount,
-                "category_id": t.category_id,
+                "category": _get_category_name(t.category_id),
                 "status": t.status,
                 "split_info": t.split_info,
             }
@@ -69,64 +91,6 @@ def get_investments():
                 "rate_type": i.rate_type,
             }
             for i in investments
-        ]
-    )
-
-
-@bp.route("/bank/period", methods=["GET"])
-def get_bank_transactions_by_period():
-    """Retorna transações bancárias em um período específico."""
-    start_date = request.args.get("start_date")
-    end_date = request.args.get("end_date")
-
-    if not start_date or not end_date:
-        return jsonify({"error": "start_date e end_date são obrigatórios"}), 400
-
-    transactions = transaction_service.get_bank_transactions_by_period(
-        start_date, end_date
-    )
-    return jsonify(
-        [
-            {
-                "id": t.transaction_id,
-                "date": t.date.strftime("%Y-%m-%d"),
-                "description": t.description,
-                "amount": t.amount,
-                "category_id": t.category_id,
-                "operation_type": t.operation_type,
-                "split_info": t.split_info,
-                "payment_data": t.payment_data,
-                "type": t.type_,
-            }
-            for t in transactions
-        ]
-    )
-
-
-@bp.route("/credit/period", methods=["GET"])
-def get_credit_transactions_by_period():
-    """Retorna transações de crédito em um período específico."""
-    start_date = request.args.get("start_date")
-    end_date = request.args.get("end_date")
-
-    if not start_date or not end_date:
-        return jsonify({"error": "start_date e end_date são obrigatórios"}), 400
-
-    transactions = transaction_service.get_credit_transactions_by_period(
-        start_date, end_date
-    )
-    return jsonify(
-        [
-            {
-                "id": t.transaction_id,
-                "date": t.date.strftime("%Y-%m-%d"),
-                "description": t.description,
-                "amount": t.amount,
-                "category_id": t.category_id,
-                "status": t.status,
-                "split_info": t.split_info,
-            }
-            for t in transactions
         ]
     )
 
