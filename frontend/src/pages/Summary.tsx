@@ -28,7 +28,7 @@ export const Summary: React.FC = () => {
     );
   }
 
-  const summaryData = summary?.data;
+  const summaryData = summary?.data?.data;
 
   return (
     <div className="space-y-6">

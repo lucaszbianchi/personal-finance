@@ -34,6 +34,14 @@ export interface SplitInfo {
 export interface Category {
   id: string;
   name: string;
+  type: string;
+  attributes?: {
+    shared?: boolean;
+    fixed?: boolean;
+    installment?: boolean;
+  };
+  created_at: string;
+  updated_at: string;
 }
 
 export interface Person {
