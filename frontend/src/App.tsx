@@ -1,4 +1,3 @@
-import React from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { Layout } from '@/components/Layout/Layout';
 import { Dashboard } from '@/pages/Dashboard';
@@ -6,14 +5,7 @@ import { Transactions } from '@/pages/Transactions';
 import { Categories } from '@/pages/Categories';
 import { Investments } from '@/pages/Investments';
 import { Summary } from '@/pages/Summary';
-
-// Páginas placeholder para rotas futuras
-const SyncPage = () => (
-  <div className="text-center py-12">
-    <h2 className="text-xl font-semibold mb-2">Sincronização de Dados</h2>
-    <p className="text-gray-600">Funcionalidade de sincronização em desenvolvimento</p>
-  </div>
-);
+import { SyncPage } from '@/pages/SyncPage';
 
 const SettingsPage = () => (
   <div className="text-center py-12">

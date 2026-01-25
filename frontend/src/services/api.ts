@@ -109,12 +109,27 @@ export const summaryService = {
     api.get<ApiResponse<any>>('/dashboard'),
 };
 
-export const importService = {
-  syncData: () =>
-    api.post<ApiResponse<void>>('/import/sync'),
+export interface SyncResponse {
+  status: 'success' | 'error';
+  message: string;
+  counts?: {
+    bank_transactions_inserted: number;
+    bank_transactions_updated: number;
+    credit_transactions_inserted: number;
+    credit_transactions_updated: number;
+    investments_inserted: number;
+    investments_updated: number;
+    splitwise_inserted: number;
+    splitwise_updated: number;
+  };
+}
 
-  importSplitwise: () =>
-    api.post<ApiResponse<void>>('/import/splitwise'),
+export const importService = {
+  syncData: (): Promise<SyncResponse> =>
+    api.post('/import/data'),
+
+  importSplitwise: (): Promise<ApiResponse<void>> =>
+    api.post('/import/splitwise'),
 };
 
 export default api;

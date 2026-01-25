@@ -17,6 +17,9 @@ test_scripts/*
 
 CLAUDE.md
 
+
+# frontend/build output
+dist/
 # Dependency directories
 node_modules/
 jspm_packages/

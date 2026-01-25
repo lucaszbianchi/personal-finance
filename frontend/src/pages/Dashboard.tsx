@@ -56,7 +56,7 @@ const MetricCard: React.FC<MetricCardProps> = ({ title, value, change, icon, tre
 
 export const Dashboard: React.FC = () => {
   const { data: summary, isLoading: summaryLoading, error: summaryError } = useFinanceSummary();
-  const { data: dashboard, isLoading: dashboardLoading } = useDashboardData();
+  const { isLoading: dashboardLoading } = useDashboardData();
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', {
@@ -81,7 +81,7 @@ export const Dashboard: React.FC = () => {
     );
   }
 
-  const summaryData = summary?.data;
+  const summaryData = summary?.data?.data;
 
   return (
     <div className="space-y-6">

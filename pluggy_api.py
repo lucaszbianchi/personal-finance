@@ -147,14 +147,27 @@ class PluggyAPI:
         """
         Nova implementação: busca dados da API e salva diretamente no banco usando repositórios.
         Mantém arquivos JSON em paralelo apenas para debug/desenvolvimento.
+        Retorna dict com contagens de inserções e atualizações por tipo de dados.
         """
         # Inicializa repositórios
         transaction_repo = TransactionRepository()
         investment_repo = InvestmentRepository()
         splitwise_repo = SplitwiseRepository()
 
+        # Inicializa contadores
+        summary = {
+            "bank_transactions_inserted": 0,
+            "bank_transactions_updated": 0,
+            "credit_transactions_inserted": 0,
+            "credit_transactions_updated": 0,
+            "investments_inserted": 0,
+            "investments_updated": 0,
+            "splitwise_inserted": 0,
+            "splitwise_updated": 0,
+        }
+
         try:
-            print("🔄 Iniciando coleta de dados da API...")
+            print("[INFO] Iniciando coleta de dados da API...")
 
             # 1. Processa transações bancárias e de cartão
             accounts = self.list_accounts(self.item_id).get("results", [])
@@ -184,10 +197,20 @@ class PluggyAPI:
                             result = transaction_repo.upsert_bank_transaction(
                                 transaction
                             )
+                            if result["success"]:
+                                if result["action"] == "inserted":
+                                    summary["bank_transactions_inserted"] += 1
+                                elif result["action"] == "updated":
+                                    summary["bank_transactions_updated"] += 1
                         elif account_type == "CREDIT":
                             result = transaction_repo.upsert_credit_transaction(
                                 transaction
                             )
+                            if result["success"]:
+                                if result["action"] == "inserted":
+                                    summary["credit_transactions_inserted"] += 1
+                                elif result["action"] == "updated":
+                                    summary["credit_transactions_updated"] += 1
 
                         if not result["success"]:
                             print(
@@ -199,14 +222,19 @@ class PluggyAPI:
                         f"data/{account_type}_transactions.json", transactions
                     )
                     print(
-                        f"✅ Processadas {len(transactions)} transações do tipo {account_type}"
+                        f"[OK] Processadas {len(transactions)} transações do tipo {account_type}"
                     )
 
             # 2. Processa investimentos
-            print("💰 Processando investimentos...")
+            print("[INFO] Processando investimentos...")
             investments = self.fetch_investments_data()
             for investment in investments:
                 result = investment_repo.upsert_investment(investment)
+                if result["success"]:
+                    if result["action"] == "inserted":
+                        summary["investments_inserted"] += 1
+                    elif result["action"] == "updated":
+                        summary["investments_updated"] += 1
                 if not result["success"]:
                     print(
                         f"Erro ao processar investimento {investment['id']}: {result.get('error', 'Erro desconhecido')}"
@@ -222,6 +250,11 @@ class PluggyAPI:
             splitwise_transactions = self.fetch_splitwise_data()
             for transaction in splitwise_transactions:
                 result = splitwise_repo.upsert_splitwise_transaction(transaction)
+                if result["success"]:
+                    if result["action"] == "inserted":
+                        summary["splitwise_inserted"] += 1
+                    elif result["action"] == "updated":
+                        summary["splitwise_updated"] += 1
                 if not result["success"]:
                     print(
                         f"Erro ao processar Splitwise {transaction['id']}: {result.get('error', 'Erro desconhecido')}"
@@ -234,7 +267,8 @@ class PluggyAPI:
                 )
                 print(f"Processadas {len(splitwise_transactions)} transações Splitwise")
 
-            print("Coleta de dados concluída com sucesso!")
+            print("[OK] Coleta de dados concluída com sucesso!")
+            return summary
 
         finally:
             # Fecha conexões dos repositórios

@@ -21,7 +21,7 @@ export const Categories: React.FC = () => {
     );
   }
 
-  const categoriesList = categories?.data || [];
+  const categoriesList = categories || [];
 
   const getTypeColor = (type: string) => {
     switch (type) {
