@@ -37,14 +37,12 @@ jobs:
           pip install -r requirements.txt
 
       - name: Install frontend dependencies
-        run: |
-          cd frontend
-          npm ci
+        run: npm ci
+        working-directory: frontend
 
       - name: Build frontend
-        run: |
-          cd frontend
-          npm run build
+        run: npm run build
+        working-directory: frontend
 
       - name: Run pytest with coverage
         run: |
