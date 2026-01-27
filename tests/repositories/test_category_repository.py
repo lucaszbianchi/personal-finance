@@ -6,7 +6,6 @@ class TestCategoryRepository(unittest.TestCase):
     def setUp(self):
         self.repo = CategoryRepository(db_path="test-finance.db")
         self.test_name = "TestCat"
-        self.test_types = ["essencial"]
         # Cria tabelas se não existirem
         self.repo.execute_query(
             """
@@ -61,17 +60,19 @@ class TestCategoryRepository(unittest.TestCase):
         """
         )
         # Limpa categoria de teste se existir
-        self.repo.delete_category(self.test_name)
+        existing_cat = self.repo.get_category_by_name(self.test_name)
+        if existing_cat:
+            self.repo.delete_category(existing_cat.id)
 
     def test_create_and_get_category(self):
-        cat_id = self.repo.create_category(self.test_name, self.test_types)
+        cat_id = self.repo.create_category(self.test_name)
         category = self.repo.get_category_by_id(cat_id)
         self.assertIsNotNone(category)
         self.assertEqual(category.name, self.test_name)
 
     def test_update_category(self):
         # Cria categoria de teste e garante que existe
-        cat_id = self.repo.create_category(self.test_name, self.test_types)
+        cat_id = self.repo.create_category(self.test_name)
         category = self.repo.get_category_by_id(cat_id)
         self.assertIsNotNone(category)
         self.assertEqual(category.name, self.test_name)
@@ -84,7 +85,7 @@ class TestCategoryRepository(unittest.TestCase):
         self.assertEqual(updated.name, new_name)
 
     def test_delete_category(self):
-        cat_id = self.repo.create_category(self.test_name, self.test_types)
+        cat_id = self.repo.create_category(self.test_name)
         deleted = self.repo.delete_category(cat_id)
         self.assertTrue(deleted)
         self.assertIsNone(self.repo.get_category_by_id(cat_id))

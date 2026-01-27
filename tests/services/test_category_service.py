@@ -28,8 +28,8 @@ class TestCategoryService(unittest.TestCase):
 
     def test_create_category_calls_repo(self):
         self.mock_repo.get_category_by_name.return_value = None
-        self.service.create_category("Test", ["essencial"])
-        self.mock_repo.create_category.assert_called_with("Test", ["essencial"])
+        self.service.create_category("Test")
+        self.mock_repo.create_category.assert_called_with("Test")
 
     def test_edit_category_calls_repo(self):
         self.service.edit_category("Old", "New")
