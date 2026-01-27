@@ -12,7 +12,7 @@ import type {
 
 const api = axios.create({
   baseURL: '/api',
-  timeout: 10000,
+  timeout: 20000,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -33,7 +33,7 @@ api.interceptors.request.use(
 
 // Response interceptor
 api.interceptors.response.use(
-  (response) => response.data,
+  (response) => response,
   (error) => {
     console.error('API Error:', error);
     return Promise.reject(error);
@@ -41,37 +41,62 @@ api.interceptors.response.use(
 );
 
 export const transactionService = {
-  getAll: (filters?: TransactionFilter) =>
-    api.get<ApiResponse<Transaction[]>>('/transactions', { params: filters }),
+  getAll: async (filters?: TransactionFilter) => {
+    const response = await api.get('/transactions', { params: filters });
+    return response.data;
+  },
 
-  getById: (id: string) =>
-    api.get<ApiResponse<Transaction>>(`/transactions/${id}`),
+  getById: async (id: string) => {
+    const response = await api.get(`/transactions/${id}`);
+    return response.data;
+  },
 
-  create: (transaction: CreateTransactionRequest) =>
-    api.post<ApiResponse<Transaction>>('/transactions', transaction),
+  create: async (transaction: CreateTransactionRequest) => {
+    const response = await api.post('/transactions', transaction);
+    return response.data;
+  },
 
-  update: (id: string, transaction: Partial<Transaction>) =>
-    api.put<ApiResponse<Transaction>>(`/transactions/${id}`, transaction),
+  update: async (id: string, transaction: Partial<Transaction>) => {
+    const response = await api.put(`/transactions/${id}`, transaction);
+    return response.data;
+  },
 
-  delete: (id: string) =>
-    api.delete<ApiResponse<void>>(`/transactions/${id}`),
+  delete: async (id: string) => {
+    const response = await api.delete(`/transactions/${id}`);
+    return response.data;
+  },
 };
 
 export const categoryService = {
-  getAll: () =>
-    api.get<Category[]>('/categories/'),
+  getAll: async () => {
+    const response = await api.get('/categories/');
+    return response.data;
+  },
 
-  getById: (id: string) =>
-    api.get<ApiResponse<Category>>(`/categories/${id}/`),
+  getById: async (id: string) => {
+    const response = await api.get(`/categories/${id}`);
+    return response.data;
+  },
 
-  create: (category: Omit<Category, 'id' | 'created_at' | 'updated_at'>) =>
-    api.post<ApiResponse<Category>>('/categories/', category),
+  create: async (category: Omit<Category, 'id'>) => {
+    const response = await api.post('/categories/', category);
+    return response.data;
+  },
 
-  update: (id: string, category: Partial<Category>) =>
-    api.put<ApiResponse<Category>>(`/categories/${id}/`, category),
+  update: async (oldName: string, newName: string) => {
+    const response = await api.post('/categories/edit', { old_name: oldName, new_name: newName });
+    return response.data;
+  },
 
-  delete: (id: string) =>
-    api.delete<ApiResponse<void>>(`/categories/${id}/`),
+  delete: async (categoryName: string) => {
+    const response = await api.delete(`/categories/${categoryName}`);
+    return response.data;
+  },
+
+  unify: async (categories: string[], target: string) => {
+    const response = await api.post('/categories/unify', { categories, target });
+    return response.data;
+  },
 };
 
 export const personService = {
@@ -125,11 +150,15 @@ export interface SyncResponse {
 }
 
 export const importService = {
-  syncData: (): Promise<SyncResponse> =>
-    api.post('/import/data'),
+  syncData: async (): Promise<SyncResponse> => {
+    const response = await api.post('/import/data');
+    return response.data;
+  },
 
-  importSplitwise: (): Promise<ApiResponse<void>> =>
-    api.post('/import/splitwise'),
+  importSplitwise: async (): Promise<ApiResponse<void>> => {
+    const response = await api.post('/import/splitwise');
+    return response.data;
+  },
 };
 
 export default api;

@@ -5,10 +5,7 @@ import type { Category } from '@/types';
 export const useCategories = () => {
   return useQuery<Category[]>({
     queryKey: ['categories'],
-    queryFn: async () => {
-      const response = await categoryService.getAll();
-      return response as unknown as Category[];
-    },
+    queryFn: () => categoryService.getAll(),
   });
 };
 
@@ -24,7 +21,7 @@ export const useCreateCategory = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (category: Omit<Category, 'id' | 'created_at' | 'updated_at'>) =>
+    mutationFn: (category: Omit<Category, 'id'>) =>
       categoryService.create(category),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['categories'] });
@@ -36,11 +33,10 @@ export const useUpdateCategory = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ id, data }: { id: string; data: Partial<Category> }) =>
-      categoryService.update(id, data),
-    onSuccess: (_, { id }) => {
+    mutationFn: ({ oldName, newName }: { oldName: string; newName: string }) =>
+      categoryService.update(oldName, newName),
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['categories'] });
-      queryClient.invalidateQueries({ queryKey: ['category', id] });
     },
   });
 };
@@ -49,7 +45,19 @@ export const useDeleteCategory = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (id: string) => categoryService.delete(id),
+    mutationFn: (categoryName: string) => categoryService.delete(categoryName),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['categories'] });
+    },
+  });
+};
+
+export const useUnifyCategories = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ categories, target }: { categories: string[]; target: string }) =>
+      categoryService.unify(categories, target),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['categories'] });
     },
