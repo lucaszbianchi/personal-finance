@@ -10,8 +10,6 @@ class CategoryService:
     Serviço para edição e unificação de categorias.
     """
 
-    VALID_TYPES = {"essencial", "opcional", "fixa", "compartilhada"}
-
     def __init__(self):
         self.category_repo = CategoryRepository()
         self.transaction_repo = TransactionRepository()
@@ -37,31 +35,22 @@ class CategoryService:
         Unifica múltiplas categorias em uma só (target_id).
         Atualiza todas as transações para referenciar a categoria alvo e remove as categorias antigas.
         """
-        success = False
+        success = True
         for category in categories:
             if category != target:
-                success = (
-                    self.category_repo.update_category(category, target) and success
-                )
+                success = success and self.category_repo.update_category(category, target)
 
         return success
 
-    def create_category(self, name: str, types: List[str] | None = None) -> Category:
+    def create_category(self, name: str) -> Category:
         """
         Cria uma nova categoria.
-        Raises ValueError se a categoria já existe ou se os tipos são inválidos.
+        Raises ValueError se a categoria já existe.
         """
         if self.category_repo.get_category_by_name(name):
             raise ValueError(f"Categoria '{name}' já existe")
 
-        if types:
-            invalid_types = set(types) - self.VALID_TYPES
-            if invalid_types:
-                raise ValueError(
-                    f"Tipos inválidos: {invalid_types}. Use apenas: {self.VALID_TYPES}"
-                )
-
-        category_id = self.category_repo.create_category(name, types)
+        category_id = self.category_repo.create_category(name)
         return self.category_repo.get_category_by_id(category_id)
 
     def delete_category(self, category_name: str) -> bool:

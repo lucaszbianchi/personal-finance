@@ -54,7 +54,7 @@ export const SyncPage: React.FC = () => {
     : 0;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-12 px-4">
+    <div className="min-h-screen py-12 px-4">
       <div className="max-w-2xl mx-auto">
         {/* Header */}
         <div className="text-center mb-8">

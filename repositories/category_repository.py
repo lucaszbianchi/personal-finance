@@ -1,4 +1,3 @@
-import json
 import uuid
 from typing import List
 from repositories.base_repository import BaseRepository
@@ -20,8 +19,7 @@ class CategoryRepository(BaseRepository):
         return [
             Category(
                 id_=row["id"],
-                name=row["name"],
-                types=[]
+                name=row["name"]
             )
             for row in cursor.fetchall()
         ]
@@ -32,7 +30,7 @@ class CategoryRepository(BaseRepository):
         cursor = self.execute_query(query, (category_id,))
         row = cursor.fetchone()
         if row:
-            return Category(id_=row["id"], name=row["name"], types=[])
+            return Category(id_=row["id"], name=row["name"])
         return None
 
     def get_category_by_name(self, name: str) -> Category:
@@ -41,7 +39,7 @@ class CategoryRepository(BaseRepository):
         cursor = self.execute_query(query, (name,))
         row = cursor.fetchone()
         if row:
-            return Category(id_=row["id"], name=row["name"], types=[])
+            return Category(id_=row["id"], name=row["name"])
         return None
 
     def update_category(self, old_name: str, new_name: str) -> str:
@@ -86,9 +84,7 @@ class CategoryRepository(BaseRepository):
         self.execute_query("DELETE FROM categories WHERE id = ?", (old_id,))
         return new_id
 
-    def create_category(
-        self, name: str, types: List[str] | None = None, id_: str = None
-    ) -> str:
+    def create_category(self, name: str, id_: str = None) -> str:
         """Cria uma nova categoria e retorna seu ID."""
         if id_ is None:
             id_ = str(uuid.uuid4())
@@ -108,4 +104,4 @@ class CategoryRepository(BaseRepository):
 
 if __name__ == "__main__":
     repo = CategoryRepository()
-    category = Category(id_="", name="Lazer", types=["opcional"])
+    category = Category(id_="", name="Lazer")

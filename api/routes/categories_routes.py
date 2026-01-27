@@ -30,8 +30,7 @@ def create_category():
         if "name" not in data:
             return jsonify({"error": "Campo 'name' é obrigatório"}), 400
 
-        types = data.get("types")
-        category = category_service.create_category(data["name"], types)
+        category = category_service.create_category(data["name"])
         return (
             jsonify(
                 {"id": category.id, "name": category.name}
