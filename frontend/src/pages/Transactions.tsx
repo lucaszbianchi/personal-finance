@@ -454,7 +454,8 @@ export const Transactions: React.FC = () => {
             description: editingTransaction.description,
             amount: editingTransaction.amount,
             date: editingTransaction.date,
-            category_id: editingTransaction.category_id,
+            category_id: editingTransaction.category ?
+              categoriesList.find(cat => cat.name === editingTransaction.category)?.id : undefined,
             type: editingTransaction.type,
             operation_type: editingTransaction.operation_type,
             status: editingTransaction.status,
