@@ -441,3 +441,177 @@ class TransactionRepository(BaseRepository):
 
             # Usa insert_only para categorias (não devem ser alteradas automaticamente)
             self.upsert("categories", "id", category_data, strategy="insert_only")
+
+    def create_bank_transaction(self, transaction: BankTransaction) -> BankTransaction:
+        """
+        Cria uma nova transação bancária no banco de dados.
+
+        Args:
+            transaction: Objeto BankTransaction com os dados da nova transação
+
+        Returns:
+            BankTransaction: A transação criada
+
+        Raises:
+            ValueError: Se a transação já existe ou dados são inválidos
+        """
+        if not transaction.transaction_id:
+            raise ValueError("ID da transação é obrigatório")
+        if not transaction.description:
+            raise ValueError("Descrição da transação é obrigatória")
+        if transaction.amount is None:
+            raise ValueError("Valor da transação é obrigatório")
+
+        # Verifica se já existe uma transação com o mesmo ID
+        try:
+            existing_transaction = self.get_bank_transaction_by_id(transaction.transaction_id)
+            if existing_transaction:
+                raise ValueError(f"Transação bancária com ID {transaction.transaction_id} já existe")
+        except ValueError:
+            # Se der erro, significa que não encontrou a transação (esperado)
+            pass
+
+        # Converte a data para string no formato correto se for datetime
+        date_str = transaction.date
+        if hasattr(transaction.date, 'strftime'):
+            date_str = transaction.date.strftime('%Y-%m-%d')
+
+        # Cria a transação usando o método existente
+        success = self.add_bank_transaction(transaction)
+
+        if success:
+            return transaction
+        else:
+            raise ValueError("Falha ao criar transação bancária")
+
+    def create_credit_transaction(self, transaction: CreditTransaction) -> CreditTransaction:
+        """
+        Cria uma nova transação de cartão de crédito no banco de dados.
+
+        Args:
+            transaction: Objeto CreditTransaction com os dados da nova transação
+
+        Returns:
+            CreditTransaction: A transação criada
+
+        Raises:
+            ValueError: Se a transação já existe ou dados são inválidos
+        """
+        if not transaction.transaction_id:
+            raise ValueError("ID da transação é obrigatório")
+        if not transaction.description:
+            raise ValueError("Descrição da transação é obrigatória")
+        if transaction.amount is None:
+            raise ValueError("Valor da transação é obrigatório")
+
+        # Verifica se já existe uma transação com o mesmo ID
+        try:
+            existing_transaction = self.get_credit_transaction_by_id(transaction.transaction_id)
+            if existing_transaction:
+                raise ValueError(f"Transação de crédito com ID {transaction.transaction_id} já existe")
+        except ValueError:
+            # Se der erro, significa que não encontrou a transação (esperado)
+            pass
+
+        # Cria a transação usando o método existente
+        success = self.add_credit_transaction(transaction)
+
+        if success:
+            return transaction
+        else:
+            raise ValueError("Falha ao criar transação de crédito")
+
+    def delete_bank_transaction(self, transaction_id: str) -> bool:
+        """
+        Deleta uma transação bancária do banco de dados.
+
+        Args:
+            transaction_id: ID da transação a ser deletada
+
+        Returns:
+            bool: True se a transação foi deletada com sucesso
+
+        Raises:
+            ValueError: Se a transação não existe ou está sendo referenciada
+        """
+        if not transaction_id:
+            raise ValueError("ID da transação é obrigatório")
+
+        # Verifica se a transação existe
+        try:
+            transaction = self.get_bank_transaction_by_id(transaction_id)
+        except ValueError:
+            raise ValueError(f"Transação bancária com ID {transaction_id} não encontrada")
+
+        # Verifica se a transação está sendo referenciada no splitwise
+        query_check_splitwise = """
+            SELECT COUNT(*) as count
+            FROM splitwise
+            WHERE transaction_id = ?
+        """
+        cursor = self.execute_query(query_check_splitwise, (transaction_id,))
+        if cursor.fetchone()["count"] > 0:
+            raise ValueError(f"Não é possível deletar transação '{transaction.description}'. Ela está vinculada a entradas do Splitwise.")
+
+        # Verifica se faz parte de alguma divisão (split_info)
+        if transaction.split_info:
+            raise ValueError(f"Não é possível deletar transação '{transaction.description}'. Ela possui informações de divisão.")
+
+        # Deleta a transação
+        query = "DELETE FROM bank_transactions WHERE id = ?"
+        cursor = self.execute_query(query, (transaction_id,))
+        return cursor.rowcount > 0
+
+    def delete_credit_transaction(self, transaction_id: str) -> bool:
+        """
+        Deleta uma transação de cartão de crédito do banco de dados.
+
+        Args:
+            transaction_id: ID da transação a ser deletada
+
+        Returns:
+            bool: True se a transação foi deletada com sucesso
+
+        Raises:
+            ValueError: Se a transação não existe ou está sendo referenciada
+        """
+        if not transaction_id:
+            raise ValueError("ID da transação é obrigatório")
+
+        # Verifica se a transação existe
+        try:
+            transaction = self.get_credit_transaction_by_id(transaction_id)
+        except ValueError:
+            raise ValueError(f"Transação de crédito com ID {transaction_id} não encontrada")
+
+        # Verifica se a transação está sendo referenciada no splitwise
+        query_check_splitwise = """
+            SELECT COUNT(*) as count
+            FROM splitwise
+            WHERE transaction_id = ?
+        """
+        cursor = self.execute_query(query_check_splitwise, (transaction_id,))
+        if cursor.fetchone()["count"] > 0:
+            raise ValueError(f"Não é possível deletar transação '{transaction.description}'. Ela está vinculada a entradas do Splitwise.")
+
+        # Deleta a transação
+        query = "DELETE FROM credit_transactions WHERE id = ?"
+        cursor = self.execute_query(query, (transaction_id,))
+        return cursor.rowcount > 0
+
+    def get_operation_types(self) -> List[str]:
+        """
+        Retorna lista de tipos de operação únicos das transações bancárias.
+
+        Returns:
+            List[str]: Lista de tipos de operação únicos
+        """
+        query = """
+            SELECT DISTINCT operation_type
+            FROM bank_transactions
+            WHERE operation_type IS NOT NULL
+            AND operation_type != ''
+            ORDER BY operation_type
+        """
+        cursor = self.execute_query(query)
+        return [row["operation_type"] for row in cursor.fetchall()]

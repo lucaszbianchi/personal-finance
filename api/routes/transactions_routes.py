@@ -168,3 +168,179 @@ def check_split_settle():
     """Verifica o estado atual dos splits e settle ups."""
     result = transaction_service.check_split_settle_up()
     return jsonify(result)
+
+
+@bp.route("/bank", methods=["POST"])
+def create_bank_transaction():
+    """Cria uma nova transação bancária."""
+    try:
+        data = request.get_json()
+        if not data or not isinstance(data, dict):
+            return jsonify({"error": "Body inválido"}), 400
+
+        if "id" not in data:
+            return jsonify({"error": "Campo 'id' é obrigatório"}), 400
+
+        if "description" not in data:
+            return jsonify({"error": "Campo 'description' é obrigatório"}), 400
+
+        if "amount" not in data:
+            return jsonify({"error": "Campo 'amount' é obrigatório"}), 400
+
+        if "date" not in data:
+            return jsonify({"error": "Campo 'date' é obrigatório"}), 400
+
+        transaction = transaction_service.create_bank_transaction(data)
+        return (
+            jsonify(
+                {
+                    "id": transaction.transaction_id,
+                    "date": transaction.date,
+                    "description": transaction.description,
+                    "amount": transaction.amount,
+                    "category": _get_category_name(transaction.category_id),
+                    "operation_type": transaction.operation_type,
+                    "split_info": transaction.split_info,
+                    "payment_data": transaction.payment_data,
+                    "type": transaction.type_,
+                }
+            ),
+            201,
+        )
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@bp.route("/credit", methods=["POST"])
+def create_credit_transaction():
+    """Cria uma nova transação de cartão de crédito."""
+    try:
+        data = request.get_json()
+        if not data or not isinstance(data, dict):
+            return jsonify({"error": "Body inválido"}), 400
+
+        if "id" not in data:
+            return jsonify({"error": "Campo 'id' é obrigatório"}), 400
+
+        if "description" not in data:
+            return jsonify({"error": "Campo 'description' é obrigatório"}), 400
+
+        if "amount" not in data:
+            return jsonify({"error": "Campo 'amount' é obrigatório"}), 400
+
+        if "date" not in data:
+            return jsonify({"error": "Campo 'date' é obrigatório"}), 400
+
+        transaction = transaction_service.create_credit_transaction(data)
+        return (
+            jsonify(
+                {
+                    "id": transaction.transaction_id,
+                    "date": transaction.date,
+                    "description": transaction.description,
+                    "amount": transaction.amount,
+                    "category": _get_category_name(transaction.category_id),
+                    "status": transaction.status,
+                }
+            ),
+            201,
+        )
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@bp.route("/bank/<transaction_id>", methods=["DELETE"])
+def delete_bank_transaction(transaction_id: str):
+    """Deleta uma transação bancária."""
+    try:
+        success = transaction_service.delete_bank_transaction(transaction_id)
+        if success:
+            return jsonify({"message": "Transação bancária deletada com sucesso"})
+        else:
+            return jsonify({"error": "Falha ao deletar transação bancária"}), 400
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@bp.route("/credit/<transaction_id>", methods=["DELETE"])
+def delete_credit_transaction(transaction_id: str):
+    """Deleta uma transação de cartão de crédito."""
+    try:
+        success = transaction_service.delete_credit_transaction(transaction_id)
+        if success:
+            return jsonify({"message": "Transação de crédito deletada com sucesso"})
+        else:
+            return jsonify({"error": "Falha ao deletar transação de crédito"}), 400
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@bp.route("/bank/<transaction_id>", methods=["PUT"])
+def update_bank_transaction(transaction_id: str):
+    """Atualiza uma transação bancária."""
+    try:
+        data = request.get_json()
+        if not data or not isinstance(data, dict):
+            return jsonify({"error": "Body inválido"}), 400
+
+        transaction = transaction_service.update_bank_transaction(transaction_id, data)
+        return jsonify(
+            {
+                "id": transaction.transaction_id,
+                "date": transaction.date,
+                "description": transaction.description,
+                "amount": transaction.amount,
+                "category": _get_category_name(transaction.category_id),
+                "operation_type": transaction.operation_type,
+                "split_info": transaction.split_info,
+                "payment_data": transaction.payment_data,
+                "type": transaction.type_,
+            }
+        )
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@bp.route("/credit/<transaction_id>", methods=["PUT"])
+def update_credit_transaction(transaction_id: str):
+    """Atualiza uma transação de cartão de crédito."""
+    try:
+        data = request.get_json()
+        if not data or not isinstance(data, dict):
+            return jsonify({"error": "Body inválido"}), 400
+
+        transaction = transaction_service.update_credit_transaction(transaction_id, data)
+        return jsonify(
+            {
+                "id": transaction.transaction_id,
+                "date": transaction.date,
+                "description": transaction.description,
+                "amount": transaction.amount,
+                "category": _get_category_name(transaction.category_id),
+                "status": transaction.status,
+            }
+        )
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@bp.route("/operation-types", methods=["GET"])
+def get_operation_types():
+    """Retorna lista de tipos de operação únicos das transações bancárias."""
+    try:
+        operation_types = transaction_service.get_operation_types()
+        return jsonify({"operation_types": operation_types})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500

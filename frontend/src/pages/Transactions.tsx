@@ -1,6 +1,10 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useCategories } from '@/hooks/useCategories';
-import { CreditCard, Landmark, Filter, X, ChevronDown } from 'lucide-react';
+import { TransactionForm } from '@/components/TransactionForm';
+import { EditTransactionForm } from '@/components/EditTransactionForm';
+import { DeleteTransactionButton } from '@/components/DeleteTransactionButton';
+import { EditTransactionButton } from '@/components/EditTransactionButton';
+import { CreditCard, Landmark, Filter, X, ChevronDown, Plus } from 'lucide-react';
 import type { Category } from '@/types';
 
 interface Transaction {
@@ -31,6 +35,14 @@ export const Transactions: React.FC = () => {
   const [selectedCategory, setSelectedCategory] = useState<string>('');
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [showFilters, setShowFilters] = useState(false);
+
+  // Estados para formulário de criação
+  const [showCreateForm, setShowCreateForm] = useState(false);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
+
+  // Estados para edição
+  const [showEditForm, setShowEditForm] = useState(false);
+  const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
 
   const { data: categories } = useCategories();
   const categoriesList: Category[] = useMemo(
@@ -106,7 +118,7 @@ export const Transactions: React.FC = () => {
     };
 
     fetchTransactions();
-  }, [activeTab, selectedPeriod, selectedCategory]);
+  }, [activeTab, selectedPeriod, selectedCategory, refreshTrigger]);
 
   // Aplicar filtro de texto (busca) no frontend
   // Período e categoria são filtrados no backend
@@ -154,6 +166,22 @@ export const Transactions: React.FC = () => {
 
   const hasActiveFilters = selectedPeriod !== '__all__' || selectedCategory !== '' || searchTerm !== '';
 
+  const handleTransactionCreated = () => {
+    setShowCreateForm(false);
+    setRefreshTrigger(prev => prev + 1); // Force refresh
+  };
+
+  const handleEditTransaction = (transaction: Transaction) => {
+    setEditingTransaction(transaction);
+    setShowEditForm(true);
+  };
+
+  const handleTransactionUpdated = () => {
+    setShowEditForm(false);
+    setEditingTransaction(null);
+    setRefreshTrigger(prev => prev + 1); // Force refresh
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -173,9 +201,18 @@ export const Transactions: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div>
-        <h2 className="text-2xl font-bold text-gray-900">Transações</h2>
-        <p className="text-gray-600">Gerencie suas transações bancárias e de cartão</p>
+      <div className="flex justify-between items-start">
+        <div>
+          <h2 className="text-2xl font-bold text-gray-900">Transações</h2>
+          <p className="text-gray-600">Gerencie suas transações bancárias e de cartão</p>
+        </div>
+        <button
+          onClick={() => setShowCreateForm(true)}
+          className="bg-primary-600 text-white px-4 py-2 rounded-md hover:bg-primary-700 flex items-center space-x-2"
+        >
+          <Plus className="w-4 h-4" />
+          <span>Nova Transação</span>
+        </button>
       </div>
 
       {/* Tabs */}
@@ -321,6 +358,9 @@ export const Transactions: React.FC = () => {
                     Status
                   </th>
                 )}
+                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Ações
+                </th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
@@ -356,12 +396,25 @@ export const Transactions: React.FC = () => {
                         {transaction.status || '-'}
                       </td>
                     )}
+                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm text-gray-500">
+                      <div className="flex justify-end space-x-2">
+                        <EditTransactionButton
+                          onClick={() => handleEditTransaction(transaction)}
+                        />
+                        <DeleteTransactionButton
+                          transactionId={transaction.id}
+                          transactionType={activeTab}
+                          transactionDescription={transaction.description}
+                          onSuccess={() => setRefreshTrigger(prev => prev + 1)}
+                        />
+                      </div>
+                    </td>
                   </tr>
                 ))
               ) : (
                 <tr>
-                  <td 
-                    colSpan={activeTab === 'bank' ? 5 : 5} 
+                  <td
+                    colSpan={activeTab === 'bank' ? 6 : 6}
                     className="px-6 py-12 text-center text-gray-500"
                   >
                     <div className="flex flex-col items-center">
@@ -378,6 +431,37 @@ export const Transactions: React.FC = () => {
           </table>
         </div>
       </div>
+
+      {/* Modal de criação de transação */}
+      <TransactionForm
+        isOpen={showCreateForm}
+        onClose={() => setShowCreateForm(false)}
+        transactionType={activeTab}
+        onSuccess={handleTransactionCreated}
+      />
+
+      {/* Modal de edição de transação */}
+      {editingTransaction && (
+        <EditTransactionForm
+          isOpen={showEditForm}
+          onClose={() => {
+            setShowEditForm(false);
+            setEditingTransaction(null);
+          }}
+          transactionType={activeTab}
+          transaction={{
+            id: editingTransaction.id,
+            description: editingTransaction.description,
+            amount: editingTransaction.amount,
+            date: editingTransaction.date,
+            category_id: editingTransaction.category_id,
+            type: editingTransaction.type,
+            operation_type: editingTransaction.operation_type,
+            status: editingTransaction.status,
+          }}
+          onSuccess={handleTransactionUpdated}
+        />
+      )}
     </div>
   );
 };

@@ -284,3 +284,82 @@ class SplitwiseRepository(BaseRepository):
             )
             splitwise_list.append(splitwise)
         return splitwise_list
+
+    def create_splitwise(self, splitwise: Splitwise) -> Splitwise:
+        """
+        Cria uma nova entrada do Splitwise no banco de dados.
+
+        Args:
+            splitwise: Objeto Splitwise com os dados da nova entrada
+
+        Returns:
+            Splitwise: A entrada criada com ID atualizado
+
+        Raises:
+            ValueError: Se a entrada já existe ou dados são inválidos
+        """
+        if not splitwise.splitwise_id:
+            raise ValueError("ID da entrada do Splitwise é obrigatório")
+        if not splitwise.description:
+            raise ValueError("Descrição é obrigatória")
+        if splitwise.amount is None:
+            raise ValueError("Valor é obrigatório")
+
+        # Verifica se já existe uma entrada com o mesmo ID
+        existing_splitwise = self.get_splitwise_by_id(splitwise.splitwise_id)
+        if existing_splitwise:
+            raise ValueError(f"Entrada do Splitwise com ID {splitwise.splitwise_id} já existe")
+
+        # Converte a data para string no formato correto se for datetime
+        date_str = splitwise.date
+        if hasattr(splitwise.date, 'strftime'):
+            date_str = splitwise.date.strftime('%Y-%m-%d')
+
+        # Usa upsert com strategy insert_only para garantir que não sobrescreva
+        splitwise_data = {
+            "id": splitwise.splitwise_id,
+            "amount": splitwise.amount,
+            "date": date_str,
+            "description": splitwise.description,
+            "category_id": splitwise.category_id,
+            "transaction_id": splitwise.transaction_id,
+            "is_invalid": 1 if splitwise.is_invalid else 0
+        }
+
+        result = self.upsert("splitwise", "id", splitwise_data, strategy="insert_only")
+
+        if result["success"] and result["action"] == "inserted":
+            return splitwise
+        else:
+            raise ValueError(f"Falha ao criar entrada do Splitwise: {result.get('error', 'Erro desconhecido')}")
+
+    def delete_splitwise(self, splitwise_id: str) -> bool:
+        """
+        Deleta uma entrada do Splitwise do banco de dados.
+
+        Args:
+            splitwise_id: ID da entrada a ser deletada
+
+        Returns:
+            bool: True se a entrada foi deletada com sucesso
+
+        Raises:
+            ValueError: Se a entrada não existe ou está vinculada a transações
+        """
+        if not splitwise_id:
+            raise ValueError("ID da entrada do Splitwise é obrigatório")
+
+        # Verifica se a entrada existe
+        splitwise = self.get_splitwise_by_id(splitwise_id)
+        if not splitwise:
+            raise ValueError(f"Entrada do Splitwise com ID {splitwise_id} não encontrada")
+
+        # Verifica se a entrada está vinculada a alguma transação
+        # Se estiver vinculada, não deve ser deletada para manter integridade
+        if splitwise.transaction_id:
+            raise ValueError(f"Não é possível deletar entrada do Splitwise '{splitwise.description}'. Ela está vinculada à transação {splitwise.transaction_id}.")
+
+        # Deleta a entrada
+        query = "DELETE FROM splitwise WHERE id = ?"
+        cursor = self.execute_query(query, (splitwise_id,))
+        return cursor.rowcount > 0

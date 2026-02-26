@@ -37,3 +37,68 @@ class PersonService:
         if not person:
             raise ValueError(f"Pessoa com ID {person_id} não encontrada.")
         return self.person_repo.update_person_split_info(person_id, split_info)
+
+    def create_person(self, person_data: dict) -> Person:
+        """
+        Cria uma nova pessoa.
+
+        Args:
+            person_data: Dict com dados da pessoa - deve conter 'id' e 'name'
+
+        Returns:
+            Person: A pessoa criada
+
+        Raises:
+            ValueError: Se dados são inválidos ou pessoa já existe
+        """
+        if not person_data.get("id"):
+            raise ValueError("ID da pessoa é obrigatório")
+        if not person_data.get("name"):
+            raise ValueError("Nome da pessoa é obrigatório")
+
+        # Cria objeto Person com split_info vazio se não fornecido
+        person = Person(
+            person_id=person_data["id"],
+            name=person_data["name"],
+            split_info=person_data.get("split_info", {})
+        )
+
+        # Valida dados de negócio adicionais se necessário
+        if len(person.name.strip()) < 2:
+            raise ValueError("Nome da pessoa deve ter pelo menos 2 caracteres")
+
+        # Cria no repositório
+        created_person = self.person_repo.create_person(person)
+        return created_person
+
+    def delete_person(self, person_id: str) -> bool:
+        """
+        Deleta uma pessoa.
+
+        Args:
+            person_id: ID da pessoa a ser deletada
+
+        Returns:
+            bool: True se deletada com sucesso
+
+        Raises:
+            ValueError: Se pessoa não existe ou não pode ser deletada
+        """
+        if not person_id:
+            raise ValueError("ID da pessoa é obrigatório")
+
+        # Valida se existe
+        person = self.person_repo.get_person_by_id(person_id)
+        if not person:
+            raise ValueError(f"Pessoa com ID {person_id} não encontrada")
+
+        # Regra de negócio: não permite deletar se é o parceiro atual
+        if person.is_partner():
+            raise ValueError(f"Não é possível deletar '{person.name}' pois é o parceiro atual do Splitwise")
+
+        # Regra de negócio: não permite deletar se tem pendências não quitadas
+        if not person.settled_up():
+            raise ValueError(f"Não é possível deletar '{person.name}' pois possui pendências não quitadas")
+
+        # Deleta no repositório (que fará as verificações de integridade)
+        return self.person_repo.delete_person(person_id)

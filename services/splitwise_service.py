@@ -415,3 +415,89 @@ class SplitwiseService:
     def get_all_splitwise_including_invalid(self) -> List[Splitwise]:
         """Retorna todas as transações do Splitwise, incluindo as inválidas (para administração)."""
         return self.splitwise_repository.get_all_splitwise_including_invalid()
+
+    def create_splitwise(self, splitwise_data: dict) -> Splitwise:
+        """
+        Cria uma nova entrada do Splitwise.
+
+        Args:
+            splitwise_data: Dict com dados da entrada - deve conter 'id', 'amount', 'date', 'description'
+
+        Returns:
+            Splitwise: A entrada criada
+
+        Raises:
+            ValueError: Se dados são inválidos ou entrada já existe
+        """
+        if not splitwise_data.get("id"):
+            raise ValueError("ID da entrada do Splitwise é obrigatório")
+        if not splitwise_data.get("description"):
+            raise ValueError("Descrição é obrigatória")
+        if splitwise_data.get("amount") is None:
+            raise ValueError("Valor é obrigatório")
+        if not splitwise_data.get("date"):
+            raise ValueError("Data é obrigatória")
+
+        # Valida formato da data
+        try:
+            if isinstance(splitwise_data["date"], str):
+                parsed_date = self._parse_date(splitwise_data["date"])
+                if not parsed_date:
+                    raise ValueError("Formato de data inválido")
+            else:
+                parsed_date = splitwise_data["date"]
+        except (ValueError, TypeError):
+            raise ValueError("Formato de data inválido. Use YYYY-MM-DD")
+
+        # Valida valor
+        try:
+            amount = float(splitwise_data["amount"])
+        except (ValueError, TypeError):
+            raise ValueError("Valor deve ser um número")
+
+        # Cria objeto Splitwise
+        splitwise = Splitwise(
+            splitwise_id=splitwise_data["id"],
+            amount=amount,
+            date=parsed_date,
+            description=splitwise_data["description"],
+            category_id=splitwise_data.get("category_id", ""),
+            transaction_id=splitwise_data.get("transaction_id", ""),
+            is_invalid=splitwise_data.get("is_invalid", False)
+        )
+
+        # Valida regras de negócio
+        if abs(amount) < 0.01:  # Valor mínimo
+            raise ValueError("Valor deve ser maior que 0.01")
+
+        # Cria no repositório
+        created_splitwise = self.splitwise_repository.create_splitwise(splitwise)
+        return created_splitwise
+
+    def delete_splitwise(self, splitwise_id: str) -> bool:
+        """
+        Deleta uma entrada do Splitwise.
+
+        Args:
+            splitwise_id: ID da entrada a ser deletada
+
+        Returns:
+            bool: True se deletada com sucesso
+
+        Raises:
+            ValueError: Se entrada não existe ou não pode ser deletada
+        """
+        if not splitwise_id:
+            raise ValueError("ID da entrada do Splitwise é obrigatório")
+
+        # Valida se existe
+        splitwise = self.splitwise_repository.get_splitwise_by_id(splitwise_id)
+        if not splitwise:
+            raise ValueError(f"Entrada do Splitwise com ID {splitwise_id} não encontrada")
+
+        # Regra de negócio: avisa se está vinculada a transação (mas permite deletar)
+        if splitwise.transaction_id:
+            print(f"Aviso: Deletando entrada do Splitwise '{splitwise.description}' que estava vinculada à transação {splitwise.transaction_id}")
+
+        # Deleta no repositório (que fará as verificações adicionais de integridade)
+        return self.splitwise_repository.delete_splitwise(splitwise_id)
