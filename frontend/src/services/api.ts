@@ -8,6 +8,8 @@ import type {
   FinanceSummary,
   TransactionFilter,
   CreateTransactionRequest,
+  CreateBankTransactionRequest,
+  CreateCreditTransactionRequest,
 } from '@/types';
 
 const api = axios.create({
@@ -41,6 +43,54 @@ api.interceptors.response.use(
 );
 
 export const transactionService = {
+  // Bank transactions
+  getBankTransactions: async (filters?: TransactionFilter) => {
+    const response = await api.get('/transactions/bank', { params: filters });
+    return response.data;
+  },
+
+  createBankTransaction: async (transaction: CreateBankTransactionRequest) => {
+    const response = await api.post('/transactions/bank', transaction);
+    return response.data;
+  },
+
+  deleteBankTransaction: async (id: string) => {
+    const response = await api.delete(`/transactions/bank/${id}`);
+    return response.data;
+  },
+
+  // Credit transactions
+  getCreditTransactions: async (filters?: TransactionFilter) => {
+    const response = await api.get('/transactions/credit', { params: filters });
+    return response.data;
+  },
+
+  createCreditTransaction: async (transaction: CreateCreditTransactionRequest) => {
+    const response = await api.post('/transactions/credit', transaction);
+    return response.data;
+  },
+
+  deleteCreditTransaction: async (id: string) => {
+    const response = await api.delete(`/transactions/credit/${id}`);
+    return response.data;
+  },
+
+  updateBankTransaction: async (id: string, transaction: Partial<CreateBankTransactionRequest>) => {
+    const response = await api.put(`/transactions/bank/${id}`, transaction);
+    return response.data;
+  },
+
+  updateCreditTransaction: async (id: string, transaction: Partial<CreateCreditTransactionRequest>) => {
+    const response = await api.put(`/transactions/credit/${id}`, transaction);
+    return response.data;
+  },
+
+  getOperationTypes: async () => {
+    const response = await api.get('/transactions/operation-types');
+    return response.data.operation_types;
+  },
+
+  // Generic methods (for backward compatibility)
   getAll: async (filters?: TransactionFilter) => {
     const response = await api.get('/transactions', { params: filters });
     return response.data;
@@ -51,17 +101,20 @@ export const transactionService = {
     return response.data;
   },
 
+  update: async (transactionType: 'bank' | 'credit', id: string, transaction: Partial<Transaction>) => {
+    const response = await api.put(`/transactions/${transactionType}/${id}`, transaction);
+    return response.data;
+  },
+
+  // Deprecated - use specific methods instead
   create: async (transaction: CreateTransactionRequest) => {
+    console.warn('Using deprecated create method. Use createBankTransaction or createCreditTransaction instead.');
     const response = await api.post('/transactions', transaction);
     return response.data;
   },
 
-  update: async (id: string, transaction: Partial<Transaction>) => {
-    const response = await api.put(`/transactions/${id}`, transaction);
-    return response.data;
-  },
-
   delete: async (id: string) => {
+    console.warn('Using deprecated delete method. Use deleteBankTransaction or deleteCreditTransaction instead.');
     const response = await api.delete(`/transactions/${id}`);
     return response.data;
   },

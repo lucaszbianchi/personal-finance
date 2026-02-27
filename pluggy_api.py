@@ -149,6 +149,9 @@ class PluggyAPI:
         Mantém arquivos JSON em paralelo apenas para debug/desenvolvimento.
         Retorna dict com contagens de inserções e atualizações por tipo de dados.
         """
+        # Inicializa o banco de dados com as tabelas necessárias
+        self._initialize_database()
+
         # Inicializa repositórios
         transaction_repo = TransactionRepository()
         investment_repo = InvestmentRepository()
@@ -310,6 +313,90 @@ class PluggyAPI:
                 break
 
         return splitwise_transactions
+
+    def _initialize_database(self):
+        """Inicializa o banco de dados finance.db com as tabelas necessárias"""
+        import sqlite3
+
+        db_path = "finance.db"
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+
+        print(f"[INFO] Inicializando banco de dados {db_path}...")
+
+        # Criar tabelas
+        tables_sql = [
+            """
+            CREATE TABLE IF NOT EXISTS categories (
+                id TEXT PRIMARY KEY,
+                name TEXT NOT NULL,
+                types TEXT
+            )
+            """,
+            """
+            CREATE TABLE IF NOT EXISTS bank_transactions (
+                id TEXT PRIMARY KEY,
+                date TEXT NOT NULL,
+                description TEXT,
+                amount REAL,
+                category_id TEXT,
+                type TEXT,
+                operation_type TEXT,
+                split_info TEXT,
+                payment_data TEXT,
+                FOREIGN KEY (category_id) REFERENCES categories(id)
+            )
+            """,
+            """
+            CREATE TABLE IF NOT EXISTS credit_transactions (
+                id TEXT PRIMARY KEY,
+                date TEXT NOT NULL,
+                description TEXT,
+                amount REAL,
+                category_id TEXT,
+                status TEXT,
+                FOREIGN KEY (category_id) REFERENCES categories(id)
+            )
+            """,
+            """
+            CREATE TABLE IF NOT EXISTS investments (
+                id TEXT PRIMARY KEY,
+                name TEXT,
+                balance REAL,
+                type TEXT,
+                subtype TEXT,
+                date TEXT,
+                due_date TEXT,
+                issuer TEXT,
+                rate_type TEXT
+            )
+            """,
+            """
+            CREATE TABLE IF NOT EXISTS persons (
+                id TEXT PRIMARY KEY,
+                name TEXT NOT NULL
+            )
+            """,
+            """
+            CREATE TABLE IF NOT EXISTS splitwise (
+                id TEXT PRIMARY KEY,
+                amount REAL,
+                date TEXT,
+                description TEXT,
+                category_id TEXT,
+                transaction_id TEXT,
+                is_invalid INTEGER DEFAULT 0
+            )
+            """,
+        ]
+
+        # Executar criação de tabelas
+        for sql in tables_sql:
+            cursor.execute(sql)
+
+        conn.commit()
+        conn.close()
+        print(f"[OK] Banco de dados {db_path} inicializado com sucesso!")
 
 
 if __name__ == "__main__":

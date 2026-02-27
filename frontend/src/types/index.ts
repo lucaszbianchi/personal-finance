@@ -91,3 +91,24 @@ export interface CreateTransactionRequest {
   category_id?: string;
   subcategory?: string;
 }
+
+export interface CreateBankTransactionRequest {
+  id: string;
+  description: string;
+  amount: number;
+  date: string;
+  category_id?: string;
+  type?: string;
+  operation_type?: string;
+  split_info?: any;
+  payment_data?: any;
+}
+
+export interface CreateCreditTransactionRequest {
+  id: string;
+  description: string;
+  amount: number;
+  date: string;
+  category_id?: string;
+  status?: string;
+}

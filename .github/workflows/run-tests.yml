@@ -51,8 +51,8 @@ jobs:
         run: |
           coverage report --fail-under=47 --include=services/*,repositories/*,utils/*
 
-      - name: Check new code coverage (52%)
+      - name: Check new code coverage (80%)
         if: github.event_name == 'pull_request'
         run: |
-          diff-cover coverage.xml --compare-branch=origin/${{ github.base_ref }} --fail-under=52
+          diff-cover coverage.xml --compare-branch=origin/${{ github.base_ref }} --fail-under=80
         continue-on-error: true

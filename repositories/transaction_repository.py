@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import List
 import json
 from utils.date_helper import DateHelper
 from repositories.base_repository import BaseRepository
@@ -220,72 +220,92 @@ class TransactionRepository(BaseRepository):
     def update_bank_transaction(
         self,
         transaction_id: str,
-        description: Optional[str],
-        category_id: Optional[str],
-        split_info: Optional[dict],
-    ) -> bool:
+        transaction_data: dict,
+    ) -> BankTransaction:
         """Atualiza uma transação bancária existente."""
-        if split_info:
-            query = """
-                UPDATE bank_transactions
-                SET split_info = ?
-                WHERE id = ?
-            """
-            values = (
-                json.dumps(split_info),
-                transaction_id,
+        existing_transaction = self.get_bank_transaction_by_id(transaction_id)
+        if not existing_transaction:
+            raise ValueError(
+                f"Transação bancária com ID {transaction_id} não encontrada"
             )
-            cursor = self.execute_query(query, values)
-            return cursor.rowcount > 0
-        query = """
-            UPDATE bank_transactions
-            SET description = ?, category_id = (
-                SELECT id FROM categories WHERE name = ?
-            )
-            WHERE id = ?
-        """
-        values = (
-            description,
-            category_id,
-            transaction_id,
+
+        field_processors = {
+            "description": lambda x: x,
+            "amount": float,
+            "date": lambda x: x,
+            "category_id": lambda x: x,
+            "operation_type": lambda x: x,
+            "type": lambda x: x,
+            "split_info": lambda x: json.dumps(x) if x else None,
+        }
+
+        fields_to_update = []
+        values = []
+
+        for field, processor in field_processors.items():
+            if field in transaction_data:
+                fields_to_update.append(f"{field} = ?")
+                values.append(processor(transaction_data[field]))
+
+        if not fields_to_update:
+            return existing_transaction
+
+        values.append(transaction_id)
+
+        query = (
+            f"UPDATE bank_transactions SET {', '.join(fields_to_update)} WHERE id = ?"
         )
-        cursor = self.execute_query(query, values)
-        return cursor.rowcount > 0
+        cursor = self.execute_query(query, tuple(values))
+
+        if cursor.rowcount == 0:
+            raise ValueError(
+                f"Falha ao atualizar transação bancária com ID {transaction_id}"
+            )
+        return self.get_bank_transaction_by_id(transaction_id)
 
     def update_credit_transaction(
         self,
         transaction_id: str,
-        description: Optional[str],
-        category_id: Optional[str],
-        split_info: Optional[dict],
-    ) -> bool:
+        transaction_data: dict,
+    ) -> CreditTransaction:
         """Atualiza uma transação de cartão de crédito existente."""
-        if split_info:
-            query = """
-                UPDATE credit_transactions
-                SET split_info = ?
-                WHERE id = ?
-            """
-            values = (
-                json.dumps(split_info),
-                transaction_id,
+        existing_transaction = self.get_credit_transaction_by_id(transaction_id)
+        if not existing_transaction:
+            raise ValueError(
+                f"Transação de crédito com ID {transaction_id} não encontrada"
             )
-            cursor = self.execute_query(query, values)
-            return cursor.rowcount > 0
-        query = """
-            UPDATE credit_transactions
-            SET description = ?, category_id = (
-                SELECT id FROM categories WHERE name = ?
-            )
-            WHERE id = ?
-        """
-        values = (
-            description,
-            category_id,
-            transaction_id,
+
+        field_processors = {
+            "description": lambda x: x,
+            "amount": float,
+            "date": lambda x: x,
+            "category_id": lambda x: x,
+            "status": lambda x: x,
+        }
+
+        fields_to_update = []
+        values = []
+
+        for field, processor in field_processors.items():
+            if field in transaction_data:
+                fields_to_update.append(f"{field} = ?")
+                values.append(processor(transaction_data[field]))
+
+        if not fields_to_update:
+            return existing_transaction
+        values.append(transaction_id)
+
+        query = (
+            f"UPDATE credit_transactions SET {', '.join(fields_to_update)} WHERE id = ?"
         )
-        cursor = self.execute_query(query, values)
-        return cursor.rowcount > 0
+        cursor = self.execute_query(query, tuple(values))
+
+        if cursor.rowcount == 0:
+            raise ValueError(
+                f"Falha ao atualizar transação de crédito com ID {transaction_id}"
+            )
+
+        return self.get_credit_transaction_by_id(transaction_id)
 
     def category_in_use(self, category_id: int) -> bool:
         """Verifica se uma categoria está em uso em transações."""
@@ -337,7 +357,6 @@ class TransactionRepository(BaseRepository):
         Returns:
             Dict com resultado da operação
         """
-        # Mapeia dados da API para schema do banco
         mapped_data = {
             "id": transaction_data["id"],
             "date": transaction_data["date"],
@@ -346,16 +365,13 @@ class TransactionRepository(BaseRepository):
             "category_id": transaction_data.get("categoryId"),
             "type": transaction_data.get("type"),
             "operation_type": transaction_data.get("operationType"),
-            "payment_data": transaction_data.get(
-                "paymentData"
-            ),  # Será serializado automaticamente
+            "payment_data": transaction_data.get("paymentData"),
         }
 
         result = self.upsert(
             "bank_transactions", "id", mapped_data, strategy="insert_only"
         )
 
-        # Processa lógica de negócio adicional se inseriu nova transação
         if result["action"] == "inserted":
             self._process_pix_person_extraction(transaction_data)
             self._process_category_creation(transaction_data)
@@ -373,7 +389,6 @@ class TransactionRepository(BaseRepository):
         Returns:
             Dict com resultado da operação
         """
-        # Mapeia dados da API para schema do banco
         mapped_data = {
             "id": transaction_data["id"],
             "date": transaction_data["date"],
@@ -387,7 +402,6 @@ class TransactionRepository(BaseRepository):
             "status": transaction_data.get("status"),
         }
 
-        # Campos que podem ser atualizados (status é o principal)
         update_fields = ["status"]
 
         result = self.upsert(
@@ -398,7 +412,6 @@ class TransactionRepository(BaseRepository):
             update_fields=update_fields,
         )
 
-        # Processa lógica de negócio adicional
         self._process_category_creation(transaction_data)
 
         return result
@@ -441,3 +454,192 @@ class TransactionRepository(BaseRepository):
 
             # Usa insert_only para categorias (não devem ser alteradas automaticamente)
             self.upsert("categories", "id", category_data, strategy="insert_only")
+
+    def create_bank_transaction(self, transaction: BankTransaction) -> BankTransaction:
+        """
+        Cria uma nova transação bancária no banco de dados.
+
+        Args:
+            transaction: Objeto BankTransaction com os dados da nova transação
+
+        Returns:
+            BankTransaction: A transação criada
+
+        Raises:
+            ValueError: Se a transação já existe ou dados são inválidos
+        """
+        if not transaction.transaction_id:
+            raise ValueError("ID da transação é obrigatório")
+        if not transaction.description:
+            raise ValueError("Descrição da transação é obrigatória")
+        if transaction.amount is None:
+            raise ValueError("Valor da transação é obrigatório")
+
+        # Verifica se já existe uma transação com o mesmo ID
+        try:
+            existing_transaction = self.get_bank_transaction_by_id(
+                transaction.transaction_id
+            )
+            if existing_transaction:
+                raise ValueError(
+                    f"Transação bancária com ID {transaction.transaction_id} já existe"
+                )
+        except ValueError:
+            # Se der erro, significa que não encontrou a transação (esperado)
+            pass
+
+        # Cria a transação usando o método existente
+        success = self.add_bank_transaction(transaction)
+
+        if success:
+            return transaction
+        else:
+            raise ValueError("Falha ao criar transação bancária")
+
+    def create_credit_transaction(
+        self, transaction: CreditTransaction
+    ) -> CreditTransaction:
+        """
+        Cria uma nova transação de cartão de crédito no banco de dados.
+
+        Args:
+            transaction: Objeto CreditTransaction com os dados da nova transação
+
+        Returns:
+            CreditTransaction: A transação criada
+
+        Raises:
+            ValueError: Se a transação já existe ou dados são inválidos
+        """
+        if not transaction.transaction_id:
+            raise ValueError("ID da transação é obrigatório")
+        if not transaction.description:
+            raise ValueError("Descrição da transação é obrigatória")
+        if transaction.amount is None:
+            raise ValueError("Valor da transação é obrigatório")
+
+        # Verifica se já existe uma transação com o mesmo ID
+        try:
+            existing_transaction = self.get_credit_transaction_by_id(
+                transaction.transaction_id
+            )
+            if existing_transaction:
+                raise ValueError(
+                    f"Transação de crédito com ID {transaction.transaction_id} já existe"
+                )
+        except ValueError:
+            # Se der erro, significa que não encontrou a transação (esperado)
+            pass
+
+        # Cria a transação usando o método existente
+        success = self.add_credit_transaction(transaction)
+
+        if success:
+            return transaction
+        else:
+            raise ValueError("Falha ao criar transação de crédito")
+
+    def delete_bank_transaction(self, transaction_id: str) -> bool:
+        """
+        Deleta uma transação bancária do banco de dados.
+
+        Args:
+            transaction_id: ID da transação a ser deletada
+
+        Returns:
+            bool: True se a transação foi deletada com sucesso
+
+        Raises:
+            ValueError: Se a transação não existe ou está sendo referenciada
+        """
+        if not transaction_id:
+            raise ValueError("ID da transação é obrigatório")
+
+        # Verifica se a transação existe
+        try:
+            transaction = self.get_bank_transaction_by_id(transaction_id)
+        except ValueError as exc:
+            raise ValueError(
+                f"Transação bancária com ID {transaction_id} não encontrada"
+            ) from exc
+
+        # Verifica se a transação está sendo referenciada no splitwise
+        query_check_splitwise = """
+            SELECT COUNT(*) as count
+            FROM splitwise
+            WHERE transaction_id = ?
+        """
+        cursor = self.execute_query(query_check_splitwise, (transaction_id,))
+        if cursor.fetchone()["count"] > 0:
+            raise ValueError(
+                f"Não é possível deletar transação '{transaction.description}'. Ela está vinculada a entradas do Splitwise."
+            )
+
+        # Verifica se faz parte de alguma divisão (split_info)
+        if transaction.split_info:
+            raise ValueError(
+                f"Não é possível deletar transação '{transaction.description}'. Ela possui informações de divisão."
+            )
+
+        # Deleta a transação
+        query = "DELETE FROM bank_transactions WHERE id = ?"
+        cursor = self.execute_query(query, (transaction_id,))
+        return cursor.rowcount > 0
+
+    def delete_credit_transaction(self, transaction_id: str) -> bool:
+        """
+        Deleta uma transação de cartão de crédito do banco de dados.
+
+        Args:
+            transaction_id: ID da transação a ser deletada
+
+        Returns:
+            bool: True se a transação foi deletada com sucesso
+
+        Raises:
+            ValueError: Se a transação não existe ou está sendo referenciada
+        """
+        if not transaction_id:
+            raise ValueError("ID da transação é obrigatório")
+
+        # Verifica se a transação existe
+        try:
+            transaction = self.get_credit_transaction_by_id(transaction_id)
+        except ValueError as exc:
+            raise ValueError(
+                f"Transação de crédito com ID {transaction_id} não encontrada"
+            ) from exc
+
+        # Verifica se a transação está sendo referenciada no splitwise
+        query_check_splitwise = """
+            SELECT COUNT(*) as count
+            FROM splitwise
+            WHERE transaction_id = ?
+        """
+        cursor = self.execute_query(query_check_splitwise, (transaction_id,))
+        if cursor.fetchone()["count"] > 0:
+            raise ValueError(
+                f"Não é possível deletar transação '{transaction.description}'. Ela está vinculada a entradas do Splitwise."
+            )
+
+        # Deleta a transação
+        query = "DELETE FROM credit_transactions WHERE id = ?"
+        cursor = self.execute_query(query, (transaction_id,))
+        return cursor.rowcount > 0
+
+    def get_operation_types(self) -> List[str]:
+        """
+        Retorna lista de tipos de operação únicos das transações bancárias.
+
+        Returns:
+            List[str]: Lista de tipos de operação únicos
+        """
+        query = """
+            SELECT DISTINCT operation_type
+            FROM bank_transactions
+            WHERE operation_type IS NOT NULL
+            AND operation_type != ''
+            ORDER BY operation_type
+        """
+        cursor = self.execute_query(query)
+        return [row["operation_type"] for row in cursor.fetchall()]

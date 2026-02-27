@@ -70,3 +70,80 @@ class PersonRepository(BaseRepository):
         if not persons:
             return []
         return [p for p in persons if not p.settled_up()]
+
+    def create_person(self, person: Person) -> Person:
+        """
+        Cria uma nova pessoa no banco de dados.
+
+        Args:
+            person: Objeto Person com os dados da nova pessoa
+
+        Returns:
+            Person: A pessoa criada com ID atualizado
+
+        Raises:
+            ValueError: Se a pessoa já existe ou dados são inválidos
+        """
+        if not person.person_id:
+            raise ValueError("ID da pessoa é obrigatório")
+        if not person.name:
+            raise ValueError("Nome da pessoa é obrigatório")
+
+        # Verifica se já existe uma pessoa com o mesmo ID
+        existing_person = self.get_person_by_id(person.person_id)
+        if existing_person:
+            raise ValueError(f"Pessoa com ID {person.person_id} já existe")
+
+        # Usa upsert com strategy insert_only para garantir que não sobrescreva
+        person_data = {
+            "id": person.person_id,
+            "name": person.name,
+            "split_info": person.split_info if person.split_info else {}
+        }
+
+        result = self.upsert("persons", "id", person_data, strategy="insert_only")
+
+        if result["success"] and result["action"] == "inserted":
+            return person
+        else:
+            raise ValueError(f"Falha ao criar pessoa: {result.get('error', 'Erro desconhecido')}")
+
+    def delete_person(self, person_id: str) -> bool:
+        """
+        Deleta uma pessoa do banco de dados.
+
+        Args:
+            person_id: ID da pessoa a ser deletada
+
+        Returns:
+            bool: True se a pessoa foi deletada com sucesso
+
+        Raises:
+            ValueError: Se a pessoa não existe ou está sendo referenciada
+        """
+        if not person_id:
+            raise ValueError("ID da pessoa é obrigatório")
+
+        # Verifica se a pessoa existe
+        person = self.get_person_by_id(person_id)
+        if not person:
+            raise ValueError(f"Pessoa com ID {person_id} não encontrada")
+
+        # Verifica se a pessoa está sendo referenciada em splitwise
+        # (verificação de integridade referencial)
+        query_check_splitwise = """
+            SELECT COUNT(*) as count
+            FROM splitwise
+            WHERE transaction_id IN (
+                SELECT id FROM bank_transactions
+                WHERE split_info LIKE '%"person_id":"' || ? || '"%'
+            )
+        """
+        cursor = self.execute_query(query_check_splitwise, (person_id,))
+        if cursor.fetchone()["count"] > 0:
+            raise ValueError(f"Não é possível deletar pessoa {person.name}. Ela está sendo referenciada em transações compartilhadas.")
+
+        # Deleta a pessoa
+        query = "DELETE FROM persons WHERE id = ?"
+        cursor = self.execute_query(query, (person_id,))
+        return cursor.rowcount > 0

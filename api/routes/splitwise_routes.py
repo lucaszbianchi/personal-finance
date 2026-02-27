@@ -263,3 +263,59 @@ def get_all_including_invalid():
 
     except Exception as e:
         return jsonify({"error": f"Erro interno: {str(e)}"}), 500
+
+
+@bp.route("/", methods=["POST"])
+def create_splitwise():
+    """Cria uma nova entrada do Splitwise."""
+    try:
+        data = request.get_json()
+        if not data or not isinstance(data, dict):
+            return jsonify({"error": "Body inválido"}), 400
+
+        if "id" not in data:
+            return jsonify({"error": "Campo 'id' é obrigatório"}), 400
+
+        if "description" not in data:
+            return jsonify({"error": "Campo 'description' é obrigatório"}), 400
+
+        if "amount" not in data:
+            return jsonify({"error": "Campo 'amount' é obrigatório"}), 400
+
+        if "date" not in data:
+            return jsonify({"error": "Campo 'date' é obrigatório"}), 400
+
+        splitwise = splitwise_service.create_splitwise(data)
+        return (
+            jsonify(
+                {
+                    "id": splitwise.splitwise_id,
+                    "amount": splitwise.amount,
+                    "date": splitwise.date.strftime("%Y-%m-%d"),
+                    "description": splitwise.description,
+                    "category_id": splitwise.category_id,
+                    "transaction_id": splitwise.transaction_id,
+                    "is_invalid": splitwise.is_invalid,
+                }
+            ),
+            201,
+        )
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@bp.route("/<splitwise_id>", methods=["DELETE"])
+def delete_splitwise(splitwise_id: str):
+    """Deleta uma entrada do Splitwise."""
+    try:
+        success = splitwise_service.delete_splitwise(splitwise_id)
+        if success:
+            return jsonify({"message": "Entrada do Splitwise deletada com sucesso"})
+        else:
+            return jsonify({"error": "Falha ao deletar entrada do Splitwise"}), 400
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
