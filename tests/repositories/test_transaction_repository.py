@@ -21,24 +21,31 @@ class TestTransactionRepository(unittest.TestCase):
 
     def _create_test_tables(self):
         """Cria todas as tabelas necessárias para os testes"""
+        # Remover tabela existente e recriar
+        self.repo.execute_query("DROP TABLE IF EXISTS bank_transactions")
+
         # Tabela bank_transactions
         self.repo.execute_query("""
-            CREATE TABLE IF NOT EXISTS bank_transactions (
+            CREATE TABLE bank_transactions (
                 id TEXT PRIMARY KEY,
-                date TEXT,
+                date TEXT NOT NULL,
                 description TEXT,
                 amount REAL,
                 category_id TEXT,
                 type TEXT,
                 operation_type TEXT,
                 split_info TEXT,
-                payment_data TEXT
+                payment_data TEXT,
+                FOREIGN KEY (category_id) REFERENCES categories(id)
             )
         """)
 
+        # Remover tabela existente e recriar
+        self.repo.execute_query("DROP TABLE IF EXISTS credit_transactions")
+
         # Tabela credit_transactions
         self.repo.execute_query("""
-            CREATE TABLE IF NOT EXISTS credit_transactions (
+            CREATE TABLE credit_transactions (
                 id TEXT PRIMARY KEY,
                 date TEXT,
                 description TEXT,
@@ -48,9 +55,12 @@ class TestTransactionRepository(unittest.TestCase):
             )
         """)
 
+        # Remover tabela existente e recriar
+        self.repo.execute_query("DROP TABLE IF EXISTS investments")
+
         # Tabela investments
         self.repo.execute_query("""
-            CREATE TABLE IF NOT EXISTS investments (
+            CREATE TABLE investments (
                 id TEXT PRIMARY KEY,
                 name TEXT,
                 balance REAL,
@@ -63,27 +73,36 @@ class TestTransactionRepository(unittest.TestCase):
             )
         """)
 
+        # Remover tabela existente e recriar
+        self.repo.execute_query("DROP TABLE IF EXISTS categories")
+
         # Tabela categories
         self.repo.execute_query("""
-            CREATE TABLE IF NOT EXISTS categories (
+            CREATE TABLE categories (
                 id TEXT PRIMARY KEY,
-                name TEXT,
+                name TEXT NOT NULL,
                 types TEXT
             )
         """)
 
+        # Remover tabela existente e recriar
+        self.repo.execute_query("DROP TABLE IF EXISTS splitwise")
+
         # Tabela splitwise
         self.repo.execute_query("""
-            CREATE TABLE IF NOT EXISTS splitwise (
+            CREATE TABLE splitwise (
                 id TEXT PRIMARY KEY,
                 transaction_id TEXT,
                 amount REAL
             )
         """)
 
+        # Remover tabela existente e recriar
+        self.repo.execute_query("DROP TABLE IF EXISTS persons")
+
         # Tabela persons
         self.repo.execute_query("""
-            CREATE TABLE IF NOT EXISTS persons (
+            CREATE TABLE persons (
                 id TEXT PRIMARY KEY,
                 name TEXT
             )
@@ -102,8 +121,8 @@ class TestTransactionRepository(unittest.TestCase):
     def _create_test_category(self, category_id="cat123", name="Test Category"):
         """Helper para criar categoria de teste"""
         self.repo.execute_query(
-            "INSERT OR IGNORE INTO categories (id, name, types) VALUES (?, ?, ?)",
-            (category_id, name, '["essencial"]')
+            "INSERT OR IGNORE INTO categories (id, name) VALUES (?, ?)",
+            (category_id, name)
         )
 
     # Testes para linhas 18-33: get_bank_transactions
@@ -178,6 +197,35 @@ class TestTransactionRepository(unittest.TestCase):
         self.assertIsNotNone(found)
         self.assertEqual(found.name, "Test Investment")
         self.assertEqual(found.balance, 1000.0)
+
+    # Testes para linhas 110-143: get_bank_transaction_by_id
+    def test_get_bank_transaction_by_id(self):
+        """Testa get_bank_transaction_by_id - linhas 110-143"""
+        self._create_test_category()
+
+        # Criar transação bancária
+        bank_txn = BankTransaction(
+            transaction_id=self.test_bank_id,
+            amount=175.75,
+            date="2023-01-03",
+            description="Test Bank by ID",
+            category_id="cat123",
+            type_="debit",
+            operation_type="PIX",
+            split_info=None,
+            payment_data=None
+        )
+        self.repo.add_bank_transaction(bank_txn)
+
+        # Buscar por ID
+        found = self.repo.get_bank_transaction_by_id(self.test_bank_id)
+        self.assertIsNotNone(found)
+        self.assertEqual(found.transaction_id, self.test_bank_id)
+        self.assertEqual(found.amount, 175.75)
+
+        # Testar transação inexistente
+        with self.assertRaises(ValueError):
+            self.repo.get_bank_transaction_by_id("nonexistent")
 
     # Testes para linhas 147-164: get_credit_transaction_by_id
     def test_get_credit_transaction_by_id(self):
@@ -451,6 +499,65 @@ class TestTransactionRepository(unittest.TestCase):
                 strategy="insert_only"
             )
 
+    def test_process_pix_person_extraction_transferencia_enviada(self):
+        """Testa _process_pix_person_extraction para transferência enviada"""
+        transaction_data = {
+            "operationType": "PIX",
+            "description": "transferência enviada|Maria Santos",
+            "paymentData": {
+                "receiver": {
+                    "documentNumber": {
+                        "type": "CPF",
+                        "value": "98765432100"
+                    }
+                }
+            }
+        }
+
+        # Mock do método upsert
+        with patch.object(self.repo, 'upsert') as mock_upsert:
+            mock_upsert.return_value = {"action": "inserted"}
+
+            self.repo._process_pix_person_extraction(transaction_data)
+
+            # Verificar se foi chamado com dados corretos
+            mock_upsert.assert_called_once_with(
+                "persons",
+                "id",
+                {"id": "98765432100", "name": "Maria Santos"},
+                strategy="insert_only"
+            )
+
+    def test_process_pix_person_extraction_no_pipe(self):
+        """Testa _process_pix_person_extraction sem pipe na descrição"""
+        transaction_data = {
+            "operationType": "PIX",
+            "description": "transferência sem pipe",
+            "paymentData": {}
+        }
+
+        # Mock do método upsert
+        with patch.object(self.repo, 'upsert') as mock_upsert:
+            self.repo._process_pix_person_extraction(transaction_data)
+
+            # Não deve chamar upsert
+            mock_upsert.assert_not_called()
+
+    def test_process_pix_person_extraction_not_pix(self):
+        """Testa _process_pix_person_extraction para operação que não é PIX"""
+        transaction_data = {
+            "operationType": "TED",
+            "description": "transferência recebida|João Silva",
+            "paymentData": {}
+        }
+
+        # Mock do método upsert
+        with patch.object(self.repo, 'upsert') as mock_upsert:
+            self.repo._process_pix_person_extraction(transaction_data)
+
+            # Não deve chamar upsert
+            mock_upsert.assert_not_called()
+
     # Testes para linhas 449-456: _process_category_creation
     def test_process_category_creation(self):
         """Testa _process_category_creation - linhas 449-456"""
@@ -473,6 +580,19 @@ class TestTransactionRepository(unittest.TestCase):
                 strategy="insert_only"
             )
 
+    def test_process_category_creation_no_category(self):
+        """Testa _process_category_creation sem categoryId ou category"""
+        transaction_data = {
+            "description": "Sem categoria"
+        }
+
+        # Mock do método upsert
+        with patch.object(self.repo, 'upsert') as mock_upsert:
+            self.repo._process_category_creation(transaction_data)
+
+            # Não deve chamar upsert
+            mock_upsert.assert_not_called()
+
     # Testes para linhas 471-502: create_bank_transaction
     def test_create_bank_transaction(self):
         """Testa create_bank_transaction - linhas 471-502"""
@@ -492,7 +612,7 @@ class TestTransactionRepository(unittest.TestCase):
         self.assertEqual(result.transaction_id, "create-test-123")
         self.assertEqual(result.amount, 250.0)
 
-        # Testar validações
+        # Testar validações - ID vazio
         invalid_transaction = BankTransaction(
             transaction_id="",  # ID vazio
             amount=100.0,
@@ -503,6 +623,30 @@ class TestTransactionRepository(unittest.TestCase):
 
         with self.assertRaises(ValueError):
             self.repo.create_bank_transaction(invalid_transaction)
+
+        # Testar validação - descrição vazia
+        invalid_transaction2 = BankTransaction(
+            transaction_id="valid-id",
+            amount=100.0,
+            date="2023-01-12",
+            description="",  # Descrição vazia
+            category_id="cat123"
+        )
+
+        with self.assertRaises(ValueError):
+            self.repo.create_bank_transaction(invalid_transaction2)
+
+        # Testar validação - amount None
+        invalid_transaction3 = BankTransaction(
+            transaction_id="valid-id-2",
+            amount=None,  # Amount None
+            date="2023-01-12",
+            description="Valid Description",
+            category_id="cat123"
+        )
+
+        with self.assertRaises(ValueError):
+            self.repo.create_bank_transaction(invalid_transaction3)
 
     # Testes para linhas 519-545: create_credit_transaction
     def test_create_credit_transaction(self):
@@ -525,6 +669,45 @@ class TestTransactionRepository(unittest.TestCase):
         # Testar transação já existente
         with self.assertRaises(ValueError):
             self.repo.create_credit_transaction(transaction)
+
+        # Testar validações - ID vazio
+        invalid_transaction = CreditTransaction(
+            transaction_id="",  # ID vazio
+            amount=100.0,
+            date="2023-01-13",
+            description="Invalid Credit",
+            category_id="cat123",
+            status="PENDING"
+        )
+
+        with self.assertRaises(ValueError):
+            self.repo.create_credit_transaction(invalid_transaction)
+
+        # Testar validação - descrição vazia
+        invalid_transaction2 = CreditTransaction(
+            transaction_id="valid-credit-id",
+            amount=100.0,
+            date="2023-01-13",
+            description="",  # Descrição vazia
+            category_id="cat123",
+            status="PENDING"
+        )
+
+        with self.assertRaises(ValueError):
+            self.repo.create_credit_transaction(invalid_transaction2)
+
+        # Testar validação - amount None
+        invalid_transaction3 = CreditTransaction(
+            transaction_id="valid-credit-id-2",
+            amount=None,  # Amount None
+            date="2023-01-13",
+            description="Valid Credit Description",
+            category_id="cat123",
+            status="PENDING"
+        )
+
+        with self.assertRaises(ValueError):
+            self.repo.create_credit_transaction(invalid_transaction3)
 
     # Testes para linhas 560-592: delete_bank_transaction
     def test_delete_bank_transaction(self):
@@ -555,6 +738,61 @@ class TestTransactionRepository(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.repo.delete_bank_transaction("nonexistent")
 
+        # Testar validação de ID vazio
+        with self.assertRaises(ValueError):
+            self.repo.delete_bank_transaction("")
+
+    def test_delete_bank_transaction_with_splitwise_reference(self):
+        """Testa deleção de transação bancária vinculada ao Splitwise"""
+        self._create_test_category()
+
+        # Criar transação
+        transaction = BankTransaction(
+            transaction_id="split-ref-123",
+            amount=120.0,
+            date="2023-01-14",
+            description="With Splitwise Ref",
+            category_id="cat123",
+            type_="debit",
+            operation_type="PIX"
+        )
+        self.repo.add_bank_transaction(transaction)
+
+        # Adicionar referência no splitwise
+        self.repo.execute_query(
+            "INSERT INTO splitwise (id, transaction_id, amount) VALUES (?, ?, ?)",
+            ("split-123", "split-ref-123", 60.0)
+        )
+
+        # Tentar deletar deve falhar
+        with self.assertRaises(ValueError) as context:
+            self.repo.delete_bank_transaction("split-ref-123")
+
+        self.assertIn("vinculada a entradas do Splitwise", str(context.exception))
+
+    def test_delete_bank_transaction_with_split_info(self):
+        """Testa deleção de transação bancária com split_info"""
+        self._create_test_category()
+
+        # Criar transação com split_info
+        transaction = BankTransaction(
+            transaction_id="split-info-123",
+            amount=120.0,
+            date="2023-01-14",
+            description="With Split Info",
+            category_id="cat123",
+            type_="debit",
+            operation_type="PIX",
+            split_info={"split": True}
+        )
+        self.repo.add_bank_transaction(transaction)
+
+        # Tentar deletar deve falhar
+        with self.assertRaises(ValueError) as context:
+            self.repo.delete_bank_transaction("split-info-123")
+
+        self.assertIn("possui informações de divisão", str(context.exception))
+
     # Testes para linhas 607-633: delete_credit_transaction
     def test_delete_credit_transaction(self):
         """Testa delete_credit_transaction - linhas 607-633"""
@@ -578,6 +816,37 @@ class TestTransactionRepository(unittest.TestCase):
         # Verificar se foi realmente deletada
         with self.assertRaises(ValueError):
             self.repo.get_credit_transaction_by_id("delete-credit-123")
+
+    def test_delete_credit_transaction_with_splitwise_reference(self):
+        """Testa deleção de transação de crédito vinculada ao Splitwise"""
+        self._create_test_category()
+
+        # Criar transação de crédito
+        transaction = CreditTransaction(
+            transaction_id="credit-split-123",
+            amount=90.0,
+            date="2023-01-15",
+            description="Credit with Splitwise",
+            category_id="cat123",
+            status="POSTED"
+        )
+        self.repo.add_credit_transaction(transaction)
+
+        # Adicionar referência no splitwise
+        self.repo.execute_query(
+            "INSERT INTO splitwise (id, transaction_id, amount) VALUES (?, ?, ?)",
+            ("credit-split", "credit-split-123", 45.0)
+        )
+
+        # Tentar deletar deve falhar
+        with self.assertRaises(ValueError) as context:
+            self.repo.delete_credit_transaction("credit-split-123")
+
+        self.assertIn("vinculada a entradas do Splitwise", str(context.exception))
+
+        # Testar validação de ID vazio para crédito
+        with self.assertRaises(ValueError):
+            self.repo.delete_credit_transaction("")
 
     # Testes para linhas 642-650: get_operation_types
     def test_get_operation_types(self):
@@ -606,15 +875,8 @@ class TestTransactionRepository(unittest.TestCase):
 
     def tearDown(self):
         """Limpeza após os testes"""
-        self._cleanup_test_data()
-        # Remover dados de teste adicionais
-        self.repo.execute_query("DELETE FROM bank_transactions WHERE id LIKE 'test-%'")
-        self.repo.execute_query("DELETE FROM bank_transactions WHERE id LIKE '%test%'")
-        self.repo.execute_query("DELETE FROM credit_transactions WHERE id LIKE 'test-%'")
-        self.repo.execute_query("DELETE FROM credit_transactions WHERE id LIKE '%test%'")
-        self.repo.execute_query("DELETE FROM credit_transactions WHERE id LIKE 'create-%'")
-        self.repo.execute_query("DELETE FROM credit_transactions WHERE id LIKE 'delete-%'")
-        self.repo.execute_query("DELETE FROM investments WHERE id = 'inv123'")
+        # Como recriamos as tabelas no setUp, só precisamos fechar a conexão
+        pass
 
 
 if __name__ == "__main__":

@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import List
 import json
 from utils.date_helper import DateHelper
 from repositories.base_repository import BaseRepository
@@ -231,7 +231,7 @@ class TransactionRepository(BaseRepository):
 
         field_processors = {
             "description": lambda x: x,
-            "amount": lambda x: float(x),
+            "amount": float,
             "date": lambda x: x,
             "category_id": lambda x: x,
             "operation_type": lambda x: x,
@@ -277,7 +277,7 @@ class TransactionRepository(BaseRepository):
 
         field_processors = {
             "description": lambda x: x,
-            "amount": lambda x: float(x),
+            "amount": float,
             "date": lambda x: x,
             "category_id": lambda x: x,
             "status": lambda x: x,
@@ -488,11 +488,6 @@ class TransactionRepository(BaseRepository):
             # Se der erro, significa que não encontrou a transação (esperado)
             pass
 
-        # Converte a data para string no formato correto se for datetime
-        date_str = transaction.date
-        if hasattr(transaction.date, "strftime"):
-            date_str = transaction.date.strftime("%Y-%m-%d")
-
         # Cria a transação usando o método existente
         success = self.add_bank_transaction(transaction)
 
@@ -563,10 +558,10 @@ class TransactionRepository(BaseRepository):
         # Verifica se a transação existe
         try:
             transaction = self.get_bank_transaction_by_id(transaction_id)
-        except ValueError:
+        except ValueError as exc:
             raise ValueError(
                 f"Transação bancária com ID {transaction_id} não encontrada"
-            )
+            ) from exc
 
         # Verifica se a transação está sendo referenciada no splitwise
         query_check_splitwise = """
@@ -610,10 +605,10 @@ class TransactionRepository(BaseRepository):
         # Verifica se a transação existe
         try:
             transaction = self.get_credit_transaction_by_id(transaction_id)
-        except ValueError:
+        except ValueError as exc:
             raise ValueError(
                 f"Transação de crédito com ID {transaction_id} não encontrada"
-            )
+            ) from exc
 
         # Verifica se a transação está sendo referenciada no splitwise
         query_check_splitwise = """
