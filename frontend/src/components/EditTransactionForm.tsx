@@ -52,11 +52,11 @@ export const EditTransactionForm: React.FC<EditTransactionFormProps> = ({
       setFormData({
         description: transaction.description || '',
         amount: transaction.amount.toString() || '',
-        date: transaction.date || '',
+        date: transaction.date.split('\n')[0] || '',
         category_id: transaction.category_id || '',
         type: transaction.type || '',
         operation_type: transaction.operation_type || '',
-        status: transaction.status || 'pending'
+        status: transaction.status || 'PENDING'
       });
     }
   }, [isOpen, transaction]);
