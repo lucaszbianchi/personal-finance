@@ -34,6 +34,7 @@ export interface SplitInfo {
 export interface Category {
   id: string;
   name: string;
+  transaction_count: number;
 }
 
 export interface Person {

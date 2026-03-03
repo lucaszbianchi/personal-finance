@@ -10,17 +10,34 @@ class CategoryRepository(BaseRepository):
     def __init__(self, db_path: str = "finance.db"):
         super().__init__(db_path=db_path)
 
-    def get_all_categories(self) -> List[Category]:
-        """Retorna todas as categorias únicas de todas as transações."""
+    def get_all_categories(self) -> List[dict]:
+        """Retorna todas as categorias com suas respectivas contagens de transações."""
         query = """
-            SELECT id, name FROM categories ORDER BY name
+            SELECT
+                c.id,
+                c.name,
+                COALESCE(tc.transaction_count, 0) as transaction_count
+            FROM categories c
+            LEFT JOIN (
+                SELECT
+                    category_id,
+                    COUNT(*) as transaction_count
+                FROM (
+                    SELECT category_id FROM bank_transactions WHERE category_id IS NOT NULL
+                    UNION ALL
+                    SELECT category_id FROM credit_transactions WHERE category_id IS NOT NULL
+                ) all_transactions
+                GROUP BY category_id
+            ) tc ON c.id = tc.category_id
+            ORDER BY c.name
         """
         cursor = self.execute_query(query)
         return [
-            Category(
-                id_=row["id"],
-                name=row["name"]
-            )
+            {
+                "id": row["id"],
+                "name": row["name"],
+                "transaction_count": row["transaction_count"],
+            }
             for row in cursor.fetchall()
         ]
 
@@ -44,7 +61,6 @@ class CategoryRepository(BaseRepository):
 
     def update_category(self, old_name: str, new_name: str) -> str:
         """Atualiza o nome de uma categoria e ajusta todas as transações que referenciam ela. Retorna o novo id da categoria."""
-        # 1️⃣ Busca o id da categoria antiga
         cursor = self.execute_query(
             "SELECT id FROM categories WHERE name = ?", (old_name,)
         )
@@ -53,7 +69,6 @@ class CategoryRepository(BaseRepository):
             raise ValueError(f"Categoria '{old_name}' não encontrada.")
         old_id = old_cat["id"]
 
-        # 2️⃣ Verifica se a nova categoria já existe
         cursor = self.execute_query(
             "SELECT id FROM categories WHERE name = ?", (new_name,)
         )
@@ -61,12 +76,9 @@ class CategoryRepository(BaseRepository):
         if new_cat_row:
             new_id = new_cat_row["id"]
         else:
-            # Cria nova categoria se não existir
             new_id = self.create_category(new_name)
-            # Commit explícito para garantir persistência antes de remover a antiga
             self._get_connection().commit()
 
-        # 3️⃣ Atualiza todas as transações (banco + crédito + splitwise) que usavam a antiga categoria
         bank_query = (
             "UPDATE bank_transactions SET category_id = ? WHERE category_id = ?"
         )
@@ -80,7 +92,6 @@ class CategoryRepository(BaseRepository):
         splitwise_query = "UPDATE splitwise SET category_id = ? WHERE category_id = ?"
         self.execute_query(splitwise_query, (new_id, old_id))
 
-        # 4️⃣ (opcional) Remove a categoria antiga se ela não tiver mais vínculos
         self.execute_query("DELETE FROM categories WHERE id = ?", (old_id,))
         return new_id
 

@@ -150,6 +150,7 @@ export const categoryService = {
     const response = await api.post('/categories/unify', { categories, target });
     return response.data;
   },
+
 };
 
 export const personService = {

@@ -15,8 +15,8 @@ class CategoryService:
         self.transaction_repo = TransactionRepository()
         self.splitwise_repo = SplitwiseRepository()
 
-    def get_all_categories(self) -> List[Category]:
-        """Retorna todas as categorias."""
+    def get_all_categories(self) -> List[dict]:
+        """Retorna todas as categorias com suas respectivas contagens de transações."""
         return self.category_repo.get_all_categories()
 
     def get_category_by_id(self, category_id: str) -> Category:

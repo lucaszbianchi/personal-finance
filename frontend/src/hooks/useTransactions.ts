@@ -26,6 +26,7 @@ export const useCreateTransaction = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['transactions'] });
       queryClient.invalidateQueries({ queryKey: ['summary'] });
+      queryClient.invalidateQueries({ queryKey: ['categories'] });
     },
   });
 };
@@ -52,6 +53,7 @@ export const useDeleteTransaction = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['transactions'] });
       queryClient.invalidateQueries({ queryKey: ['summary'] });
+      queryClient.invalidateQueries({ queryKey: ['categories'] });
     },
   });
 };
@@ -74,6 +76,7 @@ export const useCreateBankTransaction = () => {
       queryClient.invalidateQueries({ queryKey: ['bank-transactions'] });
       queryClient.invalidateQueries({ queryKey: ['transactions'] });
       queryClient.invalidateQueries({ queryKey: ['summary'] });
+      queryClient.invalidateQueries({ queryKey: ['categories'] });
     },
   });
 };
@@ -87,6 +90,7 @@ export const useDeleteBankTransaction = () => {
       queryClient.invalidateQueries({ queryKey: ['bank-transactions'] });
       queryClient.invalidateQueries({ queryKey: ['transactions'] });
       queryClient.invalidateQueries({ queryKey: ['summary'] });
+      queryClient.invalidateQueries({ queryKey: ['categories'] });
     },
   });
 };
@@ -109,6 +113,7 @@ export const useCreateCreditTransaction = () => {
       queryClient.invalidateQueries({ queryKey: ['credit-transactions'] });
       queryClient.invalidateQueries({ queryKey: ['transactions'] });
       queryClient.invalidateQueries({ queryKey: ['summary'] });
+      queryClient.invalidateQueries({ queryKey: ['categories'] });
     },
   });
 };
@@ -122,6 +127,7 @@ export const useDeleteCreditTransaction = () => {
       queryClient.invalidateQueries({ queryKey: ['credit-transactions'] });
       queryClient.invalidateQueries({ queryKey: ['transactions'] });
       queryClient.invalidateQueries({ queryKey: ['summary'] });
+      queryClient.invalidateQueries({ queryKey: ['categories'] });
     },
   });
 };
@@ -136,6 +142,7 @@ export const useUpdateBankTransaction = () => {
       queryClient.invalidateQueries({ queryKey: ['bank-transactions'] });
       queryClient.invalidateQueries({ queryKey: ['transactions'] });
       queryClient.invalidateQueries({ queryKey: ['summary'] });
+      queryClient.invalidateQueries({ queryKey: ['categories'] });
     },
   });
 };
@@ -150,6 +157,7 @@ export const useUpdateCreditTransaction = () => {
       queryClient.invalidateQueries({ queryKey: ['credit-transactions'] });
       queryClient.invalidateQueries({ queryKey: ['transactions'] });
       queryClient.invalidateQueries({ queryKey: ['summary'] });
+      queryClient.invalidateQueries({ queryKey: ['categories'] });
     },
   });
 };
