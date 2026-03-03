@@ -131,7 +131,7 @@ export const categoryService = {
     return response.data;
   },
 
-  create: async (category: Omit<Category, 'id'>) => {
+  create: async (category: Omit<Category, 'id' | 'transaction_count'>) => {
     const response = await api.post('/categories/', category);
     return response.data;
   },

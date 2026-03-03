@@ -4,12 +4,16 @@ from repositories.category_repository import CategoryRepository
 
 class TestCategoryRepository(unittest.TestCase):
     def setUp(self):
-        self.repo = CategoryRepository(db_path="test-finance.db")
+        self.repo = CategoryRepository(db_path=":memory:")
         self.test_name = "TestCat"
-        # Cria tabelas se não existirem
+        # Criar todas as tabelas necessárias
+        self._create_tables()
+
+    def _create_tables(self):
+        """Cria todas as tabelas necessárias para os testes"""
         self.repo.execute_query(
             """
-            CREATE TABLE IF NOT EXISTS categories (
+            CREATE TABLE categories (
                 id TEXT PRIMARY KEY,
                 name TEXT,
                 types TEXT
@@ -18,7 +22,7 @@ class TestCategoryRepository(unittest.TestCase):
         )
         self.repo.execute_query(
             """
-            CREATE TABLE IF NOT EXISTS bank_transactions (
+            CREATE TABLE bank_transactions (
                 id TEXT PRIMARY KEY,
                 date TEXT,
                 description TEXT,
@@ -33,7 +37,7 @@ class TestCategoryRepository(unittest.TestCase):
         )
         self.repo.execute_query(
             """
-            CREATE TABLE IF NOT EXISTS credit_transactions (
+            CREATE TABLE credit_transactions (
                 id TEXT PRIMARY KEY,
                 date TEXT,
                 description TEXT,
@@ -46,7 +50,7 @@ class TestCategoryRepository(unittest.TestCase):
         )
         self.repo.execute_query(
             """
-            CREATE TABLE IF NOT EXISTS splitwise (
+            CREATE TABLE splitwise (
                 id TEXT PRIMARY KEY,
                 amount REAL,
                 date TEXT,
@@ -59,10 +63,6 @@ class TestCategoryRepository(unittest.TestCase):
             )
         """
         )
-        # Limpa categoria de teste se existir
-        existing_cat = self.repo.get_category_by_name(self.test_name)
-        if existing_cat:
-            self.repo.delete_category(existing_cat.id)
 
     def test_create_and_get_category(self):
         cat_id = self.repo.create_category(self.test_name)

@@ -21,7 +21,7 @@ export const useCreateCategory = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (category: Omit<Category, 'id'>) =>
+    mutationFn: (category: Omit<Category, 'id' | 'transaction_count'>) =>
       categoryService.create(category),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['categories'] });

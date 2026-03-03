@@ -4,18 +4,17 @@ from repositories.settings_repository import SettingsRepository
 
 class TestSettingsRepository(unittest.TestCase):
     def setUp(self):
-        self.repo = SettingsRepository(db_path="test-finance.db")
+        self.repo = SettingsRepository(db_path=":memory:")
         self.key = "test_key"
-        # Cria tabela se não existir
+        # Cria tabela
         self.repo.execute_query(
             """
-            CREATE TABLE IF NOT EXISTS settings (
+            CREATE TABLE settings (
                 key TEXT PRIMARY KEY,
                 value TEXT
             )
             """
         )
-        self.repo.set_value(self.key, None)  # Limpa chave de teste
 
     def test_save_and_get_setting(self):
         self.repo.set_value(self.key, "test_value")

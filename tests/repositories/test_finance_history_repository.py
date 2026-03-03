@@ -4,12 +4,12 @@ from repositories.finance_history_repository import FinanceHistoryRepository
 
 class TestFinanceHistoryRepository(unittest.TestCase):
     def setUp(self):
-        self.repo = FinanceHistoryRepository(db_path="test-finance.db")
+        self.repo = FinanceHistoryRepository(db_path=":memory:")
         self.month = "2099-01"
-        # Cria tabela se não existir
+        # Cria tabela
         self.repo.execute_query(
             """
-            CREATE TABLE IF NOT EXISTS finance_history (
+            CREATE TABLE finance_history (
                 month TEXT PRIMARY KEY,
                 meal_allowance REAL,
                 credit_card_bill REAL,

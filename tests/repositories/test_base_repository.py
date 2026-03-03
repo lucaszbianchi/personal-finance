@@ -3,18 +3,14 @@ Testes para BaseRepository - método upsert genérico.
 """
 
 import unittest
-import os
-import tempfile
 import json
 from repositories.base_repository import BaseRepository
 
 
 class TestBaseRepository(unittest.TestCase):
     def setUp(self):
-        """Cria banco de teste temporário para cada teste"""
-        self.test_db = tempfile.NamedTemporaryFile(delete=False, suffix=".db")
-        self.test_db.close()
-        self.repo = BaseRepository(db_path=self.test_db.name)
+        """Cria banco de teste em memória para cada teste"""
+        self.repo = BaseRepository(db_path=":memory:")
 
         # Cria tabela de teste
         self.repo.execute_query(
@@ -30,12 +26,9 @@ class TestBaseRepository(unittest.TestCase):
         )
 
     def tearDown(self):
-        """Limpa arquivo temporário após cada teste"""
+        """Limpeza após os testes"""
+        # Com :memory:, o banco é automaticamente destruído quando a conexão é fechada
         self.repo.close()
-        try:
-            os.unlink(self.test_db.name)
-        except FileNotFoundError:
-            pass
 
     def test_upsert_smart_merge_insert_new(self):
         """Testa smart_merge inserindo novo registro"""

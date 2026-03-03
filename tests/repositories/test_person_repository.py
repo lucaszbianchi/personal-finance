@@ -9,12 +9,11 @@ from models.person import Person
 
 class TestPersonRepository(unittest.TestCase):
     def setUp(self):
-        self.repo = PersonRepository(db_path="test-finance.db")
+        self.repo = PersonRepository(db_path=":memory:")
         self.test_id = str(uuid.uuid4())
         self.test_id_2 = str(uuid.uuid4())
 
         # Cria tabela com estrutura correta incluindo split_info
-        self.repo.execute_query("DROP TABLE IF EXISTS persons")
         self.repo.execute_query(
             """
             CREATE TABLE persons (
@@ -29,7 +28,14 @@ class TestPersonRepository(unittest.TestCase):
             """
             CREATE TABLE IF NOT EXISTS bank_transactions (
                 id TEXT PRIMARY KEY,
-                split_info TEXT
+                date TEXT NOT NULL,
+                description TEXT,
+                amount REAL,
+                category_id TEXT,
+                type TEXT,
+                operation_type TEXT,
+                split_info TEXT,
+                payment_data TEXT
             )
             """
         )
@@ -37,7 +43,12 @@ class TestPersonRepository(unittest.TestCase):
             """
             CREATE TABLE IF NOT EXISTS splitwise (
                 id TEXT PRIMARY KEY,
-                transaction_id TEXT
+                amount REAL,
+                date TEXT,
+                description TEXT,
+                category_id TEXT,
+                transaction_id TEXT,
+                is_invalid INTEGER DEFAULT 0
             )
             """
         )
@@ -376,8 +387,8 @@ class TestPersonRepository(unittest.TestCase):
 
         # Criar transação que referencia a pessoa
         self.repo.execute_query(
-            "INSERT INTO bank_transactions (id, split_info) VALUES (?, ?)",
-            ("txn123", f'{{"person_id":"{self.test_id}"}}'),
+            "INSERT INTO bank_transactions (id, date, split_info) VALUES (?, ?, ?)",
+            ("txn123", "2023-12-01", f'{{"person_id":"{self.test_id}"}}'),
         )
 
         # Criar entrada no splitwise que referencia a transação
