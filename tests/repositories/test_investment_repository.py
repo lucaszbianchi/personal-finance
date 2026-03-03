@@ -1,21 +1,17 @@
 import unittest
-import sqlite3
-import os
 from repositories.investment_repository import InvestmentRepository
 from models.investment import Investment
 
 
 class TestInvestmentRepository(unittest.TestCase):
-    @classmethod
-    def setUpClass(cls):
-        """Set up test database."""
-        cls.test_db_path = "test-investment.db"
-        # Create test database with investments table
-        conn = sqlite3.connect(cls.test_db_path)
-        cursor = conn.cursor()
-        cursor.execute(
+    def setUp(self):
+        """Cria banco de teste em memória para cada teste"""
+        self.repo = InvestmentRepository(db_path=":memory:")
+
+        # Criar tabela de investimentos
+        self.repo.execute_query(
             """
-            CREATE TABLE IF NOT EXISTS investments (
+            CREATE TABLE investments (
                 id TEXT PRIMARY KEY,
                 name TEXT NOT NULL,
                 type TEXT,
@@ -28,26 +24,10 @@ class TestInvestmentRepository(unittest.TestCase):
             )
         """
         )
-        conn.commit()
-        conn.close()
-
-    @classmethod
-    def tearDownClass(cls):
-        """Clean up test database."""
-        if os.path.exists(cls.test_db_path):
-            os.remove(cls.test_db_path)
-
-    def setUp(self):
-        """Clear table before each test."""
-        conn = sqlite3.connect(self.test_db_path)
-        cursor = conn.cursor()
-        cursor.execute("DELETE FROM investments")
-        conn.commit()
-        conn.close()
-        self.repo = InvestmentRepository(db_path=self.test_db_path)
 
     def tearDown(self):
-        """Close repository connection."""
+        """Limpeza após os testes"""
+        # Com :memory:, o banco é automaticamente destruído quando a conexão é fechada
         self.repo.close()
 
     def test_get_investments_empty(self):
@@ -58,9 +38,7 @@ class TestInvestmentRepository(unittest.TestCase):
     def test_get_investments_with_data(self):
         """Test getting multiple investments."""
         # Insert test data
-        conn = sqlite3.connect(self.test_db_path)
-        cursor = conn.cursor()
-        cursor.execute(
+        self.repo.execute_query(
             """
             INSERT INTO investments (id, name, type, subtype, balance, date, due_date, issuer, rate_type)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -77,7 +55,7 @@ class TestInvestmentRepository(unittest.TestCase):
                 "PREFIXADO",
             ),
         )
-        cursor.execute(
+        self.repo.execute_query(
             """
             INSERT INTO investments (id, name, type, subtype, balance, date, due_date, issuer, rate_type)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -94,8 +72,6 @@ class TestInvestmentRepository(unittest.TestCase):
                 "FLUTUANTE",
             ),
         )
-        conn.commit()
-        conn.close()
 
         result = self.repo.get_investments()
 
@@ -106,9 +82,7 @@ class TestInvestmentRepository(unittest.TestCase):
 
     def test_get_investments_filters_zero_balance(self):
         """Test that investments with zero balance are excluded."""
-        conn = sqlite3.connect(self.test_db_path)
-        cursor = conn.cursor()
-        cursor.execute(
+        self.repo.execute_query(
             """
             INSERT INTO investments (id, name, type, subtype, balance, date, due_date, issuer, rate_type)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -125,7 +99,7 @@ class TestInvestmentRepository(unittest.TestCase):
                 "PREFIXADO",
             ),
         )
-        cursor.execute(
+        self.repo.execute_query(
             """
             INSERT INTO investments (id, name, type, subtype, balance, date, due_date, issuer, rate_type)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -142,8 +116,6 @@ class TestInvestmentRepository(unittest.TestCase):
                 "FLUTUANTE",
             ),
         )
-        conn.commit()
-        conn.close()
 
         result = self.repo.get_investments()
 
@@ -152,9 +124,7 @@ class TestInvestmentRepository(unittest.TestCase):
 
     def test_get_investment_by_id_success(self):
         """Test retrieving a specific investment by ID."""
-        conn = sqlite3.connect(self.test_db_path)
-        cursor = conn.cursor()
-        cursor.execute(
+        self.repo.execute_query(
             """
             INSERT INTO investments (id, name, type, subtype, balance, date, due_date, issuer, rate_type)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -171,8 +141,6 @@ class TestInvestmentRepository(unittest.TestCase):
                 "PREFIXADO",
             ),
         )
-        conn.commit()
-        conn.close()
 
         result = self.repo.get_investment_by_id("inv1")
 
@@ -217,9 +185,7 @@ class TestInvestmentRepository(unittest.TestCase):
     def test_upsert_investment_update_existing(self):
         """Test updating an existing investment."""
         # Insert initial investment
-        conn = sqlite3.connect(self.test_db_path)
-        cursor = conn.cursor()
-        cursor.execute(
+        self.repo.execute_query(
             """
             INSERT INTO investments (id, name, type, subtype, balance, date, due_date, issuer, rate_type)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -236,8 +202,6 @@ class TestInvestmentRepository(unittest.TestCase):
                 "PREFIXADO",
             ),
         )
-        conn.commit()
-        conn.close()
 
         # Update balance
         investment_data = {
@@ -282,9 +246,7 @@ class TestInvestmentRepository(unittest.TestCase):
     def test_add_investment_update_existing(self):
         """Test legacy add_investment method for existing investment."""
         # Insert initial investment
-        conn = sqlite3.connect(self.test_db_path)
-        cursor = conn.cursor()
-        cursor.execute(
+        self.repo.execute_query(
             """
             INSERT INTO investments (id, name, type, subtype, balance, date, due_date, issuer, rate_type)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -301,8 +263,6 @@ class TestInvestmentRepository(unittest.TestCase):
                 "PREFIXADO",
             ),
         )
-        conn.commit()
-        conn.close()
 
         # Update via add_investment
         investment = Investment(
@@ -335,9 +295,7 @@ class TestInvestmentRepository(unittest.TestCase):
     def test_update_investment_balance_existing(self):
         """Test updating balance for existing investment."""
         # Insert initial investment
-        conn = sqlite3.connect(self.test_db_path)
-        cursor = conn.cursor()
-        cursor.execute(
+        self.repo.execute_query(
             """
             INSERT INTO investments (id, name, type, subtype, balance, date, due_date, issuer, rate_type)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -354,8 +312,6 @@ class TestInvestmentRepository(unittest.TestCase):
                 "PREFIXADO",
             ),
         )
-        conn.commit()
-        conn.close()
 
         # Update balance
         result = self.repo.update_investment_balance(
@@ -370,9 +326,7 @@ class TestInvestmentRepository(unittest.TestCase):
 
     def test_update_investment_balance_without_due_date(self):
         """Test updating balance without providing due_date."""
-        conn = sqlite3.connect(self.test_db_path)
-        cursor = conn.cursor()
-        cursor.execute(
+        self.repo.execute_query(
             """
             INSERT INTO investments (id, name, type, subtype, balance, date, due_date, issuer, rate_type)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -389,8 +343,6 @@ class TestInvestmentRepository(unittest.TestCase):
                 "PREFIXADO",
             ),
         )
-        conn.commit()
-        conn.close()
 
         # Update without due_date
         result = self.repo.update_investment_balance("inv1", 1500.0, "2025-01-15")

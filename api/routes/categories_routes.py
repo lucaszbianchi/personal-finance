@@ -11,10 +11,10 @@ category_service = CategoryService()
 
 @bp.route("/", methods=["GET"])
 def list_categories():
-    """Lista todas as categorias."""
+    """Lista todas as categorias com contagem de transações."""
     try:
         categories = category_service.get_all_categories()
-        return jsonify([{"id": cat.id, "name": cat.name} for cat in categories])
+        return jsonify(categories)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 

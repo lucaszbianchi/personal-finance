@@ -10,14 +10,11 @@ from models.splitwise import Splitwise
 
 class TestSplitwiseRepository(unittest.TestCase):
     def setUp(self):
-        self.repo = SplitwiseRepository(db_path="test-finance.db")
+        self.repo = SplitwiseRepository(db_path=":memory:")
         self.test_id = str(uuid.uuid4())
         self.test_id_2 = str(uuid.uuid4())
 
-        self.repo.execute_query("DROP TABLE IF EXISTS splitwise")
-        self.repo.execute_query("DROP TABLE IF EXISTS bank_transactions")
-        self.repo.execute_query("DROP TABLE IF EXISTS credit_transactions")
-        self.repo.execute_query("DROP TABLE IF EXISTS categories")
+        # Criar tabelas necessárias para os testes
 
         self.repo.execute_query(
             """
@@ -75,7 +72,9 @@ class TestSplitwiseRepository(unittest.TestCase):
 
     def _cleanup_test_data(self):
         """Remove dados de teste existentes"""
-        self.repo.execute_query("DELETE FROM splitwise WHERE id IN (?, ?)", (self.test_id, self.test_id_2))
+        self.repo.execute_query(
+            "DELETE FROM splitwise WHERE id IN (?, ?)", (self.test_id, self.test_id_2)
+        )
         self.repo.execute_query("DELETE FROM bank_transactions")
         self.repo.execute_query("DELETE FROM credit_transactions")
         self.repo.execute_query("DELETE FROM categories")
@@ -88,7 +87,15 @@ class TestSplitwiseRepository(unittest.TestCase):
         )
         self.repo.execute_query(
             "INSERT INTO splitwise (id, amount, date, description, category_id, transaction_id, is_invalid) VALUES (?, ?, ?, ?, ?, ?, ?)",
-            (self.test_id_2, 200.0, "2025-01-02", "Invalid Splitwise", "cat2", "txn2", 1),
+            (
+                self.test_id_2,
+                200.0,
+                "2025-01-02",
+                "Invalid Splitwise",
+                "cat2",
+                "txn2",
+                1,
+            ),
         )
 
         result = self.repo.get_all_splitwise()
@@ -101,7 +108,15 @@ class TestSplitwiseRepository(unittest.TestCase):
         """Testa get_splitwise_by_transaction_id encontrando - linhas 41-58"""
         self.repo.execute_query(
             "INSERT INTO splitwise (id, amount, date, description, category_id, transaction_id, is_invalid) VALUES (?, ?, ?, ?, ?, ?, ?)",
-            (self.test_id, 150.0, "2025-01-03", "Transaction Test", "cat3", "txn123", 0),
+            (
+                self.test_id,
+                150.0,
+                "2025-01-03",
+                "Transaction Test",
+                "cat3",
+                "txn123",
+                0,
+            ),
         )
 
         result = self.repo.get_splitwise_by_transaction_id("txn123")
@@ -213,11 +228,12 @@ class TestSplitwiseRepository(unittest.TestCase):
             "date": "2025-01-10",
             "description": "Upsert Test",
             "amount": 250.0,
-            "categoryId": "upsert_cat"
+            "categoryId": "upsert_cat",
         }
 
-        with patch.object(self.repo, 'upsert') as mock_upsert, \
-             patch.object(self.repo, '_process_category_creation') as mock_category:
+        with patch.object(self.repo, "upsert") as mock_upsert, patch.object(
+            self.repo, "_process_category_creation"
+        ) as mock_category:
             mock_upsert.return_value = {"action": "inserted", "success": True}
 
             result = self.repo.upsert_splitwise_transaction(transaction_data)
@@ -228,12 +244,9 @@ class TestSplitwiseRepository(unittest.TestCase):
 
     def test_process_category_creation(self):
         """Testa _process_category_creation - linhas 166-178"""
-        transaction_data = {
-            "categoryId": "proc_cat",
-            "category": "Process Category"
-        }
+        transaction_data = {"categoryId": "proc_cat", "category": "Process Category"}
 
-        with patch.object(self.repo, 'upsert') as mock_upsert:
+        with patch.object(self.repo, "upsert") as mock_upsert:
             mock_upsert.return_value = {"action": "inserted"}
 
             self.repo._process_category_creation(transaction_data)
@@ -242,14 +255,14 @@ class TestSplitwiseRepository(unittest.TestCase):
                 "categories",
                 "id",
                 {"id": "proc_cat", "name": "Process Category"},
-                strategy="insert_only"
+                strategy="insert_only",
             )
 
     def test_process_category_creation_no_data(self):
         """Testa _process_category_creation sem dados"""
         transaction_data = {}
 
-        with patch.object(self.repo, 'upsert') as mock_upsert:
+        with patch.object(self.repo, "upsert") as mock_upsert:
             self.repo._process_category_creation(transaction_data)
             mock_upsert.assert_not_called()
 
@@ -257,7 +270,16 @@ class TestSplitwiseRepository(unittest.TestCase):
         """Testa get_bank_transactions_by_date - linhas 180-207"""
         self.repo.execute_query(
             "INSERT INTO bank_transactions (id, date, description, amount, category_id, operation_type, split_info, payment_data) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-            ("bank_txn1", "2025-01-10", "Bank Test", 500.0, "bank_cat", "PIX", '{}', '{}'),
+            (
+                "bank_txn1",
+                "2025-01-10",
+                "Bank Test",
+                500.0,
+                "bank_cat",
+                "PIX",
+                "{}",
+                "{}",
+            ),
         )
 
         transactions = self.repo.get_bank_transactions_by_date("2025-01-10")
@@ -269,7 +291,15 @@ class TestSplitwiseRepository(unittest.TestCase):
         """Testa get_credit_transactions_by_date - linhas 209-232"""
         self.repo.execute_query(
             "INSERT INTO credit_transactions (id, date, description, amount, category_id, split_info, status) VALUES (?, ?, ?, ?, ?, ?, ?)",
-            ("credit_txn1", "2025-01-11", "Credit Test", 600.0, "credit_cat", '{}', "POSTED"),
+            (
+                "credit_txn1",
+                "2025-01-11",
+                "Credit Test",
+                600.0,
+                "credit_cat",
+                "{}",
+                "POSTED",
+            ),
         )
 
         transactions = self.repo.get_credit_transactions_by_date("2025-01-11")
@@ -279,9 +309,7 @@ class TestSplitwiseRepository(unittest.TestCase):
 
     def test_update_match_type(self):
         """Testa update_match_type - linhas 234-237"""
-        self.repo.execute_query(
-            "ALTER TABLE splitwise ADD COLUMN match_type TEXT"
-        )
+        self.repo.execute_query("ALTER TABLE splitwise ADD COLUMN match_type TEXT")
         self.repo.execute_query(
             "INSERT INTO splitwise (id, amount, date, description, category_id, transaction_id, is_invalid) VALUES (?, ?, ?, ?, ?, ?, ?)",
             (self.test_id, 100.0, "2025-01-12", "Match Test", "cat", "", 0),
@@ -289,7 +317,9 @@ class TestSplitwiseRepository(unittest.TestCase):
 
         self.repo.update_match_type(self.test_id, "exact_match")
 
-        cursor = self.repo.execute_query("SELECT match_type FROM splitwise WHERE id = ?", (self.test_id,))
+        cursor = self.repo.execute_query(
+            "SELECT match_type FROM splitwise WHERE id = ?", (self.test_id,)
+        )
         row = cursor.fetchone()
         self.assertEqual(row["match_type"], "exact_match")
 
@@ -372,10 +402,10 @@ class TestSplitwiseRepository(unittest.TestCase):
             description="Create Test",
             category_id="create_cat",
             transaction_id="create_txn",
-            is_invalid=False
+            is_invalid=False,
         )
 
-        with patch.object(self.repo, 'upsert') as mock_upsert:
+        with patch.object(self.repo, "upsert") as mock_upsert:
             mock_upsert.return_value = {"success": True, "action": "inserted"}
 
             result = self.repo.create_splitwise(splitwise)
@@ -390,12 +420,14 @@ class TestSplitwiseRepository(unittest.TestCase):
             description="No ID Test",
             category_id="cat",
             transaction_id="",
-            is_invalid=False
+            is_invalid=False,
         )
 
         with self.assertRaises(ValueError) as context:
             self.repo.create_splitwise(splitwise)
-        self.assertIn("ID da entrada do Splitwise é obrigatório", str(context.exception))
+        self.assertIn(
+            "ID da entrada do Splitwise é obrigatório", str(context.exception)
+        )
 
     def test_create_splitwise_no_description(self):
         """Testa create_splitwise sem descrição - linha 304"""
@@ -406,7 +438,7 @@ class TestSplitwiseRepository(unittest.TestCase):
             description="",
             category_id="cat",
             transaction_id="",
-            is_invalid=False
+            is_invalid=False,
         )
 
         with self.assertRaises(ValueError) as context:
@@ -422,7 +454,7 @@ class TestSplitwiseRepository(unittest.TestCase):
             description="No Amount Test",
             category_id="cat",
             transaction_id="",
-            is_invalid=False
+            is_invalid=False,
         )
 
         with self.assertRaises(ValueError) as context:
@@ -443,7 +475,7 @@ class TestSplitwiseRepository(unittest.TestCase):
             description="Duplicate Test",
             category_id="cat",
             transaction_id="",
-            is_invalid=False
+            is_invalid=False,
         )
 
         with self.assertRaises(ValueError) as context:
@@ -459,10 +491,10 @@ class TestSplitwiseRepository(unittest.TestCase):
             description="Failure Test",
             category_id="cat",
             transaction_id="",
-            is_invalid=False
+            is_invalid=False,
         )
 
-        with patch.object(self.repo, 'upsert') as mock_upsert:
+        with patch.object(self.repo, "upsert") as mock_upsert:
             mock_upsert.return_value = {"success": False, "error": "Database error"}
 
             with self.assertRaises(ValueError) as context:
@@ -486,7 +518,9 @@ class TestSplitwiseRepository(unittest.TestCase):
         """Testa delete_splitwise sem ID - linha 350"""
         with self.assertRaises(ValueError) as context:
             self.repo.delete_splitwise("")
-        self.assertIn("ID da entrada do Splitwise é obrigatório", str(context.exception))
+        self.assertIn(
+            "ID da entrada do Splitwise é obrigatório", str(context.exception)
+        )
 
     def test_delete_splitwise_not_found(self):
         """Testa delete_splitwise não encontrado - linha 355"""

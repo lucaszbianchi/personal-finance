@@ -165,7 +165,7 @@ export const Categories: React.FC = () => {
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-6 py-3 text-left">
+                <th className="px-6 py-3 w-px text-left">
                   <input
                     type="checkbox"
                     checked={selectedCategories.length === categoriesList.length && categoriesList.length > 0}
@@ -176,7 +176,10 @@ export const Categories: React.FC = () => {
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Nome
                 </th>
-                <th className="px-6 py-3 relative">
+                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Transações
+                </th>
+                <th className="px-6 py-3 w-fit relative">
                   <span className="sr-only">Ações</span>
                 </th>
               </tr>
@@ -201,6 +204,9 @@ export const Categories: React.FC = () => {
                         </span>
                       </div>
                     </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm text-gray-900">
+                      {category.transaction_count}
+                    </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <div className="flex items-center justify-end space-x-3">
                         <button
@@ -223,7 +229,7 @@ export const Categories: React.FC = () => {
                 ))
               ) : (
                 <tr>
-                  <td colSpan={3} className="px-6 py-12 text-center text-gray-500">
+                  <td colSpan={4} className="px-6 py-12 text-center text-gray-500">
                     Nenhuma categoria encontrada
                   </td>
                 </tr>

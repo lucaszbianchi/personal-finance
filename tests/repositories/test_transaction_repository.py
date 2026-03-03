@@ -1,4 +1,5 @@
 """Testes para TransactionRepository"""
+
 import unittest
 import uuid
 from unittest.mock import patch
@@ -8,24 +9,20 @@ from models.transaction import BankTransaction, CreditTransaction
 
 class TestTransactionRepository(unittest.TestCase):
     """Testes para a classe TransactionRepository"""
+
     def setUp(self):
-        self.repo = TransactionRepository(db_path="test-finance.db")
+        self.repo = TransactionRepository(db_path=":memory:")
         self.test_bank_id = str(uuid.uuid4())
         self.test_credit_id = str(uuid.uuid4())
 
         # Criar todas as tabelas necessárias
         self._create_test_tables()
 
-        # Limpar dados de teste
-        self._cleanup_test_data()
-
     def _create_test_tables(self):
         """Cria todas as tabelas necessárias para os testes"""
-        # Remover tabela existente e recriar
-        self.repo.execute_query("DROP TABLE IF EXISTS bank_transactions")
-
         # Tabela bank_transactions
-        self.repo.execute_query("""
+        self.repo.execute_query(
+            """
             CREATE TABLE bank_transactions (
                 id TEXT PRIMARY KEY,
                 date TEXT NOT NULL,
@@ -38,13 +35,12 @@ class TestTransactionRepository(unittest.TestCase):
                 payment_data TEXT,
                 FOREIGN KEY (category_id) REFERENCES categories(id)
             )
-        """)
-
-        # Remover tabela existente e recriar
-        self.repo.execute_query("DROP TABLE IF EXISTS credit_transactions")
+        """
+        )
 
         # Tabela credit_transactions
-        self.repo.execute_query("""
+        self.repo.execute_query(
+            """
             CREATE TABLE credit_transactions (
                 id TEXT PRIMARY KEY,
                 date TEXT,
@@ -53,13 +49,12 @@ class TestTransactionRepository(unittest.TestCase):
                 category_id TEXT,
                 status TEXT
             )
-        """)
-
-        # Remover tabela existente e recriar
-        self.repo.execute_query("DROP TABLE IF EXISTS investments")
+        """
+        )
 
         # Tabela investments
-        self.repo.execute_query("""
+        self.repo.execute_query(
+            """
             CREATE TABLE investments (
                 id TEXT PRIMARY KEY,
                 name TEXT,
@@ -71,58 +66,46 @@ class TestTransactionRepository(unittest.TestCase):
                 issuer TEXT,
                 rate_type TEXT
             )
-        """)
-
-        # Remover tabela existente e recriar
-        self.repo.execute_query("DROP TABLE IF EXISTS categories")
+        """
+        )
 
         # Tabela categories
-        self.repo.execute_query("""
+        self.repo.execute_query(
+            """
             CREATE TABLE categories (
                 id TEXT PRIMARY KEY,
                 name TEXT NOT NULL,
                 types TEXT
             )
-        """)
-
-        # Remover tabela existente e recriar
-        self.repo.execute_query("DROP TABLE IF EXISTS splitwise")
+        """
+        )
 
         # Tabela splitwise
-        self.repo.execute_query("""
+        self.repo.execute_query(
+            """
             CREATE TABLE splitwise (
                 id TEXT PRIMARY KEY,
                 transaction_id TEXT,
                 amount REAL
             )
-        """)
-
-        # Remover tabela existente e recriar
-        self.repo.execute_query("DROP TABLE IF EXISTS persons")
+        """
+        )
 
         # Tabela persons
-        self.repo.execute_query("""
+        self.repo.execute_query(
+            """
             CREATE TABLE persons (
                 id TEXT PRIMARY KEY,
                 name TEXT
             )
-        """)
-
-    def _cleanup_test_data(self):
-        """Remove dados de teste existentes"""
-        self.repo.execute_query("DELETE FROM bank_transactions WHERE id IN (?, ?)",
-                               (self.test_bank_id, "test-bank-123"))
-        self.repo.execute_query("DELETE FROM credit_transactions WHERE id IN (?, ?, ?)",
-                               (self.test_credit_id, "test-credit-123", "create-credit-123"))
-        self.repo.execute_query("DELETE FROM categories WHERE id IN ('cat123', 'cat999')")
-        self.repo.execute_query("DELETE FROM splitwise WHERE transaction_id IN (?, ?)",
-                               (self.test_bank_id, self.test_credit_id))
+        """
+        )
 
     def _create_test_category(self, category_id="cat123", name="Test Category"):
         """Helper para criar categoria de teste"""
         self.repo.execute_query(
             "INSERT OR IGNORE INTO categories (id, name) VALUES (?, ?)",
-            (category_id, name)
+            (category_id, name),
         )
 
     # Testes para linhas 18-33: get_bank_transactions
@@ -140,7 +123,7 @@ class TestTransactionRepository(unittest.TestCase):
             type_="debit",
             operation_type="PIX",
             split_info={"split": True},
-            payment_data={"method": "pix"}
+            payment_data={"method": "pix"},
         )
         self.repo.add_bank_transaction(txn)
 
@@ -148,7 +131,9 @@ class TestTransactionRepository(unittest.TestCase):
         self.assertIsInstance(transactions, list)
 
         # Verificar se nossa transação está na lista
-        found = next((t for t in transactions if t.transaction_id == self.test_bank_id), None)
+        found = next(
+            (t for t in transactions if t.transaction_id == self.test_bank_id), None
+        )
         self.assertIsNotNone(found)
         self.assertEqual(found.amount, 100.50)
         self.assertEqual(found.description, "Test Bank Transaction")
@@ -165,7 +150,7 @@ class TestTransactionRepository(unittest.TestCase):
             date="2023-01-02",
             description="Test Credit Transaction",
             category_id="cat123",
-            status="POSTED"
+            status="POSTED",
         )
         self.repo.add_credit_transaction(credit_txn)
 
@@ -173,7 +158,9 @@ class TestTransactionRepository(unittest.TestCase):
         self.assertIsInstance(transactions, list)
 
         # Verificar se nossa transação está na lista
-        found = next((t for t in transactions if t.transaction_id == self.test_credit_id), None)
+        found = next(
+            (t for t in transactions if t.transaction_id == self.test_credit_id), None
+        )
         self.assertIsNotNone(found)
         self.assertEqual(found.amount, 200.75)
         self.assertEqual(found.status, "POSTED")
@@ -182,11 +169,23 @@ class TestTransactionRepository(unittest.TestCase):
     def test_get_investments(self):
         """Testa get_investments - linhas 79-95"""
         # Inserir investimento de teste
-        self.repo.execute_query("""
+        self.repo.execute_query(
+            """
             INSERT INTO investments (id, name, balance, type, subtype, date,
             due_date, issuer, rate_type) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, ("inv123", "Test Investment", 1000.0, "CDB", "Pré-fixado",
-              "2023-01-01", "2024-01-01", "Test Bank", "PRE"))
+        """,
+            (
+                "inv123",
+                "Test Investment",
+                1000.0,
+                "CDB",
+                "Pré-fixado",
+                "2023-01-01",
+                "2024-01-01",
+                "Test Bank",
+                "PRE",
+            ),
+        )
 
         investments = self.repo.get_investments()
         self.assertIsInstance(investments, list)
@@ -213,7 +212,7 @@ class TestTransactionRepository(unittest.TestCase):
             type_="debit",
             operation_type="PIX",
             split_info=None,
-            payment_data=None
+            payment_data=None,
         )
         self.repo.add_bank_transaction(bank_txn)
 
@@ -239,7 +238,7 @@ class TestTransactionRepository(unittest.TestCase):
             date="2023-01-03",
             description="Test Credit by ID",
             category_id="cat123",
-            status="PENDING"
+            status="PENDING",
         )
         self.repo.add_credit_transaction(credit_txn)
 
@@ -264,7 +263,7 @@ class TestTransactionRepository(unittest.TestCase):
             date="2023-01-04",
             description="New Credit Transaction",
             category_id="cat123",
-            status="POSTED"
+            status="POSTED",
         )
 
         result = self.repo.add_credit_transaction(credit_txn)
@@ -291,7 +290,7 @@ class TestTransactionRepository(unittest.TestCase):
             type_="debit",
             operation_type="PIX",
             split_info=None,
-            payment_data=None
+            payment_data=None,
         )
         self.repo.add_bank_transaction(txn)
 
@@ -300,7 +299,7 @@ class TestTransactionRepository(unittest.TestCase):
             "description": "Updated Transaction",
             "amount": 200.0,
             "category_id": "cat999",
-            "split_info": {"updated": True}
+            "split_info": {"updated": True},
         }
 
         updated = self.repo.update_bank_transaction(self.test_bank_id, update_data)
@@ -330,7 +329,7 @@ class TestTransactionRepository(unittest.TestCase):
             date="2023-01-05",
             description="Original Credit",
             category_id="cat123",
-            status="PENDING"
+            status="PENDING",
         )
         self.repo.add_credit_transaction(credit_txn)
 
@@ -338,7 +337,7 @@ class TestTransactionRepository(unittest.TestCase):
         update_data = {
             "description": "Updated Credit",
             "amount": 75.0,
-            "status": "POSTED"
+            "status": "POSTED",
         }
 
         updated = self.repo.update_credit_transaction(self.test_credit_id, update_data)
@@ -363,7 +362,7 @@ class TestTransactionRepository(unittest.TestCase):
             type_="debit",
             operation_type="PIX",
             split_info=None,
-            payment_data=None
+            payment_data=None,
         )
         self.repo.add_bank_transaction(txn)
 
@@ -388,7 +387,7 @@ class TestTransactionRepository(unittest.TestCase):
             type_="debit",
             operation_type="PIX",
             split_info=None,  # Sem informação de divisão
-            payment_data={"test": "data"}
+            payment_data={"test": "data"},
         )
         self.repo.add_bank_transaction(unlinked_txn)
 
@@ -402,7 +401,7 @@ class TestTransactionRepository(unittest.TestCase):
             type_="debit",
             operation_type="PIX",
             split_info={"split": True},  # Com informação de divisão
-            payment_data={"test": "data"}
+            payment_data={"test": "data"},
         )
         self.repo.add_bank_transaction(linked_txn)
 
@@ -415,8 +414,8 @@ class TestTransactionRepository(unittest.TestCase):
         self.assertNotIn("linked-123", unlinked_ids)
 
     # Testes para linhas 360-379: upsert_bank_transaction
-    @patch.object(TransactionRepository, '_process_pix_person_extraction')
-    @patch.object(TransactionRepository, '_process_category_creation')
+    @patch.object(TransactionRepository, "_process_pix_person_extraction")
+    @patch.object(TransactionRepository, "_process_category_creation")
     def test_upsert_bank_transaction(self, mock_category, mock_pix):
         """Testa upsert_bank_transaction - linhas 360-379"""
         transaction_data = {
@@ -427,11 +426,11 @@ class TestTransactionRepository(unittest.TestCase):
             "categoryId": "cat123",
             "type": "debit",
             "operationType": "PIX",
-            "paymentData": {"method": "pix"}
+            "paymentData": {"method": "pix"},
         }
 
         # Mock do método upsert da classe base
-        with patch.object(self.repo, 'upsert') as mock_upsert:
+        with patch.object(self.repo, "upsert") as mock_upsert:
             mock_upsert.return_value = {"action": "inserted", "id": "upsert-test-123"}
 
             result = self.repo.upsert_bank_transaction(transaction_data)
@@ -442,7 +441,7 @@ class TestTransactionRepository(unittest.TestCase):
             mock_category.assert_called_once()
 
     # Testes para linhas 392-417: upsert_credit_transaction
-    @patch.object(TransactionRepository, '_process_category_creation')
+    @patch.object(TransactionRepository, "_process_category_creation")
     def test_upsert_credit_transaction(self, mock_category):
         """Testa upsert_credit_transaction - linhas 392-417"""
         transaction_data = {
@@ -452,11 +451,11 @@ class TestTransactionRepository(unittest.TestCase):
             "amount": 75.0,
             "amountInAccountCurrency": 80.0,  # Deve usar este valor
             "categoryId": "cat123",
-            "status": "POSTED"
+            "status": "POSTED",
         }
 
         # Mock do método upsert da classe base
-        with patch.object(self.repo, 'upsert') as mock_upsert:
+        with patch.object(self.repo, "upsert") as mock_upsert:
             mock_upsert.return_value = {"action": "updated", "id": "upsert-credit-123"}
 
             result = self.repo.upsert_credit_transaction(transaction_data)
@@ -476,17 +475,12 @@ class TestTransactionRepository(unittest.TestCase):
             "operationType": "PIX",
             "description": "transferência recebida|João Silva",
             "paymentData": {
-                "payer": {
-                    "documentNumber": {
-                        "type": "CPF",
-                        "value": "12345678901"
-                    }
-                }
-            }
+                "payer": {"documentNumber": {"type": "CPF", "value": "12345678901"}}
+            },
         }
 
         # Mock do método upsert
-        with patch.object(self.repo, 'upsert') as mock_upsert:
+        with patch.object(self.repo, "upsert") as mock_upsert:
             mock_upsert.return_value = {"action": "inserted"}
 
             self.repo._process_pix_person_extraction(transaction_data)
@@ -496,7 +490,7 @@ class TestTransactionRepository(unittest.TestCase):
                 "persons",
                 "id",
                 {"id": "12345678901", "name": "João Silva"},
-                strategy="insert_only"
+                strategy="insert_only",
             )
 
     def test_process_pix_person_extraction_transferencia_enviada(self):
@@ -505,17 +499,12 @@ class TestTransactionRepository(unittest.TestCase):
             "operationType": "PIX",
             "description": "transferência enviada|Maria Santos",
             "paymentData": {
-                "receiver": {
-                    "documentNumber": {
-                        "type": "CPF",
-                        "value": "98765432100"
-                    }
-                }
-            }
+                "receiver": {"documentNumber": {"type": "CPF", "value": "98765432100"}}
+            },
         }
 
         # Mock do método upsert
-        with patch.object(self.repo, 'upsert') as mock_upsert:
+        with patch.object(self.repo, "upsert") as mock_upsert:
             mock_upsert.return_value = {"action": "inserted"}
 
             self.repo._process_pix_person_extraction(transaction_data)
@@ -525,7 +514,7 @@ class TestTransactionRepository(unittest.TestCase):
                 "persons",
                 "id",
                 {"id": "98765432100", "name": "Maria Santos"},
-                strategy="insert_only"
+                strategy="insert_only",
             )
 
     def test_process_pix_person_extraction_no_pipe(self):
@@ -533,11 +522,11 @@ class TestTransactionRepository(unittest.TestCase):
         transaction_data = {
             "operationType": "PIX",
             "description": "transferência sem pipe",
-            "paymentData": {}
+            "paymentData": {},
         }
 
         # Mock do método upsert
-        with patch.object(self.repo, 'upsert') as mock_upsert:
+        with patch.object(self.repo, "upsert") as mock_upsert:
             self.repo._process_pix_person_extraction(transaction_data)
 
             # Não deve chamar upsert
@@ -548,11 +537,11 @@ class TestTransactionRepository(unittest.TestCase):
         transaction_data = {
             "operationType": "TED",
             "description": "transferência recebida|João Silva",
-            "paymentData": {}
+            "paymentData": {},
         }
 
         # Mock do método upsert
-        with patch.object(self.repo, 'upsert') as mock_upsert:
+        with patch.object(self.repo, "upsert") as mock_upsert:
             self.repo._process_pix_person_extraction(transaction_data)
 
             # Não deve chamar upsert
@@ -561,13 +550,10 @@ class TestTransactionRepository(unittest.TestCase):
     # Testes para linhas 449-456: _process_category_creation
     def test_process_category_creation(self):
         """Testa _process_category_creation - linhas 449-456"""
-        transaction_data = {
-            "categoryId": "new-cat-123",
-            "category": "Nova Categoria"
-        }
+        transaction_data = {"categoryId": "new-cat-123", "category": "Nova Categoria"}
 
         # Mock do método upsert
-        with patch.object(self.repo, 'upsert') as mock_upsert:
+        with patch.object(self.repo, "upsert") as mock_upsert:
             mock_upsert.return_value = {"action": "inserted"}
 
             self.repo._process_category_creation(transaction_data)
@@ -577,17 +563,15 @@ class TestTransactionRepository(unittest.TestCase):
                 "categories",
                 "id",
                 {"id": "new-cat-123", "name": "Nova Categoria"},
-                strategy="insert_only"
+                strategy="insert_only",
             )
 
     def test_process_category_creation_no_category(self):
         """Testa _process_category_creation sem categoryId ou category"""
-        transaction_data = {
-            "description": "Sem categoria"
-        }
+        transaction_data = {"description": "Sem categoria"}
 
         # Mock do método upsert
-        with patch.object(self.repo, 'upsert') as mock_upsert:
+        with patch.object(self.repo, "upsert") as mock_upsert:
             self.repo._process_category_creation(transaction_data)
 
             # Não deve chamar upsert
@@ -605,7 +589,7 @@ class TestTransactionRepository(unittest.TestCase):
             description="Created Transaction",
             category_id="cat123",
             type_="debit",
-            operation_type="PIX"
+            operation_type="PIX",
         )
 
         result = self.repo.create_bank_transaction(transaction)
@@ -618,7 +602,7 @@ class TestTransactionRepository(unittest.TestCase):
             amount=100.0,
             date="2023-01-12",
             description="Invalid",
-            category_id="cat123"
+            category_id="cat123",
         )
 
         with self.assertRaises(ValueError):
@@ -630,7 +614,7 @@ class TestTransactionRepository(unittest.TestCase):
             amount=100.0,
             date="2023-01-12",
             description="",  # Descrição vazia
-            category_id="cat123"
+            category_id="cat123",
         )
 
         with self.assertRaises(ValueError):
@@ -642,7 +626,7 @@ class TestTransactionRepository(unittest.TestCase):
             amount=None,  # Amount None
             date="2023-01-12",
             description="Valid Description",
-            category_id="cat123"
+            category_id="cat123",
         )
 
         with self.assertRaises(ValueError):
@@ -659,7 +643,7 @@ class TestTransactionRepository(unittest.TestCase):
             date="2023-01-13",
             description="Created Credit Transaction",
             category_id="cat123",
-            status="PENDING"
+            status="PENDING",
         )
 
         result = self.repo.create_credit_transaction(transaction)
@@ -677,7 +661,7 @@ class TestTransactionRepository(unittest.TestCase):
             date="2023-01-13",
             description="Invalid Credit",
             category_id="cat123",
-            status="PENDING"
+            status="PENDING",
         )
 
         with self.assertRaises(ValueError):
@@ -690,7 +674,7 @@ class TestTransactionRepository(unittest.TestCase):
             date="2023-01-13",
             description="",  # Descrição vazia
             category_id="cat123",
-            status="PENDING"
+            status="PENDING",
         )
 
         with self.assertRaises(ValueError):
@@ -703,7 +687,7 @@ class TestTransactionRepository(unittest.TestCase):
             date="2023-01-13",
             description="Valid Credit Description",
             category_id="cat123",
-            status="PENDING"
+            status="PENDING",
         )
 
         with self.assertRaises(ValueError):
@@ -722,7 +706,7 @@ class TestTransactionRepository(unittest.TestCase):
             description="To Delete",
             category_id="cat123",
             type_="debit",
-            operation_type="PIX"
+            operation_type="PIX",
         )
         self.repo.add_bank_transaction(transaction)
 
@@ -754,14 +738,14 @@ class TestTransactionRepository(unittest.TestCase):
             description="With Splitwise Ref",
             category_id="cat123",
             type_="debit",
-            operation_type="PIX"
+            operation_type="PIX",
         )
         self.repo.add_bank_transaction(transaction)
 
         # Adicionar referência no splitwise
         self.repo.execute_query(
             "INSERT INTO splitwise (id, transaction_id, amount) VALUES (?, ?, ?)",
-            ("split-123", "split-ref-123", 60.0)
+            ("split-123", "split-ref-123", 60.0),
         )
 
         # Tentar deletar deve falhar
@@ -783,7 +767,7 @@ class TestTransactionRepository(unittest.TestCase):
             category_id="cat123",
             type_="debit",
             operation_type="PIX",
-            split_info={"split": True}
+            split_info={"split": True},
         )
         self.repo.add_bank_transaction(transaction)
 
@@ -805,7 +789,7 @@ class TestTransactionRepository(unittest.TestCase):
             date="2023-01-15",
             description="Credit To Delete",
             category_id="cat123",
-            status="POSTED"
+            status="POSTED",
         )
         self.repo.add_credit_transaction(transaction)
 
@@ -828,14 +812,14 @@ class TestTransactionRepository(unittest.TestCase):
             date="2023-01-15",
             description="Credit with Splitwise",
             category_id="cat123",
-            status="POSTED"
+            status="POSTED",
         )
         self.repo.add_credit_transaction(transaction)
 
         # Adicionar referência no splitwise
         self.repo.execute_query(
             "INSERT INTO splitwise (id, transaction_id, amount) VALUES (?, ?, ?)",
-            ("credit-split", "credit-split-123", 45.0)
+            ("credit-split", "credit-split-123", 45.0),
         )
 
         # Tentar deletar deve falhar
@@ -863,7 +847,7 @@ class TestTransactionRepository(unittest.TestCase):
                 description=f"Test {op}",
                 category_id="cat123",
                 type_="debit",
-                operation_type=op
+                operation_type=op,
             )
             self.repo.add_bank_transaction(transaction)
 
@@ -875,8 +859,8 @@ class TestTransactionRepository(unittest.TestCase):
 
     def tearDown(self):
         """Limpeza após os testes"""
-        # Como recriamos as tabelas no setUp, só precisamos fechar a conexão
-        pass
+        # Com :memory:, o banco é automaticamente destruído quando a conexão é fechada
+        self.repo.close()
 
 
 if __name__ == "__main__":
