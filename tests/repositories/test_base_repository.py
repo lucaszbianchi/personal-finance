@@ -30,75 +30,11 @@ class TestBaseRepository(unittest.TestCase):
         # Com :memory:, o banco é automaticamente destruído quando a conexão é fechada
         self.repo.close()
 
-    def test_upsert_smart_merge_insert_new(self):
-        """Testa smart_merge inserindo novo registro"""
-        data = {
-            "id": "test_1",
-            "name": "Test Item",
-            "status": "active",
-            "balance": 100.0,
-        }
-
-        result = self.repo.upsert("test_table", "id", data, strategy="smart_merge")
-
-        self.assertTrue(result["success"])
-        self.assertEqual(result["action"], "inserted")
-        self.assertEqual(result["affected_rows"], 1)
-        self.assertEqual(result["id"], "test_1")
-
-        # Verifica se foi inserido no banco
-        cursor = self.repo.execute_query(
-            "SELECT * FROM test_table WHERE id = ?", ("test_1",)
-        )
-        row = cursor.fetchone()
-        self.assertIsNotNone(row)
-        self.assertEqual(row["name"], "Test Item")
-
-    def test_upsert_smart_merge_update_existing(self):
-        """Testa smart_merge atualizando registro existente"""
-        # Insere registro inicial
-        initial_data = {
-            "id": "test_2",
-            "name": "Initial Name",
-            "status": "pending",
-            "balance": 50.0,
-        }
-        self.repo.upsert("test_table", "id", initial_data, strategy="smart_merge")
-
-        # Atualiza apenas status e balance
-        update_data = {
-            "id": "test_2",
-            "name": "Initial Name",  # Mesmo nome
-            "status": "completed",  # Novo status
-            "balance": 150.0,  # Novo balance
-        }
-
-        result = self.repo.upsert(
-            "test_table",
-            "id",
-            update_data,
-            strategy="smart_merge",
-            update_fields=["status", "balance"],
-        )
-
-        self.assertTrue(result["success"])
-        self.assertEqual(result["action"], "updated")
-        self.assertEqual(result["affected_rows"], 1)
-
-        # Verifica se foi atualizado
-        cursor = self.repo.execute_query(
-            "SELECT * FROM test_table WHERE id = ?", ("test_2",)
-        )
-        row = cursor.fetchone()
-        self.assertEqual(row["status"], "completed")
-        self.assertEqual(row["balance"], 150.0)
-        self.assertEqual(row["name"], "Initial Name")  # Nome mantido
-
     def test_upsert_insert_only_new(self):
         """Testa insert_only com novo registro"""
         data = {"id": "test_3", "name": "Insert Only Test", "status": "new"}
 
-        result = self.repo.upsert("test_table", "id", data, strategy="insert_only")
+        result = self.repo.upsert("test_table", "id", data)
 
         self.assertTrue(result["success"])
         self.assertEqual(result["action"], "inserted")
@@ -108,13 +44,13 @@ class TestBaseRepository(unittest.TestCase):
         """Testa insert_only com registro existente (deve ignorar)"""
         # Insere registro inicial
         initial_data = {"id": "test_4", "name": "Original Name", "status": "original"}
-        self.repo.upsert("test_table", "id", initial_data, strategy="insert_only")
+        self.repo.upsert("test_table", "id", initial_data)
 
         # Tenta inserir novamente (deve ignorar)
         duplicate_data = {"id": "test_4", "name": "New Name", "status": "new"}
 
         result = self.repo.upsert(
-            "test_table", "id", duplicate_data, strategy="insert_only"
+            "test_table", "id", duplicate_data
         )
 
         self.assertTrue(result["success"])
@@ -138,7 +74,7 @@ class TestBaseRepository(unittest.TestCase):
             "status": "active",
         }
 
-        result = self.repo.upsert("test_table", "id", data, strategy="smart_merge")
+        result = self.repo.upsert("test_table", "id", data)
 
         self.assertTrue(result["success"])
 
@@ -150,16 +86,6 @@ class TestBaseRepository(unittest.TestCase):
         stored_data = json.loads(row["data"])
         self.assertEqual(stored_data["key"], "value")
         self.assertEqual(stored_data["nested"]["array"], [1, 2, 3])
-
-    def test_upsert_invalid_strategy(self):
-        """Testa estratégia inválida"""
-        data = {"id": "test_6", "name": "Test"}
-
-        result = self.repo.upsert("test_table", "id", data, strategy="invalid")
-
-        self.assertFalse(result["success"])
-        self.assertEqual(result["action"], "error")
-        self.assertIn("Estratégia inválida", result["error"])
 
     def test_upsert_missing_id(self):
         """Testa dados sem ID obrigatório"""

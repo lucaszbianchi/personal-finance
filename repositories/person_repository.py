@@ -101,7 +101,7 @@ class PersonRepository(BaseRepository):
             "split_info": person.split_info if person.split_info else {}
         }
 
-        result = self.upsert("persons", "id", person_data, strategy="insert_only")
+        result = self.upsert("persons", "id", person_data)
 
         if result["success"] and result["action"] == "inserted":
             return person
