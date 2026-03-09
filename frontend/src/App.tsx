@@ -6,13 +6,7 @@ import { Categories } from '@/pages/Categories';
 import { Investments } from '@/pages/Investments';
 import { Summary } from '@/pages/Summary';
 import { SyncPage } from '@/pages/SyncPage';
-
-const SettingsPage = () => (
-  <div className="text-center py-12">
-    <h2 className="text-xl font-semibold mb-2">Configurações</h2>
-    <p className="text-gray-600">Página de configurações em desenvolvimento</p>
-  </div>
-);
+import { Settings } from '@/pages/Settings';
 
 const NotFoundPage = () => (
   <div className="text-center py-12">
@@ -31,7 +25,7 @@ function App() {
         <Route path="investments" element={<Investments />} />
         <Route path="summary" element={<Summary />} />
         <Route path="sync" element={<SyncPage />} />
-        <Route path="settings" element={<SettingsPage />} />
+        <Route path="settings" element={<Settings />} />
         <Route path="404" element={<NotFoundPage />} />
         <Route path="*" element={<Navigate to="/404" replace />} />
       </Route>
