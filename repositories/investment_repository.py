@@ -85,8 +85,8 @@ class InvestmentRepository(BaseRepository):
 
     def upsert_investment(self, investment_data: dict) -> Dict[str, Any]:
         """
-        Insere ou atualiza um investimento usando strategy smart_merge.
-        Investimentos podem ter saldo, data e data de vencimento atualizados.
+        Insere um investimento usando strategy insert_only.
+        Registros já existentes são ignorados.
 
         Args:
             investment_data: Dict com dados do investimento da API Pluggy
@@ -94,7 +94,6 @@ class InvestmentRepository(BaseRepository):
         Returns:
             Dict com resultado da operação
         """
-        # Mapeia dados da API para schema do banco
         mapped_data = {
             "id": investment_data["id"],
             "name": investment_data.get("name"),
@@ -107,18 +106,7 @@ class InvestmentRepository(BaseRepository):
             "rate_type": investment_data.get("rateType"),
         }
 
-        # Campos que podem ser atualizados (baseado na lógica do fetch_data.py)
-        update_fields = ["balance", "date", "due_date"]
-
-        result = self.upsert(
-            "investments",
-            "id",
-            mapped_data,
-            strategy="smart_merge",
-            update_fields=update_fields,
-        )
-
-        return result
+        return self.upsert("investments", "id", mapped_data)
 
     # Métodos legacy para compatibilidade (podem ser removidos futuramente)
 
@@ -137,24 +125,13 @@ class InvestmentRepository(BaseRepository):
         }
 
         result = self.upsert_investment(investment_data)
-        return result["success"] and result["action"] in ["inserted", "updated"]
+        # "ignored" significa que o registro já existia — não é falha
+        return result["action"] == "inserted"
 
     def update_investment_balance(
         self, investment_id: str, balance: float, date: str, due_date: str = None
     ) -> bool:
         """Atualiza saldo de um investimento (método legacy)."""
-        investment_data = {
-            "id": investment_id,
-            "balance": balance,
-            "date": date,
-            "due_date": due_date,
-        }
-
-        result = self.upsert(
-            "investments",
-            "id",
-            investment_data,
-            strategy="smart_merge",
-            update_fields=["balance", "date", "due_date"],
-        )
-        return result["success"]
+        query = "UPDATE investments SET balance = ?, date = ?, due_date = ? WHERE id = ?"
+        cursor = self.execute_query(query, (balance, date, due_date, investment_id))
+        return cursor.rowcount > 0

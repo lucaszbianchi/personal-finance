@@ -293,7 +293,6 @@ class TestPersonRepository(unittest.TestCase):
                     "name": "New Person",
                     "split_info": {"test": "data"},
                 },
-                strategy="insert_only",
             )
 
     def test_create_person_no_id(self):

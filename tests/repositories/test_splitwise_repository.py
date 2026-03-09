@@ -255,7 +255,6 @@ class TestSplitwiseRepository(unittest.TestCase):
                 "categories",
                 "id",
                 {"id": "proc_cat", "name": "Process Category"},
-                strategy="insert_only",
             )
 
     def test_process_category_creation_no_data(self):

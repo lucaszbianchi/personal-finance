@@ -155,7 +155,6 @@ class SplitwiseRepository(BaseRepository):
             "splitwise",
             "id",
             mapped_data,
-            strategy="insert_only",
         )
 
         # Processa lógica de negócio adicional
@@ -175,7 +174,7 @@ class SplitwiseRepository(BaseRepository):
             category_data = {"id": category_id, "name": category_name}
 
             # Usa insert_only para categorias (não devem ser alteradas automaticamente)
-            self.upsert("categories", "id", category_data, strategy="insert_only")
+            self.upsert("categories", "id", category_data)
 
     def get_bank_transactions_by_date(self, date_str: str) -> list:
         """Retorna transações bancárias de uma data específica."""
@@ -326,7 +325,7 @@ class SplitwiseRepository(BaseRepository):
             "is_invalid": 1 if splitwise.is_invalid else 0
         }
 
-        result = self.upsert("splitwise", "id", splitwise_data, strategy="insert_only")
+        result = self.upsert("splitwise", "id", splitwise_data)
 
         if result["success"] and result["action"] == "inserted":
             return splitwise

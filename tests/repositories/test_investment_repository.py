@@ -182,9 +182,8 @@ class TestInvestmentRepository(unittest.TestCase):
         self.assertEqual(retrieved.name, "New Investment")
         self.assertEqual(retrieved.balance, 1000.0)
 
-    def test_upsert_investment_update_existing(self):
-        """Test updating an existing investment."""
-        # Insert initial investment
+    def test_upsert_investment_ignore_existing(self):
+        """Test that upserting an existing investment is ignored (insert_only)."""
         self.repo.execute_query(
             """
             INSERT INTO investments (id, name, type, subtype, balance, date, due_date, issuer, rate_type)
@@ -203,7 +202,6 @@ class TestInvestmentRepository(unittest.TestCase):
             ),
         )
 
-        # Update balance
         investment_data = {
             "id": "inv1",
             "name": "Investment 1",
@@ -219,11 +217,11 @@ class TestInvestmentRepository(unittest.TestCase):
         result = self.repo.upsert_investment(investment_data)
 
         self.assertTrue(result["success"])
-        self.assertEqual(result["action"], "updated")
+        self.assertEqual(result["action"], "ignored")
 
-        # Verify update
+        # Verify original data was preserved
         retrieved = self.repo.get_investment_by_id("inv1")
-        self.assertEqual(retrieved.balance, 1500.0)
+        self.assertEqual(retrieved.balance, 1000.0)
 
     def test_add_investment_new(self):
         """Test legacy add_investment method for new investment."""
@@ -243,9 +241,8 @@ class TestInvestmentRepository(unittest.TestCase):
 
         self.assertTrue(result)
 
-    def test_add_investment_update_existing(self):
-        """Test legacy add_investment method for existing investment."""
-        # Insert initial investment
+    def test_add_investment_existing_returns_false(self):
+        """Test legacy add_investment method for existing investment returns False (insert_only)."""
         self.repo.execute_query(
             """
             INSERT INTO investments (id, name, type, subtype, balance, date, due_date, issuer, rate_type)
@@ -264,7 +261,6 @@ class TestInvestmentRepository(unittest.TestCase):
             ),
         )
 
-        # Update via add_investment
         investment = Investment(
             investment_id="inv1",
             name="Investment 1 Updated",
@@ -279,18 +275,15 @@ class TestInvestmentRepository(unittest.TestCase):
 
         result = self.repo.add_investment(investment)
 
-        self.assertTrue(result)
+        self.assertFalse(result)
 
-    def test_update_investment_balance_new_investment(self):
-        """Test updating balance for new investment (partial data)."""
-        # Note: update_investment_balance only updates balance, date, due_date
-        # The method doesn't populate other required fields, so this is a limitation
-        # of the legacy method. We test that it at least updates without error.
+    def test_update_investment_balance_nonexistent(self):
+        """Test that updating balance for a nonexistent investment returns False."""
         result = self.repo.update_investment_balance(
-            "inv1", 1000.0, "2025-01-01", "2026-01-01"
+            "nonexistent", 1000.0, "2025-01-01", "2026-01-01"
         )
 
-        self.assertTrue(result)
+        self.assertFalse(result)
 
     def test_update_investment_balance_existing(self):
         """Test updating balance for existing investment."""

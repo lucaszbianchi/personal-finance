@@ -490,7 +490,6 @@ class TestTransactionRepository(unittest.TestCase):
                 "persons",
                 "id",
                 {"id": "12345678901", "name": "João Silva"},
-                strategy="insert_only",
             )
 
     def test_process_pix_person_extraction_transferencia_enviada(self):
@@ -514,7 +513,6 @@ class TestTransactionRepository(unittest.TestCase):
                 "persons",
                 "id",
                 {"id": "98765432100", "name": "Maria Santos"},
-                strategy="insert_only",
             )
 
     def test_process_pix_person_extraction_no_pipe(self):
@@ -563,7 +561,6 @@ class TestTransactionRepository(unittest.TestCase):
                 "categories",
                 "id",
                 {"id": "new-cat-123", "name": "Nova Categoria"},
-                strategy="insert_only",
             )
 
     def test_process_category_creation_no_category(self):

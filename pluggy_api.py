@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta, timezone
 import json
 import os
+import requests
 
 import dotenv
 import requests
@@ -13,6 +14,8 @@ from repositories.splitwise_repository import SplitwiseRepository
 from services.pluggy_auth_service import get_api_key as _get_api_key
 
 INCREMENTAL_DAYS = 6
+
+INCREMENTAL_DAYS = 7
 
 
 class PluggyAPI:
@@ -54,6 +57,18 @@ class PluggyAPI:
         response = requests.get(url, headers=headers, timeout=30)
         return json.loads(response.content)
 
+    def fetch_and_store_data(self):
+        from_date, to_date = self._incremental_date_range()
+        accounts = self.list_accounts(self.item_id).get("results")
+        for account in accounts:
+            account_type = account.get("type")
+            if account_type in ["BANK", "CREDIT"]:
+                account_id = account.get("id")
+                transactions = self._fetch_all_pages(account_id, from_date, to_date)
+                self._save_incremental_json(
+                    f"data/{account_type}_transactions.json", transactions
+                )
+
     def _incremental_date_range(self):
         """Retorna tupla (from_date, to_date) para janela incremental de INCREMENTAL_DAYS dias."""
         today = datetime.now(timezone.utc)
@@ -78,6 +93,24 @@ class PluggyAPI:
             )
             transactions.extend(page_data.get("results", []))
         return transactions
+
+    def fetch_and_store_investments(self):
+        headers = {"accept": "application/json", "X-API-KEY": f"{self.api_key}"}
+        item_id = os.getenv("ITEM_ID")
+
+        url = f"{self.base_url}/investments?itemId={item_id}&pageSize=100"
+
+        response = requests.get(url, headers=headers, timeout=30)
+        investments = json.loads(response.content).get("results")
+        self._save_incremental_json("data/investments.json", investments)
+
+    def fetch_and_store_splitwise_data(self):
+        from_date, to_date = self._incremental_date_range()
+        accounts = self.list_accounts(self.splitwise_item_id).get("results", [])
+        for account in accounts:
+            if account.get("name") == os.getenv("SPLITWISE_ACCOUNT_NAME"):
+                transactions = self._fetch_all_pages(account.get("id"), from_date, to_date)
+                self._save_incremental_json("data/splitwise_transactions.json", transactions)
 
     def _load_existing_json(self, filepath):
         if os.path.exists(filepath):
@@ -270,7 +303,10 @@ class PluggyAPI:
 
     def _initialize_database(self):
         """Inicializa o banco de dados com as tabelas necessárias via BaseRepository."""
-        print("[INFO] Inicializando banco de dados...")
+        from repositories.base_repository import BaseRepository
+
+        print(f"[INFO] Inicializando banco de dados...")
+
         tables_sql = [
             """
             CREATE TABLE IF NOT EXISTS categories (

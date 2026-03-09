@@ -369,7 +369,7 @@ class TransactionRepository(BaseRepository):
         }
 
         result = self.upsert(
-            "bank_transactions", "id", mapped_data, strategy="insert_only"
+            "bank_transactions", "id", mapped_data
         )
 
         if result["action"] == "inserted":
@@ -380,8 +380,8 @@ class TransactionRepository(BaseRepository):
 
     def upsert_credit_transaction(self, transaction_data: dict) -> dict:
         """
-        Insere ou atualiza uma transação de cartão de crédito usando strategy smart_merge.
-        O status das transações pode mudar, então usa upsert inteligente.
+        Insere uma transação de cartão de crédito usando strategy insert_only.
+        Transações já existentes são ignoradas.
 
         Args:
             transaction_data: Dict com dados da transação da API Pluggy
@@ -402,14 +402,10 @@ class TransactionRepository(BaseRepository):
             "status": transaction_data.get("status"),
         }
 
-        update_fields = ["status"]
-
         result = self.upsert(
             "credit_transactions",
             "id",
             mapped_data,
-            strategy="smart_merge",
-            update_fields=update_fields,
         )
 
         self._process_category_creation(transaction_data)
@@ -439,7 +435,7 @@ class TransactionRepository(BaseRepository):
                 # Usa upsert para pessoa com insert_only (pessoas não mudam)
                 person_data = {"id": document_number["value"], "name": person_name}
 
-                self.upsert("persons", "id", person_data, strategy="insert_only")
+                self.upsert("persons", "id", person_data)
 
     def _process_category_creation(self, transaction_data: dict) -> None:
         """
@@ -453,7 +449,7 @@ class TransactionRepository(BaseRepository):
             category_data = {"id": category_id, "name": category_name}
 
             # Usa insert_only para categorias (não devem ser alteradas automaticamente)
-            self.upsert("categories", "id", category_data, strategy="insert_only")
+            self.upsert("categories", "id", category_data)
 
     def create_bank_transaction(self, transaction: BankTransaction) -> BankTransaction:
         """
