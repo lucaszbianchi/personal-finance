@@ -128,7 +128,7 @@ class SplitwiseRepository(BaseRepository):
 
     def upsert_splitwise_transaction(self, transaction_data: dict) -> dict:
         """
-        Insere ou atualiza uma transação Splitwise usando strategy smart_merge.
+        Insere ou atualiza uma transação Splitwise.
         Transações Splitwise podem ser alteradas, então usa upsert inteligente.
 
         Args:
@@ -146,10 +146,6 @@ class SplitwiseRepository(BaseRepository):
             "category_id": transaction_data.get("categoryId"),
             "transaction_id": None,  # Inicialmente vazio, será preenchido por lógica de negócio
         }
-
-        # Transações Splitwise podem ter alterações nos dados básicos
-        # Mantém transaction_id se já existir para não quebrar vinculações
-        update_fields = ["date", "description", "amount", "category_id"]
 
         result = self.upsert(
             "splitwise",
@@ -253,7 +249,9 @@ class SplitwiseRepository(BaseRepository):
         except Exception:
             return False
 
-    def update_splitwise_content(self, splitwise_id: str, date: str, amount: float) -> bool:
+    def update_splitwise_content(
+        self, splitwise_id: str, date: str, amount: float
+    ) -> bool:
         """Atualiza data e valor de um item do Splitwise."""
         try:
             query = "UPDATE splitwise SET date = ?, amount = ? WHERE id = ?"
@@ -307,12 +305,14 @@ class SplitwiseRepository(BaseRepository):
         # Verifica se já existe uma entrada com o mesmo ID
         existing_splitwise = self.get_splitwise_by_id(splitwise.splitwise_id)
         if existing_splitwise:
-            raise ValueError(f"Entrada do Splitwise com ID {splitwise.splitwise_id} já existe")
+            raise ValueError(
+                f"Entrada do Splitwise com ID {splitwise.splitwise_id} já existe"
+            )
 
         # Converte a data para string no formato correto se for datetime
         date_str = splitwise.date
-        if hasattr(splitwise.date, 'strftime'):
-            date_str = splitwise.date.strftime('%Y-%m-%d')
+        if hasattr(splitwise.date, "strftime"):
+            date_str = splitwise.date.strftime("%Y-%m-%d")
 
         # Usa upsert com strategy insert_only para garantir que não sobrescreva
         splitwise_data = {
@@ -322,7 +322,7 @@ class SplitwiseRepository(BaseRepository):
             "description": splitwise.description,
             "category_id": splitwise.category_id,
             "transaction_id": splitwise.transaction_id,
-            "is_invalid": 1 if splitwise.is_invalid else 0
+            "is_invalid": 1 if splitwise.is_invalid else 0,
         }
 
         result = self.upsert("splitwise", "id", splitwise_data)
@@ -330,7 +330,9 @@ class SplitwiseRepository(BaseRepository):
         if result["success"] and result["action"] == "inserted":
             return splitwise
         else:
-            raise ValueError(f"Falha ao criar entrada do Splitwise: {result.get('error', 'Erro desconhecido')}")
+            raise ValueError(
+                f"Falha ao criar entrada do Splitwise: {result.get('error', 'Erro desconhecido')}"
+            )
 
     def delete_splitwise(self, splitwise_id: str) -> bool:
         """
@@ -351,12 +353,16 @@ class SplitwiseRepository(BaseRepository):
         # Verifica se a entrada existe
         splitwise = self.get_splitwise_by_id(splitwise_id)
         if not splitwise:
-            raise ValueError(f"Entrada do Splitwise com ID {splitwise_id} não encontrada")
+            raise ValueError(
+                f"Entrada do Splitwise com ID {splitwise_id} não encontrada"
+            )
 
         # Verifica se a entrada está vinculada a alguma transação
         # Se estiver vinculada, não deve ser deletada para manter integridade
         if splitwise.transaction_id:
-            raise ValueError(f"Não é possível deletar entrada do Splitwise '{splitwise.description}'. Ela está vinculada à transação {splitwise.transaction_id}.")
+            raise ValueError(
+                f"Não é possível deletar entrada do Splitwise '{splitwise.description}'. Ela está vinculada à transação {splitwise.transaction_id}."
+            )
 
         # Deleta a entrada
         query = "DELETE FROM splitwise WHERE id = ?"

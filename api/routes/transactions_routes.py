@@ -95,23 +95,25 @@ def get_investments():
     )
 
 
-@bp.route("/<transaction_type>/<transaction_id>", methods=["PUT"])
-def update_transaction(transaction_type, transaction_id):
-    """Atualiza uma transação existente."""
+@bp.route("/<transaction_type>/bulk-category", methods=["PUT"])
+def bulk_update_category(transaction_type):
+    """Atualiza a categoria de múltiplas transações em lote."""
     data = request.get_json()
-    description = data.get("description")
-    category_id = data.get("category_id")
+    transaction_ids = data.get("transaction_ids", [])
+    category_id = data.get("category_id")  # None = remover categoria
 
     if transaction_type not in ["bank", "credit"]:
         return jsonify({"error": "transaction_type deve ser 'bank' ou 'credit'"}), 400
+    if not transaction_ids:
+        return jsonify({"error": "transaction_ids é obrigatório"}), 400
 
-    success = transaction_service.update_transaction(
-        transaction_type, transaction_id, description, category_id
-    )
-
-    if success:
-        return jsonify({"message": "Transação atualizada com sucesso"})
-    return jsonify({"error": "Erro ao atualizar transação"}), 400
+    try:
+        updated = transaction_service.bulk_update_category(
+            transaction_type, transaction_ids, category_id
+        )
+        return jsonify({"updated": updated})
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
 
 
 @bp.route("/<transaction_type>/<transaction_id>/share", methods=["POST"])
@@ -277,59 +279,6 @@ def delete_credit_transaction(transaction_id: str):
             return jsonify({"message": "Transação de crédito deletada com sucesso"})
         else:
             return jsonify({"error": "Falha ao deletar transação de crédito"}), 400
-    except ValueError as e:
-        return jsonify({"error": str(e)}), 400
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-
-@bp.route("/bank/<transaction_id>", methods=["PUT"])
-def update_bank_transaction(transaction_id: str):
-    """Atualiza uma transação bancária."""
-    try:
-        data = request.get_json()
-        if not data or not isinstance(data, dict):
-            return jsonify({"error": "Body inválido"}), 400
-
-        transaction = transaction_service.update_bank_transaction(transaction_id, data)
-        return jsonify(
-            {
-                "id": transaction.transaction_id,
-                "date": transaction.date,
-                "description": transaction.description,
-                "amount": transaction.amount,
-                "category": _get_category_name(transaction.category_id),
-                "operation_type": transaction.operation_type,
-                "split_info": transaction.split_info,
-                "payment_data": transaction.payment_data,
-                "type": transaction.type_,
-            }
-        )
-    except ValueError as e:
-        return jsonify({"error": str(e)}), 400
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-
-@bp.route("/credit/<transaction_id>", methods=["PUT"])
-def update_credit_transaction(transaction_id: str):
-    """Atualiza uma transação de cartão de crédito."""
-    try:
-        data = request.get_json()
-        if not data or not isinstance(data, dict):
-            return jsonify({"error": "Body inválido"}), 400
-
-        transaction = transaction_service.update_credit_transaction(transaction_id, data)
-        return jsonify(
-            {
-                "id": transaction.transaction_id,
-                "date": transaction.date,
-                "description": transaction.description,
-                "amount": transaction.amount,
-                "category": _get_category_name(transaction.category_id),
-                "status": transaction.status,
-            }
-        )
     except ValueError as e:
         return jsonify({"error": str(e)}), 400
     except Exception as e:
