@@ -1,10 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useCategories } from '@/hooks/useCategories';
 import { TransactionForm } from '@/components/TransactionForm';
-import { EditTransactionForm } from '@/components/EditTransactionForm';
 import { DeleteTransactionButton } from '@/components/DeleteTransactionButton';
-import { EditTransactionButton } from '@/components/EditTransactionButton';
-import { CreditCard, Landmark, Filter, X, ChevronDown, Plus } from 'lucide-react';
+import { CreditCard, Landmark, Filter, X, ChevronDown, Plus, Tag } from 'lucide-react';
 import type { Category } from '@/types';
 
 interface Transaction {
@@ -29,26 +27,32 @@ export const Transactions: React.FC = () => {
   const [availablePeriods, setAvailablePeriods] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  
+
   // Filtros (preservados entre tabs)
   const [selectedPeriod, setSelectedPeriod] = useState<string>('__all__');
   const [selectedCategory, setSelectedCategory] = useState<string>('');
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [showFilters, setShowFilters] = useState(false);
 
-  // Estados para formulário de criação
+  // Estado para formulário de criação
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
 
-  // Estados para edição
-  const [showEditForm, setShowEditForm] = useState(false);
-  const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
+  // Estado para multi-select e bulk category
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [showBulkCategoryModal, setShowBulkCategoryModal] = useState(false);
+  const [bulkCategoryId, setBulkCategoryId] = useState<string>('');
 
   const { data: categories } = useCategories();
   const categoriesList: Category[] = useMemo(
     () => categories || [],
     [categories]
   );
+
+  // Limpar seleção ao trocar de aba
+  useEffect(() => {
+    setSelectedIds([]);
+  }, [activeTab]);
 
   // Carregar períodos disponíveis apenas uma vez no mount
   useEffect(() => {
@@ -57,7 +61,7 @@ export const Transactions: React.FC = () => {
         const response = await fetch('/api/transactions/bank');
         if (!response.ok) throw new Error('Erro ao carregar períodos');
         const data: Transaction[] = await response.json();
-        
+
         const periods = new Set<string>();
         data.forEach(t => {
           const date = t.date.split('\n')[0] || t.date.split('T')[0];
@@ -79,33 +83,27 @@ export const Transactions: React.FC = () => {
       setIsLoading(true);
       setError(null);
       try {
-        // Construir query string com filtros
         const params = new URLSearchParams();
-        
-        // Filtro de período: converter YYYY-MM para start_date e end_date
+
         if (selectedPeriod && selectedPeriod !== '__all__') {
           const [year, month] = selectedPeriod.split('-');
           const startDate = `${year}-${month}-01`;
-          
-          // Calcular último dia do mês
           const lastDay = new Date(parseInt(year), parseInt(month), 0).getDate();
           const endDate = `${year}-${month}-${String(lastDay).padStart(2, '0')}`;
-          
           params.append('start_date', startDate);
           params.append('end_date', endDate);
         }
-        
-        // Filtro de categoria: mapear nome para ID
+
         if (selectedCategory && categoriesList.length > 0) {
           const category = categoriesList.find(cat => cat.description === selectedCategory);
           if (category) {
             params.append('category_id', category.id);
           }
         }
-        
+
         const queryString = params.toString();
         const endpoint = `/api/transactions/${activeTab}${queryString ? `?${queryString}` : ''}`;
-        
+
         const response = await fetch(endpoint);
         if (!response.ok) throw new Error('Erro ao carregar transações');
         const data = await response.json();
@@ -121,14 +119,12 @@ export const Transactions: React.FC = () => {
   }, [activeTab, selectedPeriod, selectedCategory, refreshTrigger]);
 
   // Aplicar filtro de texto (busca) no frontend
-  // Período e categoria são filtrados no backend
   useEffect(() => {
     let filtered = [...transactions];
 
-    // Filtro por busca de texto
     if (searchTerm) {
       const search = searchTerm.toLowerCase();
-      filtered = filtered.filter(t => 
+      filtered = filtered.filter(t =>
         t.description.toLowerCase().includes(search)
       );
     }
@@ -144,8 +140,14 @@ export const Transactions: React.FC = () => {
   };
 
   const formatDate = (dateStr: string) => {
-    const date = dateStr.split('\n')[0] || dateStr.split('T')[0];
-    const [year, month, day] = date.split('-');
+    const parts = dateStr.split('\n');
+    const datePart = parts[0].trim();
+    const timePart = parts[1]?.trim() ?? '';
+    const [year, month, day] = datePart.split('-');
+    if (timePart) {
+      const [hours, minutes] = timePart.split(':');
+      return `${day}/${month}/${year} ${hours}:${minutes}`;
+    }
     return `${day}/${month}/${year}`;
   };
 
@@ -153,7 +155,6 @@ export const Transactions: React.FC = () => {
     if (activeTab === 'bank') {
       return amount > 0 ? 'text-success-600' : 'text-danger-600';
     } else {
-      // Para crédito: valores positivos são despesas (vermelho)
       return amount > 0 ? 'text-danger-600' : 'text-success-600';
     }
   };
@@ -168,18 +169,44 @@ export const Transactions: React.FC = () => {
 
   const handleTransactionCreated = () => {
     setShowCreateForm(false);
-    setRefreshTrigger(prev => prev + 1); // Force refresh
+    setRefreshTrigger(prev => prev + 1);
   };
 
-  const handleEditTransaction = (transaction: Transaction) => {
-    setEditingTransaction(transaction);
-    setShowEditForm(true);
+  const handleSelectAll = () => {
+    if (selectedIds.length === filteredTransactions.length) {
+      setSelectedIds([]);
+    } else {
+      setSelectedIds(filteredTransactions.map(t => t.id));
+    }
   };
 
-  const handleTransactionUpdated = () => {
-    setShowEditForm(false);
-    setEditingTransaction(null);
-    setRefreshTrigger(prev => prev + 1); // Force refresh
+  const handleSelectTransaction = (id: string) => {
+    setSelectedIds(prev =>
+      prev.includes(id) ? prev.filter(sid => sid !== id) : [...prev, id]
+    );
+  };
+
+  const handleBulkCategorySave = async () => {
+    try {
+      const response = await fetch(`/api/transactions/${activeTab}/bulk-category`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          transaction_ids: selectedIds,
+          category_id: bulkCategoryId || null,
+        }),
+      });
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || 'Erro ao atualizar categorias');
+      }
+      setShowBulkCategoryModal(false);
+      setBulkCategoryId('');
+      setSelectedIds([]);
+      setRefreshTrigger(prev => prev + 1);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Erro ao atualizar categorias');
+    }
   };
 
   if (isLoading) {
@@ -297,7 +324,7 @@ export const Transactions: React.FC = () => {
                 className="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-primary-500 focus:border-primary-500"
               >
                 <option value="">Todas as categorias</option>
-                {categoriesList.map(cat => (
+                {categoriesList.filter(cat => cat.transaction_count > 0).map(cat => (
                   <option key={cat.id} value={cat.description}>
                     {cat.description}
                   </option>
@@ -321,44 +348,56 @@ export const Transactions: React.FC = () => {
           </div>
         )}
 
-        {/* Resumo dos resultados */}
-        <div className="mt-4 pt-4 border-t border-gray-200">
+        {/* Resumo dos resultados e botão de bulk */}
+        <div className="mt-4 pt-4 border-t border-gray-200 flex items-center justify-between">
           <p className="text-sm text-gray-600">
             Mostrando <span className="font-semibold">{filteredTransactions.length}</span> de{' '}
             <span className="font-semibold">{transactions.length}</span> transações
           </p>
+          {selectedIds.length > 0 && (
+            <button
+              onClick={() => setShowBulkCategoryModal(true)}
+              className="bg-primary-600 text-white px-4 py-2 rounded-md hover:bg-primary-700 flex items-center space-x-2"
+            >
+              <Tag className="w-4 h-4" />
+              <span>Atualizar {selectedIds.length} {selectedIds.length === 1 ? 'transação' : 'transações'}</span>
+            </button>
+          )}
         </div>
       </div>
 
       {/* Tabela de transações */}
       <div className="bg-white rounded-lg shadow overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
+          <table className="min-w-full divide-y divide-gray-200 table-fixed">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="w-px px-4 py-3">
+                  <input
+                    type="checkbox"
+                    checked={filteredTransactions.length > 0 && selectedIds.length === filteredTransactions.length}
+                    ref={(el) => {
+                      if (el) {
+                        el.indeterminate = selectedIds.length > 0 && selectedIds.length < filteredTransactions.length;
+                      }
+                    }}
+                    onChange={handleSelectAll}
+                    className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                  />
+                </th>
+                <th className="w-[12%] px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Data
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="w-[50%] px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Descrição
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="w-[20%] px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Categoria
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="w-[13%] px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Valor
                 </th>
-                {activeTab === 'bank' && (
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Tipo de Operação
-                  </th>
-                )}
-                {activeTab === 'credit' && (
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Status
-                  </th>
-                )}
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="w-[7%] px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Ações
                 </th>
               </tr>
@@ -366,10 +405,18 @@ export const Transactions: React.FC = () => {
             <tbody className="bg-white divide-y divide-gray-200">
               {filteredTransactions.length > 0 ? (
                 filteredTransactions.map((transaction) => (
-                  <tr 
-                    key={transaction.id} 
+                  <tr
+                    key={transaction.id}
                     className="hover:bg-gray-50 transition-colors"
                   >
+                    <td className="px-4 py-4">
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.includes(transaction.id)}
+                        onChange={() => handleSelectTransaction(transaction.id)}
+                        className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                      />
+                    </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       {formatDate(transaction.date)}
                     </td>
@@ -386,35 +433,20 @@ export const Transactions: React.FC = () => {
                     <td className={`px-6 py-4 whitespace-nowrap text-sm font-semibold ${getAmountColor(transaction.amount)}`}>
                       {formatCurrency(transaction.amount)}
                     </td>
-                    {activeTab === 'bank' && (
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {transaction.operation_type || '-'}
-                      </td>
-                    )}
-                    {activeTab === 'credit' && (
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {transaction.status || '-'}
-                      </td>
-                    )}
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm text-gray-500">
-                      <div className="flex justify-end space-x-2">
-                        <EditTransactionButton
-                          onClick={() => handleEditTransaction(transaction)}
-                        />
-                        <DeleteTransactionButton
-                          transactionId={transaction.id}
-                          transactionType={activeTab}
-                          transactionDescription={transaction.description}
-                          onSuccess={() => setRefreshTrigger(prev => prev + 1)}
-                        />
-                      </div>
+                      <DeleteTransactionButton
+                        transactionId={transaction.id}
+                        transactionType={activeTab}
+                        transactionDescription={transaction.description}
+                        onSuccess={() => setRefreshTrigger(prev => prev + 1)}
+                      />
                     </td>
                   </tr>
                 ))
               ) : (
                 <tr>
                   <td
-                    colSpan={activeTab === 'bank' ? 6 : 6}
+                    colSpan={6}
                     className="px-6 py-12 text-center text-gray-500"
                   >
                     <div className="flex flex-col items-center">
@@ -440,28 +472,50 @@ export const Transactions: React.FC = () => {
         onSuccess={handleTransactionCreated}
       />
 
-      {/* Modal de edição de transação */}
-      {editingTransaction && (
-        <EditTransactionForm
-          isOpen={showEditForm}
-          onClose={() => {
-            setShowEditForm(false);
-            setEditingTransaction(null);
-          }}
-          transactionType={activeTab}
-          transaction={{
-            id: editingTransaction.id,
-            description: editingTransaction.description,
-            amount: editingTransaction.amount,
-            date: editingTransaction.date,
-            category_id: editingTransaction.category ?
-              categoriesList.find(cat => cat.description === editingTransaction.category)?.id : undefined,
-            type: editingTransaction.type,
-            operation_type: editingTransaction.operation_type,
-            status: editingTransaction.status,
-          }}
-          onSuccess={handleTransactionUpdated}
-        />
+      {/* Modal de bulk category */}
+      {showBulkCategoryModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-md">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Atualizar Categoria</h3>
+            <p className="text-sm text-gray-600 mb-4">
+              Atualizar categoria de <span className="font-semibold">{selectedIds.length}</span> transação(ões) selecionada(s).
+            </p>
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Categoria
+              </label>
+              <select
+                value={bulkCategoryId}
+                onChange={(e) => setBulkCategoryId(e.target.value)}
+                className="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-primary-500 focus:border-primary-500"
+              >
+                <option value="">Sem categoria</option>
+                {categoriesList.map(cat => (
+                  <option key={cat.id} value={cat.id}>
+                    {cat.description}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="flex justify-end space-x-3">
+              <button
+                onClick={() => {
+                  setShowBulkCategoryModal(false);
+                  setBulkCategoryId('');
+                }}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleBulkCategorySave}
+                className="px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-md hover:bg-primary-700"
+              >
+                Salvar
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

@@ -276,13 +276,30 @@ class TestTransactionRepository(unittest.TestCase):
         self.assertEqual(found.amount, 75.50)
         self.assertEqual(found.description, "New Credit Transaction")
 
-    # Testes para linhas 226-264: update_bank_transaction (CORRIGIDO)
-    def test_update_bank_transaction(self):
-        """Testa update_bank_transaction - linhas 226-264"""
+    def test_bulk_update_category(self):
+        """Testa bulk_update_category - atualiza categoria de múltiplas transações"""
         self._create_test_category("cat123")
-        self._create_test_category("cat999", "Updated Category")
 
-        # Criar transação inicial
+        txn = BankTransaction(
+            transaction_id=self.test_bank_id,
+            amount=123.45,
+            date="2023-01-01",
+            description="Original Transaction",
+            category_id=None,
+            type_="debit",
+            operation_type="PIX",
+        )
+        self.repo.add_bank_transaction(txn)
+
+        result = self.repo.bulk_update_category("bank", [self.test_bank_id], "cat123")
+        self.assertEqual(result, 1)
+        updated = self.repo.get_bank_transaction_by_id(self.test_bank_id)
+        self.assertEqual(updated.category_id, "cat123")
+
+    def test_bulk_update_category_remove(self):
+        """Testa bulk_update_category removendo categoria"""
+        self._create_test_category("cat123")
+
         txn = BankTransaction(
             transaction_id=self.test_bank_id,
             amount=123.45,
@@ -291,62 +308,13 @@ class TestTransactionRepository(unittest.TestCase):
             category_id="cat123",
             type_="debit",
             operation_type="PIX",
-            split_info=None,
-            payment_data=None,
         )
         self.repo.add_bank_transaction(txn)
 
-        # Testar atualização com dicionário (nova assinatura)
-        update_data = {
-            "description": "Updated Transaction",
-            "amount": 200.0,
-            "category_id": "cat999",
-            "split_info": {"updated": True},
-        }
-
-        updated = self.repo.update_bank_transaction(self.test_bank_id, update_data)
-        self.assertIsNotNone(updated)
-        self.assertEqual(updated.description, "Updated Transaction")
-        self.assertEqual(updated.amount, 200.0)
-        self.assertEqual(updated.category_id, "cat999")
-
-        # Testar atualização sem dados
-        empty_update = self.repo.update_bank_transaction(self.test_bank_id, {})
-        self.assertIsNotNone(empty_update)
-
-        # Testar transação inexistente
-        with self.assertRaises(ValueError):
-            self.repo.update_bank_transaction("nonexistent", {"description": "test"})
-
-    # Testes para linhas 272-308: update_credit_transaction
-    def test_update_credit_transaction(self):
-        """Testa update_credit_transaction - linhas 272-308"""
-        self._create_test_category("cat123")
-        self._create_test_category("cat999", "Updated Category")
-
-        # Criar transação de crédito inicial
-        credit_txn = CreditTransaction(
-            transaction_id=self.test_credit_id,
-            amount=50.0,
-            date="2023-01-05",
-            description="Original Credit",
-            category_id="cat123",
-            status="PENDING",
-        )
-        self.repo.add_credit_transaction(credit_txn)
-
-        # Atualizar transação
-        update_data = {
-            "description": "Updated Credit",
-            "amount": 75.0,
-            "status": "POSTED",
-        }
-
-        updated = self.repo.update_credit_transaction(self.test_credit_id, update_data)
-        self.assertIsNotNone(updated)
-        self.assertEqual(updated.description, "Updated Credit")
-        self.assertEqual(updated.amount, 75.0)
-        self.assertEqual(updated.status, "POSTED")
+        result = self.repo.bulk_update_category("bank", [self.test_bank_id], None)
+        self.assertEqual(result, 1)
+        updated = self.repo.get_bank_transaction_by_id(self.test_bank_id)
+        self.assertIsNone(updated.category_id)
 
     # Testes para linhas 312-322: category_in_use
     def test_category_in_use(self):

@@ -623,6 +623,19 @@ class TransactionRepository(BaseRepository):
         cursor = self.execute_query(query, (transaction_id,))
         return cursor.rowcount > 0
 
+    def bulk_update_category(
+        self, transaction_type: str, transaction_ids: list[str], category_id: str | None
+    ) -> int:
+        """Atualiza a categoria de múltiplas transações em uma única query."""
+        if transaction_type not in ("bank", "credit"):
+            raise ValueError(f"transaction_type inválido: {transaction_type!r}")
+        table = "bank_transactions" if transaction_type == "bank" else "credit_transactions"
+        placeholders = ",".join("?" * len(transaction_ids))
+        query = f"UPDATE {table} SET category_id = ? WHERE id IN ({placeholders})"
+        values = [category_id] + transaction_ids
+        cursor = self.execute_query(query, tuple(values))
+        return cursor.rowcount
+
     def get_operation_types(self) -> List[str]:
         """
         Retorna lista de tipos de operação únicos das transações bancárias.

@@ -6,7 +6,7 @@ class BillRepository(BaseRepository):
     """Repositório para gerenciar faturas de cartão de crédito."""
 
     def upsert_bill(self, bill_data: dict, account_id: str) -> dict:
-        """Insere ou atualiza uma fatura usando smart_merge."""
+        """Insere ou atualiza uma fatura."""
         finance_charges = bill_data.get("financeCharges")
         mapped_data = {
             "id": bill_data["id"],

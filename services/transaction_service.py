@@ -64,37 +64,20 @@ class TransactionService:
         """Retorna todas as transações de investimento."""
         return self.transaction_repository.get_investments()
 
-    def update_transaction(
+    def bulk_update_category(
         self,
         transaction_type: str,
-        transaction_id: str,
-        description: str | None,
+        transaction_ids: list[str],
         category_id: str | None,
-    ) -> bool:
-        """Atualiza uma transação existente."""
-        if transaction_type == "bank":
-            transaction = self.transaction_repository.get_bank_transaction_by_id(
-                transaction_id
-            )
-            if description is None:
-                description = transaction.description
-            if category_id is None:
-                category_id = transaction.category_id
-            return self.transaction_repository.update_bank_transaction(
-                transaction_id, {"description": description, "category_id": category_id}
-            )
-        elif transaction_type == "credit":
-            transaction = self.transaction_repository.get_credit_transaction_by_id(
-                transaction_id
-            )
-            if description is None:
-                description = transaction.description
-            if category_id is None:
-                category_id = transaction.category_id
-            return self.transaction_repository.update_credit_transaction(
-                transaction_id, {"description": description, "category_id": category_id}
-            )
-        return False
+    ) -> int:
+        """Atualiza a categoria de múltiplas transações em lote."""
+        if category_id:
+            category = self.category_repository.get_category_by_id(category_id)
+            if not category:
+                raise ValueError(f"Categoria com ID {category_id} não encontrada")
+        return self.transaction_repository.bulk_update_category(
+            transaction_type, transaction_ids, category_id
+        )
 
     def add_person_to_share_transaction(
         self,
@@ -476,110 +459,6 @@ class TransactionService:
 
         # Deleta no repositório (que fará as verificações de integridade)
         return self.transaction_repository.delete_credit_transaction(transaction_id)
-
-    def update_bank_transaction(
-        self, transaction_id: str, transaction_data: dict
-    ) -> BankTransaction:
-        """
-        Atualiza uma transação bancária existente.
-
-        Args:
-            transaction_id: ID da transação a ser atualizada
-            transaction_data: Dict com dados para atualização
-
-        Returns:
-            BankTransaction: A transação atualizada
-
-        Raises:
-            ValueError: Se transação não existe ou dados são inválidos
-        """
-        if not transaction_id:
-            raise ValueError("ID da transação é obrigatório")
-
-        # Verifica se a transação existe
-        existing_transaction = self.transaction_repository.get_bank_transaction_by_id(
-            transaction_id
-        )
-        if not existing_transaction:
-            raise ValueError(
-                f"Transação bancária com ID {transaction_id} não encontrada"
-            )
-
-        # Valida campos se fornecidos
-        if "amount" in transaction_data:
-            try:
-                amount = float(transaction_data["amount"])
-                if abs(amount) < 0.01:
-                    raise ValueError("Valor deve ser maior que 0.01")
-            except (ValueError, TypeError):
-                raise ValueError("Valor deve ser um número válido")
-
-        if "category_id" in transaction_data and transaction_data["category_id"]:
-            category = self.category_repository.get_category_by_id(
-                transaction_data["category_id"]
-            )
-            if not category:
-                raise ValueError(
-                    f"Categoria com ID {transaction_data['category_id']} não encontrada"
-                )
-
-        # Atualiza no repositório
-        updated_transaction = self.transaction_repository.update_bank_transaction(
-            transaction_id, transaction_data
-        )
-        return updated_transaction
-
-    def update_credit_transaction(
-        self, transaction_id: str, transaction_data: dict
-    ) -> CreditTransaction:
-        """
-        Atualiza uma transação de cartão de crédito existente.
-
-        Args:
-            transaction_id: ID da transação a ser atualizada
-            transaction_data: Dict com dados para atualização
-
-        Returns:
-            CreditTransaction: A transação atualizada
-
-        Raises:
-            ValueError: Se transação não existe ou dados são inválidos
-        """
-        if not transaction_id:
-            raise ValueError("ID da transação é obrigatório")
-
-        # Verifica se a transação existe
-        existing_transaction = self.transaction_repository.get_credit_transaction_by_id(
-            transaction_id
-        )
-        if not existing_transaction:
-            raise ValueError(
-                f"Transação de crédito com ID {transaction_id} não encontrada"
-            )
-
-        # Valida campos se fornecidos
-        if "amount" in transaction_data:
-            try:
-                amount = float(transaction_data["amount"])
-                if abs(amount) < 0.01:
-                    raise ValueError("Valor deve ser maior que 0.01")
-            except (ValueError, TypeError):
-                raise ValueError("Valor deve ser um número válido")
-
-        if "category_id" in transaction_data and transaction_data["category_id"]:
-            category = self.category_repository.get_category_by_id(
-                transaction_data["category_id"]
-            )
-            if not category:
-                raise ValueError(
-                    f"Categoria com ID {transaction_data['category_id']} não encontrada"
-                )
-
-        # Atualiza no repositório
-        updated_transaction = self.transaction_repository.update_credit_transaction(
-            transaction_id, transaction_data
-        )
-        return updated_transaction
 
     def get_operation_types(self) -> List[str]:
         """

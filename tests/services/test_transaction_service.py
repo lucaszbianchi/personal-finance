@@ -89,42 +89,25 @@ class TestTransactionService(unittest.TestCase):
         self.mock_repo.get_credit_transactions.assert_called_once()
         self.assertEqual(len(result), 1)
 
-    def test_update_transaction_bank_with_none_values(self):
-        """Testa update_transaction com valores None - linhas 80, 82"""
-        mock_transaction = MagicMock(
-            description="Original Desc", category_id="original_cat"
-        )
-        self.mock_repo.get_bank_transaction_by_id.return_value = mock_transaction
-        self.mock_repo.update_bank_transaction.return_value = True
+    def test_bulk_update_category_bank(self):
+        """Testa bulk_update_category com tipo bank"""
+        self.mock_cat_repo.get_category_by_id.return_value = MagicMock()
+        self.mock_repo.bulk_update_category.return_value = 3
+        result = self.service.bulk_update_category("bank", ["id1", "id2", "id3"], "cat1")
+        self.assertEqual(result, 3)
+        self.mock_repo.bulk_update_category.assert_called_with("bank", ["id1", "id2", "id3"], "cat1")
 
-        result = self.service.update_transaction("bank", "txid", None, None)
+    def test_bulk_update_category_invalid_category(self):
+        """Testa bulk_update_category com categoria inválida"""
+        self.mock_cat_repo.get_category_by_id.return_value = None
+        with self.assertRaises(ValueError):
+            self.service.bulk_update_category("bank", ["id1"], "invalid")
 
-        self.mock_repo.update_bank_transaction.assert_called_with(
-            "txid", {"description": "Original Desc", "category_id": "original_cat"}
-        )
-        self.assertTrue(result)
-
-    def test_update_transaction_credit_type(self):
-        """Testa update_transaction com tipo credit - linhas 86-97"""
-        mock_transaction = MagicMock(
-            description="Credit Desc", category_id="credit_cat"
-        )
-        self.mock_repo.get_credit_transaction_by_id.return_value = mock_transaction
-        self.mock_repo.update_credit_transaction.return_value = True
-
-        result = self.service.update_transaction(
-            "credit", "txid", "New Desc", "new_cat"
-        )
-
-        self.mock_repo.update_credit_transaction.assert_called_with(
-            "txid", {"description": "New Desc", "category_id": "new_cat"}
-        )
-        self.assertTrue(result)
-
-    def test_update_transaction_invalid_type(self):
-        """Testa update_transaction com tipo inválido - retorna False"""
-        result = self.service.update_transaction("invalid", "txid", "desc", "cat")
-        self.assertFalse(result)
+    def test_bulk_update_category_no_category(self):
+        """Testa bulk_update_category sem categoria (remove)"""
+        self.mock_repo.bulk_update_category.return_value = 2
+        result = self.service.bulk_update_category("bank", ["id1", "id2"], None)
+        self.assertEqual(result, 2)
 
     def test_add_person_to_share_transaction_bank(self):
         """Testa add_person_to_share_transaction com banco"""
@@ -669,134 +652,6 @@ class TestTransactionService(unittest.TestCase):
 
         self.mock_repo.delete_credit_transaction.assert_called_with("txid")
         self.assertTrue(result)
-
-    def test_update_bank_transaction_missing_id(self):
-        """Testa update_bank_transaction sem ID - linhas 473-474"""
-        with self.assertRaises(ValueError) as context:
-            self.service.update_bank_transaction("", {})
-
-        self.assertIn("ID da transação é obrigatório", str(context.exception))
-
-    def test_update_bank_transaction_not_found(self):
-        """Testa update_bank_transaction não encontrada - linhas 477-479"""
-        self.mock_repo.get_bank_transaction_by_id.return_value = None
-
-        with self.assertRaises(ValueError) as context:
-            self.service.update_bank_transaction("nonexistent", {})
-
-        self.assertIn(
-            "Transação bancária com ID nonexistent não encontrada",
-            str(context.exception),
-        )
-
-    def test_update_bank_transaction_invalid_amount(self):
-        """Testa update_bank_transaction com valor inválido - linhas 482-488"""
-        mock_transaction = MagicMock()
-        self.mock_repo.get_bank_transaction_by_id.return_value = mock_transaction
-
-        # Teste valor não numérico
-        with self.assertRaises(ValueError) as context:
-            self.service.update_bank_transaction("txid", {"amount": "invalid"})
-        self.assertIn("Valor deve ser um número válido", str(context.exception))
-
-        # Teste valor muito pequeno - também retorna "número válido" por causa do except
-        with self.assertRaises(ValueError) as context:
-            self.service.update_bank_transaction("txid", {"amount": 0.001})
-        self.assertIn("Valor deve ser um número válido", str(context.exception))
-
-    def test_update_bank_transaction_invalid_category(self):
-        """Testa update_bank_transaction com categoria inválida - linhas 490-493"""
-        mock_transaction = MagicMock()
-        self.mock_repo.get_bank_transaction_by_id.return_value = mock_transaction
-        self.mock_cat_repo.get_category_by_id.return_value = None
-
-        with self.assertRaises(ValueError) as context:
-            self.service.update_bank_transaction("txid", {"category_id": "invalid_cat"})
-
-        self.assertIn(
-            "Categoria com ID invalid_cat não encontrada", str(context.exception)
-        )
-
-    def test_update_bank_transaction_success(self):
-        """Testa update_bank_transaction com sucesso - linhas 495-497"""
-        mock_transaction = MagicMock()
-        self.mock_repo.get_bank_transaction_by_id.return_value = mock_transaction
-
-        updated_transaction = MagicMock()
-        self.mock_repo.update_bank_transaction.return_value = updated_transaction
-
-        result = self.service.update_bank_transaction(
-            "txid", {"description": "Updated"}
-        )
-
-        self.mock_repo.update_bank_transaction.assert_called_with(
-            "txid", {"description": "Updated"}
-        )
-        self.assertEqual(result, updated_transaction)
-
-    def test_update_credit_transaction_missing_id(self):
-        """Testa update_credit_transaction sem ID - linhas 513-514"""
-        with self.assertRaises(ValueError) as context:
-            self.service.update_credit_transaction("", {})
-
-        self.assertIn("ID da transação é obrigatório", str(context.exception))
-
-    def test_update_credit_transaction_not_found(self):
-        """Testa update_credit_transaction não encontrada - linhas 517-519"""
-        self.mock_repo.get_credit_transaction_by_id.return_value = None
-
-        with self.assertRaises(ValueError) as context:
-            self.service.update_credit_transaction("nonexistent", {})
-
-        self.assertIn(
-            "Transação de crédito com ID nonexistent não encontrada",
-            str(context.exception),
-        )
-
-    def test_update_credit_transaction_invalid_amount(self):
-        """Testa update_credit_transaction com valor inválido - linhas 522-528"""
-        mock_transaction = MagicMock()
-        self.mock_repo.get_credit_transaction_by_id.return_value = mock_transaction
-
-        # Teste valor não numérico
-        with self.assertRaises(ValueError) as context:
-            self.service.update_credit_transaction("txid", {"amount": "invalid"})
-        self.assertIn("Valor deve ser um número válido", str(context.exception))
-
-        # Teste valor muito pequeno - também retorna "número válido" por causa do except
-        with self.assertRaises(ValueError) as context:
-            self.service.update_credit_transaction("txid", {"amount": 0.005})
-        self.assertIn("Valor deve ser um número válido", str(context.exception))
-
-    def test_update_credit_transaction_invalid_category(self):
-        """Testa update_credit_transaction com categoria inválida - linhas 530-533"""
-        mock_transaction = MagicMock()
-        self.mock_repo.get_credit_transaction_by_id.return_value = mock_transaction
-        self.mock_cat_repo.get_category_by_id.return_value = None
-
-        with self.assertRaises(ValueError) as context:
-            self.service.update_credit_transaction(
-                "txid", {"category_id": "invalid_cat"}
-            )
-
-        self.assertIn(
-            "Categoria com ID invalid_cat não encontrada", str(context.exception)
-        )
-
-    def test_update_credit_transaction_success(self):
-        """Testa update_credit_transaction com sucesso - linhas 535-537"""
-        mock_transaction = MagicMock()
-        self.mock_repo.get_credit_transaction_by_id.return_value = mock_transaction
-
-        updated_transaction = MagicMock()
-        self.mock_repo.update_credit_transaction.return_value = updated_transaction
-
-        result = self.service.update_credit_transaction("txid", {"status": "posted"})
-
-        self.mock_repo.update_credit_transaction.assert_called_with(
-            "txid", {"status": "posted"}
-        )
-        self.assertEqual(result, updated_transaction)
 
     def test_get_operation_types(self):
         """Testa get_operation_types - linha 546"""
