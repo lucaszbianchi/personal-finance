@@ -74,8 +74,10 @@ class TestTransactionRepository(unittest.TestCase):
             """
             CREATE TABLE categories (
                 id TEXT PRIMARY KEY,
-                name TEXT NOT NULL,
-                types TEXT
+                description TEXT NOT NULL,
+                description_translated TEXT,
+                parent_id TEXT,
+                parent_description TEXT
             )
         """
         )
@@ -104,7 +106,7 @@ class TestTransactionRepository(unittest.TestCase):
     def _create_test_category(self, category_id="cat123", name="Test Category"):
         """Helper para criar categoria de teste"""
         self.repo.execute_query(
-            "INSERT OR IGNORE INTO categories (id, name) VALUES (?, ?)",
+            "INSERT OR IGNORE INTO categories (id, description) VALUES (?, ?)",
             (category_id, name),
         )
 
@@ -560,7 +562,7 @@ class TestTransactionRepository(unittest.TestCase):
             mock_upsert.assert_called_once_with(
                 "categories",
                 "id",
-                {"id": "new-cat-123", "name": "Nova Categoria"},
+                {"id": "new-cat-123", "description": "Nova Categoria"},
             )
 
     def test_process_category_creation_no_category(self):

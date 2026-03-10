@@ -44,7 +44,7 @@ export const Categories: React.FC = () => {
     if (!newCategoryName.trim()) return;
 
     try {
-      await createCategory.mutateAsync({ name: newCategoryName.trim() });
+      await createCategory.mutateAsync({ description: newCategoryName.trim() });
       setNewCategoryName('');
       setIsCreateModalOpen(false);
     } catch (error) {
@@ -54,7 +54,7 @@ export const Categories: React.FC = () => {
 
   const handleEditCategory = (category: Category) => {
     setEditingCategory(category);
-    setEditCategoryName(category.name);
+    setEditCategoryName(category.description);
     setIsEditModalOpen(true);
   };
 
@@ -64,7 +64,7 @@ export const Categories: React.FC = () => {
 
     try {
       await updateCategory.mutateAsync({
-        oldName: editingCategory.name,
+        oldName: editingCategory.description,
         newName: editCategoryName.trim()
       });
       setEditingCategory(null);
@@ -84,7 +84,7 @@ export const Categories: React.FC = () => {
     if (!deletingCategory) return;
 
     try {
-      await deleteCategory.mutateAsync(deletingCategory.name);
+      await deleteCategory.mutateAsync(deletingCategory.description);
       setDeletingCategory(null);
       setIsDeleteModalOpen(false);
     } catch (error) {
@@ -104,7 +104,7 @@ export const Categories: React.FC = () => {
     if (selectedCategories.length === categoriesList.length) {
       setSelectedCategories([]);
     } else {
-      setSelectedCategories(categoriesList.map(cat => cat.name));
+      setSelectedCategories(categoriesList.map(cat => cat.description));
     }
   };
 
@@ -191,8 +191,8 @@ export const Categories: React.FC = () => {
                     <td className="px-6 py-4 whitespace-nowrap">
                       <input
                         type="checkbox"
-                        checked={selectedCategories.includes(category.name)}
-                        onChange={() => handleSelectCategory(category.name)}
+                        checked={selectedCategories.includes(category.description)}
+                        onChange={() => handleSelectCategory(category.description)}
                         className="h-4 w-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500"
                       />
                     </td>
@@ -200,7 +200,7 @@ export const Categories: React.FC = () => {
                       <div className="flex items-center">
                         <Tag className="w-5 h-5 text-gray-400 mr-3" />
                         <span className="text-sm font-medium text-gray-900">
-                          {category.name}
+                          {category.description}
                         </span>
                       </div>
                     </td>
@@ -362,7 +362,7 @@ export const Categories: React.FC = () => {
 
               <div className="mb-6">
                 <p className="text-sm text-gray-600">
-                  Tem certeza que deseja deletar a categoria <strong>"{deletingCategory.name}"</strong>?
+                  Tem certeza que deseja deletar a categoria <strong>"{deletingCategory.description}"</strong>?
                 </p>
                 <p className="text-xs text-danger-600 mt-2">
                   Esta ação não pode ser desfeita. A categoria não pode ser deletada se estiver sendo usada por transações.

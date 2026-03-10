@@ -81,7 +81,7 @@ class TransactionService:
             if category_id is None:
                 category_id = transaction.category_id
             return self.transaction_repository.update_bank_transaction(
-                transaction_id, description, category_id, split_info=None
+                transaction_id, {"description": description, "category_id": category_id}
             )
         elif transaction_type == "credit":
             transaction = self.transaction_repository.get_credit_transaction_by_id(
@@ -92,7 +92,7 @@ class TransactionService:
             if category_id is None:
                 category_id = transaction.category_id
             return self.transaction_repository.update_credit_transaction(
-                transaction_id, description, category_id, split_info=None
+                transaction_id, {"description": description, "category_id": category_id}
             )
         return False
 
@@ -115,11 +115,11 @@ class TransactionService:
         }
         if transaction_type == "bank":
             return self.transaction_repository.update_bank_transaction(
-                transaction_id, None, None, split_info
+                transaction_id, {"split_info": split_info}
             )
         elif transaction_type == "credit":
             return self.transaction_repository.update_credit_transaction(
-                transaction_id, None, None, split_info
+                transaction_id, {"split_info": split_info}
             )
         return False
 
@@ -137,7 +137,7 @@ class TransactionService:
 
         split_info = {"settle_up": True, "partner_id": partner_id}
         return self.transaction_repository.update_bank_transaction(
-            transaction_id, None, None, split_info
+            transaction_id, {"split_info": split_info}
         )
 
     def add_category_to_settle_up_transaction(
@@ -154,7 +154,7 @@ class TransactionService:
         split_info = transaction.split_info
         split_info["category"] = category_id
         return self.transaction_repository.update_bank_transaction(
-            transaction_id, None, None, split_info
+            transaction_id, {"split_info": split_info}
         )
 
     def check_split_settle_up(self):
@@ -329,7 +329,7 @@ class TransactionService:
             type_=transaction_data.get("type"),
             operation_type=transaction_data.get("operation_type"),
             split_info=transaction_data.get("split_info"),
-            payment_data=transaction_data.get("payment_data")
+            payment_data=transaction_data.get("payment_data"),
         )
 
         # Valida regras de negócio
@@ -337,7 +337,9 @@ class TransactionService:
             raise ValueError("Valor deve ser maior que 0.01")
 
         # Cria no repositório
-        created_transaction = self.transaction_repository.create_bank_transaction(transaction)
+        created_transaction = self.transaction_repository.create_bank_transaction(
+            transaction
+        )
         return created_transaction
 
     def create_credit_transaction(self, transaction_data: dict) -> CreditTransaction:
@@ -382,7 +384,7 @@ class TransactionService:
             description=transaction_data["description"],
             amount=amount,
             category_id=category_id,
-            status=transaction_data.get("status", "pending")
+            status=transaction_data.get("status", "pending"),
         )
 
         # Valida regras de negócio
@@ -390,7 +392,9 @@ class TransactionService:
             raise ValueError("Valor deve ser maior que 0.01")
 
         # Cria no repositório
-        created_transaction = self.transaction_repository.create_credit_transaction(transaction)
+        created_transaction = self.transaction_repository.create_credit_transaction(
+            transaction
+        )
         return created_transaction
 
     def delete_bank_transaction(self, transaction_id: str) -> bool:
@@ -411,18 +415,29 @@ class TransactionService:
 
         # Valida se existe
         try:
-            transaction = self.transaction_repository.get_bank_transaction_by_id(transaction_id)
+            transaction = self.transaction_repository.get_bank_transaction_by_id(
+                transaction_id
+            )
         except ValueError:
-            raise ValueError(f"Transação bancária com ID {transaction_id} não encontrada")
+            raise ValueError(
+                f"Transação bancária com ID {transaction_id} não encontrada"
+            )
 
         # Regras de negócio adicionais
         # Verifica se é uma transação crítica do sistema (investimentos, etc.)
-        if transaction.description and any(keyword in transaction.description.lower() for keyword in ["resgate rdb", "aplicação rdb", "aplicação em cdb"]):
-            raise ValueError(f"Não é possível deletar transação de investimento: '{transaction.description}'")
+        if transaction.description and any(
+            keyword in transaction.description.lower()
+            for keyword in ["resgate rdb", "aplicação rdb", "aplicação em cdb"]
+        ):
+            raise ValueError(
+                f"Não é possível deletar transação de investimento: '{transaction.description}'"
+            )
 
         # Aviso se tem informações de divisão
         if transaction.split_info:
-            print(f"Aviso: Deletando transação '{transaction.description}' que possui informações de divisão")
+            print(
+                f"Aviso: Deletando transação '{transaction.description}' que possui informações de divisão"
+            )
 
         # Deleta no repositório (que fará as verificações de integridade)
         return self.transaction_repository.delete_bank_transaction(transaction_id)
@@ -445,18 +460,26 @@ class TransactionService:
 
         # Valida se existe
         try:
-            transaction = self.transaction_repository.get_credit_transaction_by_id(transaction_id)
+            transaction = self.transaction_repository.get_credit_transaction_by_id(
+                transaction_id
+            )
         except ValueError:
-            raise ValueError(f"Transação de crédito com ID {transaction_id} não encontrada")
+            raise ValueError(
+                f"Transação de crédito com ID {transaction_id} não encontrada"
+            )
 
         # Regras de negócio: avisa se ainda está pendente de pagamento
         if transaction.status and transaction.status.lower() == "pending":
-            print(f"Aviso: Deletando transação '{transaction.description}' que ainda está pendente de pagamento")
+            print(
+                f"Aviso: Deletando transação '{transaction.description}' que ainda está pendente de pagamento"
+            )
 
         # Deleta no repositório (que fará as verificações de integridade)
         return self.transaction_repository.delete_credit_transaction(transaction_id)
 
-    def update_bank_transaction(self, transaction_id: str, transaction_data: dict) -> BankTransaction:
+    def update_bank_transaction(
+        self, transaction_id: str, transaction_data: dict
+    ) -> BankTransaction:
         """
         Atualiza uma transação bancária existente.
 
@@ -474,9 +497,13 @@ class TransactionService:
             raise ValueError("ID da transação é obrigatório")
 
         # Verifica se a transação existe
-        existing_transaction = self.transaction_repository.get_bank_transaction_by_id(transaction_id)
+        existing_transaction = self.transaction_repository.get_bank_transaction_by_id(
+            transaction_id
+        )
         if not existing_transaction:
-            raise ValueError(f"Transação bancária com ID {transaction_id} não encontrada")
+            raise ValueError(
+                f"Transação bancária com ID {transaction_id} não encontrada"
+            )
 
         # Valida campos se fornecidos
         if "amount" in transaction_data:
@@ -488,15 +515,23 @@ class TransactionService:
                 raise ValueError("Valor deve ser um número válido")
 
         if "category_id" in transaction_data and transaction_data["category_id"]:
-            category = self.category_repository.get_category_by_id(transaction_data["category_id"])
+            category = self.category_repository.get_category_by_id(
+                transaction_data["category_id"]
+            )
             if not category:
-                raise ValueError(f"Categoria com ID {transaction_data['category_id']} não encontrada")
+                raise ValueError(
+                    f"Categoria com ID {transaction_data['category_id']} não encontrada"
+                )
 
         # Atualiza no repositório
-        updated_transaction = self.transaction_repository.update_bank_transaction(transaction_id, transaction_data)
+        updated_transaction = self.transaction_repository.update_bank_transaction(
+            transaction_id, transaction_data
+        )
         return updated_transaction
 
-    def update_credit_transaction(self, transaction_id: str, transaction_data: dict) -> CreditTransaction:
+    def update_credit_transaction(
+        self, transaction_id: str, transaction_data: dict
+    ) -> CreditTransaction:
         """
         Atualiza uma transação de cartão de crédito existente.
 
@@ -514,9 +549,13 @@ class TransactionService:
             raise ValueError("ID da transação é obrigatório")
 
         # Verifica se a transação existe
-        existing_transaction = self.transaction_repository.get_credit_transaction_by_id(transaction_id)
+        existing_transaction = self.transaction_repository.get_credit_transaction_by_id(
+            transaction_id
+        )
         if not existing_transaction:
-            raise ValueError(f"Transação de crédito com ID {transaction_id} não encontrada")
+            raise ValueError(
+                f"Transação de crédito com ID {transaction_id} não encontrada"
+            )
 
         # Valida campos se fornecidos
         if "amount" in transaction_data:
@@ -528,12 +567,18 @@ class TransactionService:
                 raise ValueError("Valor deve ser um número válido")
 
         if "category_id" in transaction_data and transaction_data["category_id"]:
-            category = self.category_repository.get_category_by_id(transaction_data["category_id"])
+            category = self.category_repository.get_category_by_id(
+                transaction_data["category_id"]
+            )
             if not category:
-                raise ValueError(f"Categoria com ID {transaction_data['category_id']} não encontrada")
+                raise ValueError(
+                    f"Categoria com ID {transaction_data['category_id']} não encontrada"
+                )
 
         # Atualiza no repositório
-        updated_transaction = self.transaction_repository.update_credit_transaction(transaction_id, transaction_data)
+        updated_transaction = self.transaction_repository.update_credit_transaction(
+            transaction_id, transaction_data
+        )
         return updated_transaction
 
     def get_operation_types(self) -> List[str]:
@@ -544,8 +589,3 @@ class TransactionService:
             List[str]: Lista de tipos de operação únicos
         """
         return self.transaction_repository.get_operation_types()
-
-
-if __name__ == "__main__":
-    service = TransactionService()
-    service.settle_up_split("")

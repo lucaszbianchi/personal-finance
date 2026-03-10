@@ -4,16 +4,15 @@ import os
 import requests
 
 import dotenv
-import requests
 
-from repositories.base_repository import BaseRepository
+from repositories.bill_repository import BillRepository
+from repositories.category_repository import CategoryRepository
 from repositories.pluggy_item_repository import PluggyItemRepository
+from repositories.rate_limit_repository import RateLimitRepository
 from repositories.transaction_repository import TransactionRepository
 from repositories.investment_repository import InvestmentRepository
 from repositories.splitwise_repository import SplitwiseRepository
 from services.pluggy_auth_service import get_api_key as _get_api_key
-
-INCREMENTAL_DAYS = 6
 
 INCREMENTAL_DAYS = 7
 
@@ -109,8 +108,12 @@ class PluggyAPI:
         accounts = self.list_accounts(self.splitwise_item_id).get("results", [])
         for account in accounts:
             if account.get("name") == os.getenv("SPLITWISE_ACCOUNT_NAME"):
-                transactions = self._fetch_all_pages(account.get("id"), from_date, to_date)
-                self._save_incremental_json("data/splitwise_transactions.json", transactions)
+                transactions = self._fetch_all_pages(
+                    account.get("id"), from_date, to_date
+                )
+                self._save_incremental_json(
+                    "data/splitwise_transactions.json", transactions
+                )
 
     def _load_existing_json(self, filepath):
         if os.path.exists(filepath):
@@ -130,17 +133,86 @@ class PluggyAPI:
             with open(filepath, "w", encoding="utf-8") as f:
                 json.dump(items, f, ensure_ascii=False, indent=4)
 
-    def fetch_and_store_data_to_db(self):
+    def fetch_and_store_categories(self) -> int:
+        """Busca todas as categorias da Pluggy e faz upsert no banco.
+        Retorna número de categorias inseridas/atualizadas.
+        """
+        url = f"{self.base_url}/categories"
+        headers = {"X-API-KEY": self.api_key}
+        response = requests.get(url, headers=headers, timeout=30)
+        categories = response.json().get("results", [])
+
+        repo = CategoryRepository()
+        count = 0
+        try:
+            for cat in categories:
+                repo.upsert(
+                    "categories",
+                    "id",
+                    {
+                        "id": cat["id"],
+                        "description": cat["description"],
+                        "description_translated": cat.get("descriptionTranslated"),
+                        "parent_id": cat.get("parentId"),
+                        "parent_description": cat.get("parentDescription"),
+                    },
+                )
+                count += 1
+        finally:
+            repo.close()
+        return count
+
+    def fetch_and_store_bills(self) -> int:
+        """Busca faturas de todos os accounts CREDIT.
+        Usa rate_limit_usage para controlar chamadas (produto: 'bills', 30/mês).
+        Retorna número de faturas inseridas/atualizadas.
+        """
+        rate_limit_repo = RateLimitRepository()
+        bill_repo = BillRepository()
+        count = 0
+
+        try:
+            for item_id in self._get_item_ids_to_sync():
+                accounts = self.list_accounts(item_id).get("results", [])
+                for account in accounts:
+                    if account["type"] != "CREDIT":
+                        continue
+
+                    if not rate_limit_repo.can_call("recent"):
+                        print(
+                            "[WARN] Rate limit de sincronização recente atingido para este mês"
+                        )
+                        continue
+
+                    url = f"{self.base_url}/bills?accountId={account['id']}"
+                    headers = {"X-API-KEY": self.api_key}
+                    response = requests.get(url, headers=headers, timeout=30)
+                    rate_limit_repo.increment("recent")
+
+                    for bill in response.json().get("results", []):
+                        bill_repo.upsert_bill(bill, account["id"])
+                        count += 1
+        finally:
+            rate_limit_repo.close()
+            bill_repo.close()
+
+        return count
+
+    def fetch_and_store_data_to_db(self, import_type: str = "recent"):
         """
         Busca dados da API e salva diretamente no banco usando repositórios.
         Mantém arquivos JSON em paralelo para debug/desenvolvimento.
         Retorna dict com contagens de inserções e atualizações por tipo de dados.
+
+        Args:
+            import_type: "recent" (últimos 6 dias, default) ou "non_recent" (7-365 dias)
         """
         self._initialize_database()
 
         transaction_repo = TransactionRepository()
         investment_repo = InvestmentRepository()
         splitwise_repo = SplitwiseRepository()
+        rate_limit_repo = RateLimitRepository()
 
         summary = {
             "bank_transactions_inserted": 0,
@@ -151,16 +223,37 @@ class PluggyAPI:
             "investments_updated": 0,
             "splitwise_inserted": 0,
             "splitwise_updated": 0,
+            "categories_synced": 0,
+            "bills_synced": 0,
+            "rate_limit_usage": [],
         }
 
         try:
             print("[INFO] Iniciando coleta de dados da API...")
-            from_date, to_date = self._incremental_date_range()
-            print(
-                f"[INFO] Janela incremental: {from_date} → {to_date} ({INCREMENTAL_DAYS} dias)"
-            )
 
-            # 1. Transações bancárias e de cartão (todos os items role=bank)
+            # 0. Categorias (sem rate-limit)
+            print("[INFO] Sincronizando categorias...")
+            summary["categories_synced"] = self.fetch_and_store_categories()
+            print(f"[OK] {summary['categories_synced']} categorias sincronizadas")
+
+            # 1. Faturas (com rate-limit)
+            print("[INFO] Sincronizando faturas...")
+            summary["bills_synced"] = self.fetch_and_store_bills()
+            print(f"[OK] {summary['bills_synced']} faturas sincronizadas")
+
+            # 2. Transações bancárias e de cartão
+            today = datetime.now(timezone.utc)
+            if import_type == "non_recent":
+                from_date = (today - timedelta(days=365)).strftime("%Y-%m-%d")
+                to_date = (today - timedelta(days=7)).strftime("%Y-%m-%d")
+                print(f"[INFO] Janela non_recent: {from_date} → {to_date}")
+            else:
+                from_date, to_date = self._incremental_date_range()
+                print(
+                    f"[INFO] Janela incremental: {from_date} → {to_date} ({INCREMENTAL_DAYS} dias)"
+                )
+
+            call_type = import_type
             item_ids = self._get_item_ids_to_sync()
             print(f"[INFO] Sincronizando {len(item_ids)} item(s): {item_ids}")
             for item_id in item_ids:
@@ -170,10 +263,19 @@ class PluggyAPI:
                     if account_type not in ["BANK", "CREDIT"]:
                         continue
                     account_id = account.get("id")
+
+                    if not rate_limit_repo.can_call(call_type):
+                        print(
+                            f"[WARN] Rate limit de sincronização/{call_type} atingido"
+                        )
+                        continue
+
                     print(
                         f"Processando conta {account_type}: {account_id} (item: {item_id})"
                     )
                     transactions = self._fetch_all_pages(account_id, from_date, to_date)
+                    rate_limit_repo.increment(call_type)
+
                     for transaction in transactions:
                         if account_type == "BANK":
                             result = transaction_repo.upsert_bank_transaction(
@@ -205,7 +307,7 @@ class PluggyAPI:
                         f"[OK] Processadas {len(transactions)} transações do tipo {account_type}"
                     )
 
-            # 2. Investimentos
+            # 3. Investimentos
             print("[INFO] Processando investimentos...")
             investments = self.fetch_investments_data()
             for investment in investments:
@@ -224,7 +326,7 @@ class PluggyAPI:
                 self._save_incremental_json("data/investments.json", investments)
                 print(f"Processados {len(investments)} investimentos")
 
-            # 3. Splitwise
+            # 4. Splitwise
             print("Processando transações Splitwise...")
             splitwise_transactions = self.fetch_splitwise_data()
             for transaction in splitwise_transactions:
@@ -245,6 +347,7 @@ class PluggyAPI:
                 )
                 print(f"Processadas {len(splitwise_transactions)} transações Splitwise")
 
+            summary["rate_limit_usage"] = rate_limit_repo.get_usage_summary()
             print("[OK] Coleta de dados concluída com sucesso!")
             return summary
 
@@ -252,6 +355,7 @@ class PluggyAPI:
             transaction_repo.close()
             investment_repo.close()
             splitwise_repo.close()
+            rate_limit_repo.close()
 
     def _get_item_ids_to_sync(self) -> list:
         """Retorna item_ids de role 'bank' para sincronizar. Fallback: ITEM_ID do .env."""
@@ -261,7 +365,9 @@ class PluggyAPI:
             if items:
                 return [item["item_id"] for item in items]
         except Exception as e:
-            print(f"[WARN] Não foi possível consultar pluggy_items, usando fallback do .env: {e}")
+            print(
+                f"[WARN] Não foi possível consultar pluggy_items, usando fallback do .env: {e}"
+            )
         finally:
             repo.close()
         return [self.item_id] if self.item_id else []
@@ -274,7 +380,9 @@ class PluggyAPI:
             if items:
                 return items[0]["item_id"]
         except Exception as e:
-            print(f"[WARN] Não foi possível consultar pluggy_items, usando fallback do .env: {e}")
+            print(
+                f"[WARN] Não foi possível consultar pluggy_items, usando fallback do .env: {e}"
+            )
         finally:
             repo.close()
         return self.splitwise_item_id
@@ -305,14 +413,16 @@ class PluggyAPI:
         """Inicializa o banco de dados com as tabelas necessárias via BaseRepository."""
         from repositories.base_repository import BaseRepository
 
-        print(f"[INFO] Inicializando banco de dados...")
+        print("[INFO] Inicializando banco de dados...")
 
         tables_sql = [
             """
             CREATE TABLE IF NOT EXISTS categories (
                 id TEXT PRIMARY KEY,
-                name TEXT NOT NULL,
-                types TEXT
+                description TEXT NOT NULL,
+                description_translated TEXT,
+                parent_id TEXT,
+                parent_description TEXT
             )
             """,
             """
@@ -380,15 +490,31 @@ class PluggyAPI:
                 updated_at TEXT DEFAULT (datetime('now'))
             )
             """,
+            """
+            CREATE TABLE IF NOT EXISTS bills (
+                id TEXT PRIMARY KEY,
+                account_id TEXT NOT NULL,
+                due_date TEXT,
+                total_amount REAL,
+                total_amount_currency_code TEXT,
+                minimum_payment_amount REAL,
+                allows_installments INTEGER DEFAULT 0,
+                finance_charges TEXT
+            )
+            """,
+            """
+            CREATE TABLE IF NOT EXISTS rate_limit_usage (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                call_type TEXT NOT NULL,
+                year_month TEXT NOT NULL,
+                count INTEGER DEFAULT 0,
+                limit_value INTEGER NOT NULL,
+                UNIQUE(call_type, year_month)
+            )
+            """,
         ]
         repo = BaseRepository()
         for sql in tables_sql:
             repo.execute_query(sql)
         repo.close()
         print("[OK] Banco de dados inicializado com sucesso!")
-
-
-if __name__ == "__main__":
-    api = PluggyAPI()
-    summary = api.fetch_and_store_data_to_db()
-    print(summary)

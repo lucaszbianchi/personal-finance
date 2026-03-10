@@ -33,7 +33,7 @@ def create_category():
         category = category_service.create_category(data["name"])
         return (
             jsonify(
-                {"id": category.id, "name": category.name}
+                {"id": category.id, "description": category.description}
             ),
             201,
         )
