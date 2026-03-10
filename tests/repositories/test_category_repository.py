@@ -15,8 +15,10 @@ class TestCategoryRepository(unittest.TestCase):
             """
             CREATE TABLE categories (
                 id TEXT PRIMARY KEY,
-                name TEXT,
-                types TEXT
+                description TEXT NOT NULL,
+                description_translated TEXT,
+                parent_id TEXT,
+                parent_description TEXT
             )
         """
         )
@@ -68,21 +70,21 @@ class TestCategoryRepository(unittest.TestCase):
         cat_id = self.repo.create_category(self.test_name)
         category = self.repo.get_category_by_id(cat_id)
         self.assertIsNotNone(category)
-        self.assertEqual(category.name, self.test_name)
+        self.assertEqual(category.description, self.test_name)
 
     def test_update_category(self):
         # Cria categoria de teste e garante que existe
         cat_id = self.repo.create_category(self.test_name)
         category = self.repo.get_category_by_id(cat_id)
         self.assertIsNotNone(category)
-        self.assertEqual(category.name, self.test_name)
+        self.assertEqual(category.description, self.test_name)
 
         # Atualiza o nome
         new_name = "UpdatedCat"
         new_id = self.repo.update_category(self.test_name, new_name)
         updated = self.repo.get_category_by_id(new_id)
         self.assertIsNotNone(updated)
-        self.assertEqual(updated.name, new_name)
+        self.assertEqual(updated.description, new_name)
 
     def test_delete_category(self):
         cat_id = self.repo.create_category(self.test_name)

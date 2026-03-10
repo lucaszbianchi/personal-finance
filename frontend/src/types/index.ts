@@ -33,7 +33,7 @@ export interface SplitInfo {
 
 export interface Category {
   id: string;
-  name: string;
+  description: string;
   transaction_count: number;
 }
 

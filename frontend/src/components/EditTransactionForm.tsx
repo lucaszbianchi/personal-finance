@@ -222,7 +222,7 @@ export const EditTransactionForm: React.FC<EditTransactionFormProps> = ({
               <option value="">Selecione uma categoria</option>
               {categoriesList.map(cat => (
                 <option key={cat.id} value={cat.id}>
-                  {cat.name}
+                  {cat.description}
                 </option>
               ))}
             </select>

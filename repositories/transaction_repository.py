@@ -446,7 +446,7 @@ class TransactionRepository(BaseRepository):
         category_name = transaction_data.get("category")
 
         if category_id and category_name:
-            category_data = {"id": category_id, "name": category_name}
+            category_data = {"id": category_id, "description": category_name}
 
             # Usa insert_only para categorias (não devem ser alteradas automaticamente)
             self.upsert("categories", "id", category_data)

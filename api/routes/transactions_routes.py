@@ -16,7 +16,7 @@ def _get_category_name(category_id):
     if not category_id:
         return None
     category = category_service.get_category_by_id(category_id)
-    return category.name if category else None
+    return category.description if category else None
 
 
 @bp.route("/bank", methods=["GET"])

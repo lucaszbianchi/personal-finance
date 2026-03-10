@@ -189,8 +189,7 @@ class TestFinanceSummaryService(unittest.TestCase):
 
         category = MagicMock()
         category.id = "cat1"
-        category.name = "Alimentação"
-        category.types = ["expense"]
+        category.description = "Alimentação"
 
         self.mock_transaction_service.get_bank_transactions.return_value = [transaction]
         self.mock_transaction_service.get_credit_transactions.return_value = []
@@ -203,7 +202,7 @@ class TestFinanceSummaryService(unittest.TestCase):
         # Assert
         self.assertEqual(len(result), 1)
         self.assertEqual(result[0]["id"], "cat1")
-        self.assertEqual(result[0]["name"], "Alimentação")
+        self.assertEqual(result[0]["description"], "Alimentação")
         self.assertEqual(result[0]["total"], 100.0)
 
     def test_get_category_expenses_sorted_by_amount(self):
@@ -225,13 +224,11 @@ class TestFinanceSummaryService(unittest.TestCase):
 
         category1 = MagicMock()
         category1.id = "cat1"
-        category1.name = "Pequena"
-        category1.types = ["expense"]
+        category1.description = "Pequena"
 
         category2 = MagicMock()
         category2.id = "cat2"
-        category2.name = "Grande"
-        category2.types = ["expense"]
+        category2.description = "Grande"
 
         self.mock_transaction_service.get_bank_transactions.return_value = [transaction1, transaction2]
         self.mock_transaction_service.get_credit_transactions.return_value = []
@@ -252,9 +249,9 @@ class TestFinanceSummaryService(unittest.TestCase):
         # Assert
         self.assertEqual(len(result), 2)
         # Deve estar ordenado por valor absoluto (maior primeiro)
-        self.assertEqual(result[0]["name"], "Grande")
+        self.assertEqual(result[0]["description"], "Grande")
         self.assertEqual(result[0]["total"], 200.0)
-        self.assertEqual(result[1]["name"], "Pequena")
+        self.assertEqual(result[1]["description"], "Pequena")
         self.assertEqual(result[1]["total"], 50.0)
 
     def test_get_category_expenses_excludes_nonexistent_categories(self):
@@ -286,7 +283,7 @@ class TestFinanceSummaryService(unittest.TestCase):
         self.service.get_expenses = MagicMock(return_value=1200.0)
         self.service.get_investment_value = MagicMock(return_value=5000.0)
         self.service.get_category_expenses = MagicMock(return_value=[
-            {"id": "cat1", "name": "Alimentação", "types": ["expense"], "total": 800.0}
+            {"id": "cat1", "description": "Alimentação", "total": 800.0}
         ])
 
         # Act
@@ -302,7 +299,7 @@ class TestFinanceSummaryService(unittest.TestCase):
                 "investments": 5000.0,
             },
             "expenses_by_category": [
-                {"id": "cat1", "name": "Alimentação", "types": ["expense"], "total": 800.0}
+                {"id": "cat1", "description": "Alimentação", "total": 800.0}
             ],
         }
 

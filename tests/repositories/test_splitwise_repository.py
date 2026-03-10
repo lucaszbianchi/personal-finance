@@ -254,7 +254,7 @@ class TestSplitwiseRepository(unittest.TestCase):
             mock_upsert.assert_called_once_with(
                 "categories",
                 "id",
-                {"id": "proc_cat", "name": "Process Category"},
+                {"id": "proc_cat", "description": "Process Category"},
             )
 
     def test_process_category_creation_no_data(self):

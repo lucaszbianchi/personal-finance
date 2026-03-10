@@ -132,7 +132,7 @@ export const categoryService = {
   },
 
   create: async (category: Omit<Category, 'id' | 'transaction_count'>) => {
-    const response = await api.post('/categories/', category);
+    const response = await api.post('/categories/', { name: category.description });
     return response.data;
   },
 
@@ -188,9 +188,21 @@ export const summaryService = {
     api.get<ApiResponse<any>>('/dashboard'),
 };
 
+export type ImportType = 'recent' | 'non_recent';
+
+export interface RateLimitUsage {
+  call_type: string;
+  year_month: string;
+  count: number;
+  limit_value: number;
+  remaining: number;
+  exceeded: boolean;
+}
+
 export interface SyncResponse {
   status: 'success' | 'error';
   message: string;
+  rate_limit_warning?: string;
   counts?: {
     bank_transactions_inserted: number;
     bank_transactions_updated: number;
@@ -200,12 +212,13 @@ export interface SyncResponse {
     investments_updated: number;
     splitwise_inserted: number;
     splitwise_updated: number;
+    rate_limit_usage: RateLimitUsage[];
   };
 }
 
 export const importService = {
-  syncData: async (): Promise<SyncResponse> => {
-    const response = await api.post('/import/data');
+  syncData: async (importType: ImportType = 'recent'): Promise<SyncResponse> => {
+    const response = await api.post('/import/data', { import_type: importType });
     return response.data;
   },
 

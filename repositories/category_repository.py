@@ -15,7 +15,10 @@ class CategoryRepository(BaseRepository):
         query = """
             SELECT
                 c.id,
-                c.name,
+                c.description,
+                c.description_translated,
+                c.parent_id,
+                c.parent_description,
                 COALESCE(tc.transaction_count, 0) as transaction_count
             FROM categories c
             LEFT JOIN (
@@ -29,13 +32,16 @@ class CategoryRepository(BaseRepository):
                 ) all_transactions
                 GROUP BY category_id
             ) tc ON c.id = tc.category_id
-            ORDER BY c.name
+            ORDER BY c.description
         """
         cursor = self.execute_query(query)
         return [
             {
                 "id": row["id"],
-                "name": row["name"],
+                "description": row["description"],
+                "description_translated": row["description_translated"],
+                "parent_id": row["parent_id"],
+                "parent_description": row["parent_description"],
                 "transaction_count": row["transaction_count"],
             }
             for row in cursor.fetchall()
@@ -43,26 +49,38 @@ class CategoryRepository(BaseRepository):
 
     def get_category_by_id(self, category_id: int) -> Category:
         """Retorna uma categoria específica pelo ID."""
-        query = "SELECT id, name FROM categories WHERE id = ?"
+        query = "SELECT id, description, description_translated, parent_id, parent_description FROM categories WHERE id = ?"
         cursor = self.execute_query(query, (category_id,))
         row = cursor.fetchone()
         if row:
-            return Category(id_=row["id"], name=row["name"])
+            return Category(
+                id_=row["id"],
+                description=row["description"],
+                description_translated=row["description_translated"],
+                parent_id=row["parent_id"],
+                parent_description=row["parent_description"],
+            )
         return None
 
     def get_category_by_name(self, name: str) -> Category:
-        """Retorna uma categoria específica pelo nome."""
-        query = "SELECT id, name FROM categories WHERE name = ?"
+        """Retorna uma categoria específica pela descrição."""
+        query = "SELECT id, description, description_translated, parent_id, parent_description FROM categories WHERE description = ?"
         cursor = self.execute_query(query, (name,))
         row = cursor.fetchone()
         if row:
-            return Category(id_=row["id"], name=row["name"])
+            return Category(
+                id_=row["id"],
+                description=row["description"],
+                description_translated=row["description_translated"],
+                parent_id=row["parent_id"],
+                parent_description=row["parent_description"],
+            )
         return None
 
     def update_category(self, old_name: str, new_name: str) -> str:
-        """Atualiza o nome de uma categoria e ajusta todas as transações que referenciam ela. Retorna o novo id da categoria."""
+        """Atualiza a descrição de uma categoria e ajusta todas as transações que referenciam ela. Retorna o novo id da categoria."""
         cursor = self.execute_query(
-            "SELECT id FROM categories WHERE name = ?", (old_name,)
+            "SELECT id FROM categories WHERE description = ?", (old_name,)
         )
         old_cat = cursor.fetchone()
         if not old_cat:
@@ -70,7 +88,7 @@ class CategoryRepository(BaseRepository):
         old_id = old_cat["id"]
 
         cursor = self.execute_query(
-            "SELECT id FROM categories WHERE name = ?", (new_name,)
+            "SELECT id FROM categories WHERE description = ?", (new_name,)
         )
         new_cat_row = cursor.fetchone()
         if new_cat_row:
@@ -100,7 +118,7 @@ class CategoryRepository(BaseRepository):
         if id_ is None:
             id_ = str(uuid.uuid4())
         self.execute_query(
-            "INSERT INTO categories (id, name) VALUES (?, ?)",
+            "INSERT INTO categories (id, description) VALUES (?, ?)",
             (id_, name),
         )
         return id_
@@ -111,8 +129,3 @@ class CategoryRepository(BaseRepository):
             "DELETE FROM categories WHERE id = ?", (category_id,)
         )
         return cursor.rowcount > 0
-
-
-if __name__ == "__main__":
-    repo = CategoryRepository()
-    category = Category(id_="", name="Lazer")

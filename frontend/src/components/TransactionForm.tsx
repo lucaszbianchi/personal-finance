@@ -208,7 +208,7 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
               <option value="">Selecione uma categoria</option>
               {categoriesList.map(cat => (
                 <option key={cat.id} value={cat.id}>
-                  {cat.name}
+                  {cat.description}
                 </option>
               ))}
             </select>

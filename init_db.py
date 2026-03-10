@@ -13,7 +13,10 @@ TABLES_SQL = [
     """
     CREATE TABLE IF NOT EXISTS categories (
         id TEXT PRIMARY KEY,
-        name TEXT NOT NULL
+        description TEXT NOT NULL,
+        description_translated TEXT,
+        parent_id TEXT,
+        parent_description TEXT
     )
     """,
     """
@@ -104,12 +107,40 @@ TABLES_SQL = [
         updated_at TEXT DEFAULT (datetime('now'))
     )
     """,
+    """
+    CREATE TABLE IF NOT EXISTS bills (
+        id TEXT PRIMARY KEY,
+        account_id TEXT NOT NULL,
+        due_date TEXT,
+        total_amount REAL,
+        total_amount_currency_code TEXT,
+        minimum_payment_amount REAL,
+        allows_installments INTEGER DEFAULT 0,
+        finance_charges TEXT
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS rate_limit_usage (
+        id         INTEGER PRIMARY KEY AUTOINCREMENT,
+        call_type  TEXT NOT NULL,
+        year_month TEXT NOT NULL,
+        count      INTEGER DEFAULT 0,
+        limit_value INTEGER NOT NULL,
+        UNIQUE(call_type, year_month)
+    )
+    """,
+]
+
+MIGRATIONS = [
+    "DROP TABLE IF EXISTS rate_limit_usage",
 ]
 
 
 def init_db():
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
+    for sql in MIGRATIONS:
+        cursor.execute(sql)
     for sql in TABLES_SQL:
         cursor.execute(sql)
     conn.commit()

@@ -97,7 +97,7 @@ export const Transactions: React.FC = () => {
         
         // Filtro de categoria: mapear nome para ID
         if (selectedCategory && categoriesList.length > 0) {
-          const category = categoriesList.find(cat => cat.name === selectedCategory);
+          const category = categoriesList.find(cat => cat.description === selectedCategory);
           if (category) {
             params.append('category_id', category.id);
           }
@@ -298,8 +298,8 @@ export const Transactions: React.FC = () => {
               >
                 <option value="">Todas as categorias</option>
                 {categoriesList.map(cat => (
-                  <option key={cat.id} value={cat.name}>
-                    {cat.name}
+                  <option key={cat.id} value={cat.description}>
+                    {cat.description}
                   </option>
                 ))}
               </select>
@@ -455,7 +455,7 @@ export const Transactions: React.FC = () => {
             amount: editingTransaction.amount,
             date: editingTransaction.date,
             category_id: editingTransaction.category ?
-              categoriesList.find(cat => cat.name === editingTransaction.category)?.id : undefined,
+              categoriesList.find(cat => cat.description === editingTransaction.category)?.id : undefined,
             type: editingTransaction.type,
             operation_type: editingTransaction.operation_type,
             status: editingTransaction.status,

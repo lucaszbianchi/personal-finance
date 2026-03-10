@@ -114,8 +114,7 @@ class FinanceSummaryService:
                 categories_result.append(
                     {
                         "id": category.id,
-                        "name": category.name,
-                        "types": category.types,
+                        "description": category.description,
                         "total": total,
                     }
                 )

@@ -100,7 +100,7 @@ class TestTransactionService(unittest.TestCase):
         result = self.service.update_transaction("bank", "txid", None, None)
 
         self.mock_repo.update_bank_transaction.assert_called_with(
-            "txid", "Original Desc", "original_cat", split_info=None
+            "txid", {"description": "Original Desc", "category_id": "original_cat"}
         )
         self.assertTrue(result)
 
@@ -117,7 +117,7 @@ class TestTransactionService(unittest.TestCase):
         )
 
         self.mock_repo.update_credit_transaction.assert_called_with(
-            "txid", "New Desc", "new_cat", split_info=None
+            "txid", {"description": "New Desc", "category_id": "new_cat"}
         )
         self.assertTrue(result)
 
@@ -178,7 +178,7 @@ class TestTransactionService(unittest.TestCase):
         result = self.service.settle_up_split("txid")
 
         self.mock_repo.update_bank_transaction.assert_called_with(
-            "txid", None, None, {"settle_up": True, "partner_id": "12345678901"}
+            "txid", {"split_info": {"settle_up": True, "partner_id": "12345678901"}}
         )
         self.assertTrue(result)
 
