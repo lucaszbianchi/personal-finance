@@ -135,6 +135,32 @@ MIGRATIONS = [
     "DROP TABLE IF EXISTS rate_limit_usage",
 ]
 
+RESET_SQL = [
+    "DROP TABLE IF EXISTS rate_limit_usage",
+    "DROP TABLE IF EXISTS bills",
+    "DROP TABLE IF EXISTS pluggy_items",
+    "DROP TABLE IF EXISTS finance_history",
+    "DROP TABLE IF EXISTS settings",
+    "DROP TABLE IF EXISTS investments",
+    "DROP TABLE IF EXISTS splitwise",
+    "DROP TABLE IF EXISTS credit_transactions",
+    "DROP TABLE IF EXISTS bank_transactions",
+    "DROP TABLE IF EXISTS persons",
+    "DROP TABLE IF EXISTS categories",
+]
+
+
+def reset_db():
+    """Dropa todas as tabelas e recria do zero."""
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    for sql in RESET_SQL:
+        cursor.execute(sql)
+    for sql in TABLES_SQL:
+        cursor.execute(sql)
+    conn.commit()
+    conn.close()
+
 
 def init_db():
     conn = sqlite3.connect(DB_PATH)

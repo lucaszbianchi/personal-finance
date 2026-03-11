@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useCategories } from '@/hooks/useCategories';
+import { useCategoryLabel, useCategoryLabelByName } from '@/hooks/useCategoryLabel';
+import { useCategoryFilter } from '@/hooks/useCategoryFilter';
 import { TransactionForm } from '@/components/TransactionForm';
 import { DeleteTransactionButton } from '@/components/DeleteTransactionButton';
 import { CreditCard, Landmark, Filter, X, ChevronDown, Plus, Tag } from 'lucide-react';
@@ -44,10 +46,19 @@ export const Transactions: React.FC = () => {
   const [bulkCategoryId, setBulkCategoryId] = useState<string>('');
 
   const { data: categories } = useCategories();
-  const categoriesList: Category[] = useMemo(
-    () => categories || [],
-    [categories]
-  );
+  const { getCategoryLabel } = useCategoryLabel();
+  const categoriesList: Category[] = useMemo(() => categories || [], [categories]);
+
+  const {
+    parentFilter: bulkParentFilter,
+    setParentFilter: setBulkParentFilter,
+    catByDescription,
+    uniqueParents: bulkUniqueParents,
+    filteredCategories: bulkFilteredCategories,
+    resetFilter: resetBulkParentFilter,
+  } = useCategoryFilter(categoriesList);
+
+  const getCategoryLabelByName = useCategoryLabelByName(catByDescription);
 
   // Limpar seleção ao trocar de aba
   useEffect(() => {
@@ -202,6 +213,7 @@ export const Transactions: React.FC = () => {
       }
       setShowBulkCategoryModal(false);
       setBulkCategoryId('');
+      resetBulkParentFilter();
       setSelectedIds([]);
       setRefreshTrigger(prev => prev + 1);
     } catch (err) {
@@ -326,7 +338,7 @@ export const Transactions: React.FC = () => {
                 <option value="">Todas as categorias</option>
                 {categoriesList.filter(cat => cat.transaction_count > 0).map(cat => (
                   <option key={cat.id} value={cat.description}>
-                    {cat.description}
+                    {getCategoryLabel(cat)}
                   </option>
                 ))}
               </select>
@@ -427,7 +439,9 @@ export const Transactions: React.FC = () => {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
-                        {transaction.category || 'Sem categoria'}
+                        {transaction.category
+                          ? getCategoryLabelByName(transaction.category)
+                          : 'Sem categoria'}
                       </span>
                     </td>
                     <td className={`px-6 py-4 whitespace-nowrap text-sm font-semibold ${getAmountColor(transaction.amount)}`}>
@@ -480,28 +494,56 @@ export const Transactions: React.FC = () => {
             <p className="text-sm text-gray-600 mb-4">
               Atualizar categoria de <span className="font-semibold">{selectedIds.length}</span> transação(ões) selecionada(s).
             </p>
-            <div className="mb-6">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Categoria
-              </label>
-              <select
-                value={bulkCategoryId}
-                onChange={(e) => setBulkCategoryId(e.target.value)}
-                className="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-primary-500 focus:border-primary-500"
-              >
-                <option value="">Sem categoria</option>
-                {categoriesList.map(cat => (
-                  <option key={cat.id} value={cat.id}>
-                    {cat.description}
-                  </option>
-                ))}
-              </select>
+            <div className="space-y-3 mb-6">
+              {bulkUniqueParents.length > 0 && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Grupo de Categoria
+                  </label>
+                  <select
+                    value={bulkParentFilter}
+                    onChange={(e) => {
+                      setBulkParentFilter(e.target.value);
+                      setBulkCategoryId('');
+                    }}
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-primary-500 focus:border-primary-500"
+                  >
+                    <option value="__all__">Todos os grupos</option>
+                    {bulkUniqueParents.map(parent => {
+                      const cat = catByDescription.get(parent);
+                      return (
+                        <option key={parent} value={parent}>
+                          {cat ? getCategoryLabel(cat) : parent}
+                        </option>
+                      );
+                    })}
+                  </select>
+                </div>
+              )}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Categoria
+                </label>
+                <select
+                  value={bulkCategoryId}
+                  onChange={(e) => setBulkCategoryId(e.target.value)}
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-primary-500 focus:border-primary-500"
+                >
+                  <option value="">Sem categoria</option>
+                  {bulkFilteredCategories.map(cat => (
+                    <option key={cat.id} value={cat.id}>
+                      {getCategoryLabel(cat)}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
             <div className="flex justify-end space-x-3">
               <button
                 onClick={() => {
                   setShowBulkCategoryModal(false);
                   setBulkCategoryId('');
+                  resetBulkParentFilter();
                 }}
                 className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
               >

@@ -21,8 +21,20 @@ export const useCreateCategory = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (category: Omit<Category, 'id' | 'transaction_count'>) =>
+    mutationFn: (category: { description: string; description_translated?: string | null; parent_id?: string | null; parent_description?: string | null }) =>
       categoryService.create(category),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['categories'] });
+    },
+  });
+};
+
+export const useUpdateCategoryFields = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, fields }: { id: string; fields: { description_translated?: string | null; parent_id?: string | null; parent_description?: string | null } }) =>
+      categoryService.updateFields(id, fields),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['categories'] });
     },

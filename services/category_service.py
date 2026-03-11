@@ -42,7 +42,13 @@ class CategoryService:
 
         return success
 
-    def create_category(self, name: str) -> Category:
+    def create_category(
+        self,
+        name: str,
+        description_translated: str = None,
+        parent_id: str = None,
+        parent_description: str = None,
+    ) -> Category:
         """
         Cria uma nova categoria.
         Raises ValueError se a categoria já existe.
@@ -50,8 +56,21 @@ class CategoryService:
         if self.category_repo.get_category_by_name(name):
             raise ValueError(f"Categoria '{name}' já existe")
 
-        category_id = self.category_repo.create_category(name)
+        category_id = self.category_repo.create_category(name, description_translated=description_translated, parent_id=parent_id, parent_description=parent_description)
         return self.category_repo.get_category_by_id(category_id)
+
+    def update_category_fields(
+        self,
+        category_id: str,
+        description_translated: str = None,
+        parent_id: str = None,
+        parent_description: str = None,
+    ) -> bool:
+        """Atualiza campos diretos de uma categoria (sem renomear nem migrar transações)."""
+        updated = self.category_repo.update_category_fields(category_id, description_translated, parent_id, parent_description)
+        if not updated:
+            raise ValueError(f"Categoria '{category_id}' não encontrada.")
+        return True
 
     def delete_category(self, category_name: str) -> bool:
         """

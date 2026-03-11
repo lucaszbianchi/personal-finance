@@ -1,4 +1,3 @@
-import uuid
 from typing import List
 from repositories.base_repository import BaseRepository
 from models.category import Category
@@ -113,15 +112,82 @@ class CategoryRepository(BaseRepository):
         self.execute_query("DELETE FROM categories WHERE id = ?", (old_id,))
         return new_id
 
-    def create_category(self, name: str, id_: str = None) -> str:
+    def _generate_category_id(self, parent_id: str | None) -> str:
+        """Gera o próximo ID seguindo o padrão de 8 dígitos numéricos.
+
+        Nível 1 (root, parent_id=None):  PP000000
+        Nível 2 (parent termina 000000): PPCC0000
+        Nível 3 (parent termina 0000):   PPCCGGGG
+        """
+        if parent_id is None:
+            cursor = self.execute_query(
+                "SELECT MAX(CAST(SUBSTR(id, 1, 2) AS INTEGER)) AS max_val "
+                "FROM categories WHERE SUBSTR(id, 3) = '000000'"
+            )
+            max_pp = cursor.fetchone()["max_val"] or 0
+            return f"{max_pp + 1:02d}000000"
+
+        if len(parent_id) != 8 or not parent_id.isdigit():
+            raise ValueError(f"parent_id inválido: '{parent_id}'")
+
+        if parent_id[2:] == "000000":
+            # Filho de root → nível 2
+            pp = parent_id[:2]
+            cursor = self.execute_query(
+                "SELECT MAX(CAST(SUBSTR(id, 3, 2) AS INTEGER)) AS max_val "
+                "FROM categories "
+                "WHERE SUBSTR(id, 1, 2) = ? AND SUBSTR(id, 5) = '0000' AND SUBSTR(id, 3, 2) != '00'",
+                (pp,),
+            )
+            max_cc = cursor.fetchone()["max_val"] or 0
+            return f"{pp}{max_cc + 1:02d}0000"
+
+        if parent_id[4:] == "0000":
+            # Filho de nível 2 → nível 3
+            ppcc = parent_id[:4]
+            cursor = self.execute_query(
+                "SELECT MAX(CAST(SUBSTR(id, 5) AS INTEGER)) AS max_val "
+                "FROM categories "
+                "WHERE SUBSTR(id, 1, 4) = ? AND CAST(SUBSTR(id, 5) AS INTEGER) > 0",
+                (ppcc,),
+            )
+            max_gggg = cursor.fetchone()["max_val"] or 0
+            return f"{ppcc}{max_gggg + 1:04d}"
+
+        raise ValueError(
+            f"parent_id '{parent_id}' é um ID de nível 3 — não é possível criar subfilhos (máximo 3 níveis)"
+        )
+
+    def create_category(
+        self,
+        name: str,
+        id_: str = None,
+        description_translated: str = None,
+        parent_id: str = None,
+        parent_description: str = None,
+    ) -> str:
         """Cria uma nova categoria e retorna seu ID."""
         if id_ is None:
-            id_ = str(uuid.uuid4())
+            id_ = self._generate_category_id(parent_id)
         self.execute_query(
-            "INSERT INTO categories (id, description) VALUES (?, ?)",
-            (id_, name),
+            "INSERT INTO categories (id, description, description_translated, parent_id, parent_description) VALUES (?, ?, ?, ?, ?)",
+            (id_, name, description_translated, parent_id, parent_description),
         )
         return id_
+
+    def update_category_fields(
+        self,
+        category_id: str,
+        description_translated: str = None,
+        parent_id: str = None,
+        parent_description: str = None,
+    ) -> bool:
+        """Atualiza campos diretos de uma categoria (sem renomear nem migrar transações)."""
+        cursor = self.execute_query(
+            "UPDATE categories SET description_translated = ?, parent_id = ?, parent_description = ? WHERE id = ?",
+            (description_translated, parent_id, parent_description, category_id),
+        )
+        return cursor.rowcount > 0
 
     def delete_category(self, category_id: str) -> bool:
         """Deleta uma categoria pelo seu ID."""

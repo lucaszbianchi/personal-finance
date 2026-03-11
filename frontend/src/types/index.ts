@@ -34,6 +34,9 @@ export interface SplitInfo {
 export interface Category {
   id: string;
   description: string;
+  description_translated: string | null;
+  parent_id: string | null;
+  parent_description: string | null;
   transaction_count: number;
 }
 
