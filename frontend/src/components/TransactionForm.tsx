@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { useCategories } from '@/hooks/useCategories';
 import { useCreateBankTransaction, useCreateCreditTransaction, useOperationTypes } from '@/hooks/useTransactions';
+import { useCategoryLabel } from '@/hooks/useCategoryLabel';
+import { useCategoryFilter } from '@/hooks/useCategoryFilter';
 import { X, Plus, CreditCard, Landmark } from 'lucide-react';
 import type { CreateBankTransactionRequest, CreateCreditTransactionRequest, Category } from '@/types';
 
@@ -32,9 +34,13 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
   const { data: operationTypes } = useOperationTypes();
   const createBankTransaction = useCreateBankTransaction();
   const createCreditTransaction = useCreateCreditTransaction();
+  const { getCategoryLabel } = useCategoryLabel();
 
   const categoriesList: Category[] = categories || [];
   const operationTypesList: string[] = operationTypes || [];
+
+  const { parentFilter, setParentFilter, catByDescription, uniqueParents, filteredCategories } =
+    useCategoryFilter(categoriesList);
 
   if (!isOpen) return null;
 
@@ -195,6 +201,31 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
           </div>
 
           {/* Categoria */}
+          {uniqueParents.length > 0 && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Grupo de Categoria
+              </label>
+              <select
+                value={parentFilter}
+                onChange={(e) => {
+                  setParentFilter(e.target.value);
+                  setFormData(prev => ({ ...prev, category_id: '' }));
+                }}
+                className="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-primary-500 focus:border-primary-500"
+              >
+                <option value="__all__">Todos os grupos</option>
+                {uniqueParents.map(parent => {
+                  const cat = catByDescription.get(parent);
+                  return (
+                    <option key={parent} value={parent}>
+                      {cat ? getCategoryLabel(cat) : parent}
+                    </option>
+                  );
+                })}
+              </select>
+            </div>
+          )}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Categoria
@@ -206,9 +237,9 @@ export const TransactionForm: React.FC<TransactionFormProps> = ({
               className="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-primary-500 focus:border-primary-500"
             >
               <option value="">Selecione uma categoria</option>
-              {categoriesList.map(cat => (
+              {filteredCategories.map(cat => (
                 <option key={cat.id} value={cat.id}>
-                  {cat.description}
+                  {getCategoryLabel(cat)}
                 </option>
               ))}
             </select>

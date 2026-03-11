@@ -14,7 +14,7 @@ from repositories.investment_repository import InvestmentRepository
 from repositories.splitwise_repository import SplitwiseRepository
 from services.pluggy_auth_service import get_api_key as _get_api_key
 
-INCREMENTAL_DAYS = 7
+INCREMENTAL_DAYS = 6
 
 
 class PluggyAPI:
@@ -146,6 +146,7 @@ class PluggyAPI:
         count = 0
         try:
             for cat in categories:
+                is_root = not cat.get("parentId")
                 repo.upsert(
                     "categories",
                     "id",
@@ -153,8 +154,12 @@ class PluggyAPI:
                         "id": cat["id"],
                         "description": cat["description"],
                         "description_translated": cat.get("descriptionTranslated"),
-                        "parent_id": cat.get("parentId"),
-                        "parent_description": cat.get("parentDescription"),
+                        "parent_id": cat["id"] if is_root else cat.get("parentId"),
+                        "parent_description": (
+                            cat["description"]
+                            if is_root
+                            else cat.get("parentDescription")
+                        ),
                     },
                 )
                 count += 1
@@ -231,10 +236,21 @@ class PluggyAPI:
         try:
             print("[INFO] Iniciando coleta de dados da API...")
 
-            # 0. Categorias (sem rate-limit)
-            print("[INFO] Sincronizando categorias...")
-            summary["categories_synced"] = self.fetch_and_store_categories()
-            print(f"[OK] {summary['categories_synced']} categorias sincronizadas")
+            # 0. Categorias (sem rate-limit) — só importa se tabela estiver vazia
+            print("[INFO] Verificando categorias...")
+            repo = CategoryRepository()
+            try:
+                has_categories = repo.execute_query("SELECT 1 FROM categories LIMIT 1").fetchone() is not None
+            finally:
+                repo.close()
+
+            if not has_categories:
+                print("[INFO] Tabela vazia, sincronizando categorias...")
+                summary["categories_synced"] = self.fetch_and_store_categories()
+                print(f"[OK] {summary['categories_synced']} categorias sincronizadas")
+            else:
+                print("[INFO] Categorias já existem, pulando sincronização")
+                summary["categories_synced"] = 0
 
             # 1. Faturas (com rate-limit)
             print("[INFO] Sincronizando faturas...")

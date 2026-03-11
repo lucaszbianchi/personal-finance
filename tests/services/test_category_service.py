@@ -54,7 +54,7 @@ class TestCategoryService(unittest.TestCase):
 
         # Assert
         self.mock_category_repo.get_category_by_name.assert_called_once_with(category_name)
-        self.mock_category_repo.create_category.assert_called_once_with(category_name)
+        self.mock_category_repo.create_category.assert_called_once_with(category_name, description_translated=None, parent_id=None, parent_description=None)
 
     def test_edit_category(self):
         """Testa edição de categoria"""
@@ -99,7 +99,7 @@ class TestCategoryService(unittest.TestCase):
 
         # Assert
         self.mock_category_repo.get_category_by_name.assert_called_once_with(category_name)
-        self.mock_category_repo.create_category.assert_called_once_with(category_name)
+        self.mock_category_repo.create_category.assert_called_once_with(category_name, description_translated=None, parent_id=None, parent_description=None)
         self.mock_category_repo.get_category_by_id.assert_called_once_with(created_category_id)
         self.assertEqual(result, created_category)
 
@@ -228,6 +228,39 @@ class TestCategoryService(unittest.TestCase):
         self.mock_category_repo.get_category_by_name.assert_called_once_with(category_name)
         self.mock_transaction_repo.category_in_use.assert_called_once_with("cat123")
         self.mock_category_repo.delete_category.assert_not_called()
+
+    def test_update_category_fields_success(self):
+        """Testa atualização de campos diretos de categoria com sucesso"""
+        # Arrange
+        category_id = "cat123"
+        self.mock_category_repo.update_category_fields.return_value = True
+
+        # Act
+        result = self.service.update_category_fields(
+            category_id,
+            description_translated="Translated",
+            parent_id="01000000",
+            parent_description="Root",
+        )
+
+        # Assert
+        self.mock_category_repo.update_category_fields.assert_called_once_with(
+            category_id, "Translated", "01000000", "Root"
+        )
+        self.assertTrue(result)
+
+    def test_update_category_fields_not_found(self):
+        """Testa atualização de campos quando categoria não existe"""
+        # Arrange
+        category_id = "nonexistent"
+        self.mock_category_repo.update_category_fields.return_value = False
+
+        # Act & Assert
+        with self.assertRaises(ValueError) as context:
+            self.service.update_category_fields(category_id)
+
+        self.assertIn(category_id, str(context.exception))
+        self.mock_category_repo.update_category_fields.assert_called_once()
 
     def test_delete_category_in_use_by_splitwise(self):
         """Testa tentativa de exclusão de categoria em uso por Splitwise"""

@@ -1,25 +1,48 @@
 import React, { useState } from 'react';
-import { useCategories, useCreateCategory, useUpdateCategory, useDeleteCategory, useUnifyCategories } from '@/hooks/useCategories';
-import { Plus, Tag, X, Edit, Trash2, GitMerge } from 'lucide-react';
+import { useCategories, useCreateCategory, useUpdateCategory, useUpdateCategoryFields, useDeleteCategory, useUnifyCategories } from '@/hooks/useCategories';
+import { useCategoryLabel } from '@/hooks/useCategoryLabel';
+import { useCategoryFilter } from '@/hooks/useCategoryFilter';
+import { Plus, Tag, X, Edit, GitMerge, Trash2 } from 'lucide-react';
 import type { Category } from '@/types';
 
 export const Categories: React.FC = () => {
   const { data: categories, isLoading, error } = useCategories();
   const createCategory = useCreateCategory();
   const updateCategory = useUpdateCategory();
+  const updateCategoryFields = useUpdateCategoryFields();
   const deleteCategory = useDeleteCategory();
   const unifyCategories = useUnifyCategories();
 
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState('');
+  const [newCategoryParentId, setNewCategoryParentId] = useState<string>('');
+  const [newCategoryParentDescription, setNewCategoryParentDescription] = useState<string>('');
+
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
   const [editCategoryName, setEditCategoryName] = useState('');
-  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
-  const [deletingCategory, setDeletingCategory] = useState<Category | null>(null);
+  const [editDescriptionTranslated, setEditDescriptionTranslated] = useState('');
+  const [editParentId, setEditParentId] = useState<string>('');
+  const [editParentDescription, setEditParentDescription] = useState<string>('');
+
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const [isDeleteBulkModalOpen, setIsDeleteBulkModalOpen] = useState(false);
+  const [bulkDeleteError, setBulkDeleteError] = useState<string>('');
+
   const [isUnifyModalOpen, setIsUnifyModalOpen] = useState(false);
   const [targetCategory, setTargetCategory] = useState('');
+
+  const { getCategoryLabel } = useCategoryLabel();
+
+  const categoriesList = categories || [];
+
+  const {
+    parentFilter: selectedParent,
+    setParentFilter: setSelectedParent,
+    catByDescription,
+    uniqueParents,
+    filteredCategories: displayedCategories,
+  } = useCategoryFilter(categoriesList);
 
   if (isLoading) {
     return (
@@ -37,24 +60,70 @@ export const Categories: React.FC = () => {
     );
   }
 
-  const categoriesList = categories || [];
+  // --- Helpers for parent select ---
+  const parentSelectValue = (parentId: string, parentDescription: string) => {
+    if (!parentId && !parentDescription) return '';
+    if (parentId === '__new__') return '__new__';
+    return parentId;
+  };
 
+  const handleParentSelectChange = (
+    value: string,
+    setId: (v: string) => void,
+    setDesc: (v: string) => void,
+    selfName?: string,
+    selfId?: string,
+  ) => {
+    if (value === '') {
+      setId('');
+      setDesc('');
+    } else if (value === '__new__') {
+      // sentinel: will be resolved after save using the category's own id
+      setId('__new__');
+      setDesc(selfName ?? '');
+    } else {
+      const cat = categoriesList.find(c => c.id === value);
+      setId(cat?.id ?? '');
+      setDesc(cat?.description ?? '');
+      void selfId; // unused when editing existing parent
+    }
+  };
+
+  // --- Create ---
   const handleCreateCategory = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newCategoryName.trim()) return;
 
     try {
-      await createCategory.mutateAsync({ description: newCategoryName.trim() });
+      const isNewGroup = newCategoryParentId === '__new__';
+      const created = await createCategory.mutateAsync({
+        description: newCategoryName.trim(),
+        description_translated: newCategoryName.trim(),
+        parent_id: isNewGroup ? null : (newCategoryParentId || null),
+        parent_description: isNewGroup ? null : (newCategoryParentDescription || null),
+      });
+      if (isNewGroup && created?.id) {
+        await updateCategoryFields.mutateAsync({
+          id: created.id,
+          fields: { parent_id: created.id, parent_description: newCategoryName.trim() },
+        });
+      }
       setNewCategoryName('');
+      setNewCategoryParentId('');
+      setNewCategoryParentDescription('');
       setIsCreateModalOpen(false);
-    } catch (error) {
-      console.error('Erro ao criar categoria:', error);
+    } catch (err) {
+      console.error('Erro ao criar categoria:', err);
     }
   };
 
+  // --- Edit ---
   const handleEditCategory = (category: Category) => {
     setEditingCategory(category);
     setEditCategoryName(category.description);
+    setEditDescriptionTranslated(category.description_translated ?? '');
+    setEditParentId(category.parent_id ?? '');
+    setEditParentDescription(category.parent_description ?? '');
     setIsEditModalOpen(true);
   };
 
@@ -63,35 +132,62 @@ export const Categories: React.FC = () => {
     if (!editingCategory || !editCategoryName.trim()) return;
 
     try {
-      await updateCategory.mutateAsync({
-        oldName: editingCategory.description,
-        newName: editCategoryName.trim()
+      let newCategoryId = editingCategory.id;
+
+      if (editCategoryName.trim() !== editingCategory.description) {
+        const result = await updateCategory.mutateAsync({
+          oldName: editingCategory.description,
+          newName: editCategoryName.trim(),
+        });
+        // backend returns new id
+        if (result?.new_id) newCategoryId = result.new_id;
+      }
+
+      const isNewGroup = editParentId === '__new__';
+      const resolvedParentId = isNewGroup ? newCategoryId : (editParentId || null);
+      const resolvedParentDesc = isNewGroup ? editCategoryName.trim() : (editParentDescription || null);
+
+      await updateCategoryFields.mutateAsync({
+        id: newCategoryId,
+        fields: {
+          description_translated: editDescriptionTranslated || null,
+          parent_id: resolvedParentId,
+          parent_description: resolvedParentDesc,
+        },
       });
+
       setEditingCategory(null);
       setEditCategoryName('');
+      setEditDescriptionTranslated('');
+      setEditParentId('');
+      setEditParentDescription('');
       setIsEditModalOpen(false);
-    } catch (error) {
-      console.error('Erro ao editar categoria:', error);
+    } catch (err) {
+      console.error('Erro ao editar categoria:', err);
     }
   };
 
-  const handleDeleteCategory = (category: Category) => {
-    setDeletingCategory(category);
-    setIsDeleteModalOpen(true);
-  };
-
-  const handleConfirmDelete = async () => {
-    if (!deletingCategory) return;
-
-    try {
-      await deleteCategory.mutateAsync(deletingCategory.description);
-      setDeletingCategory(null);
-      setIsDeleteModalOpen(false);
-    } catch (error) {
-      console.error('Erro ao deletar categoria:', error);
+  // --- Bulk delete ---
+  const handleBulkDelete = async () => {
+    setBulkDeleteError('');
+    const errors: string[] = [];
+    for (const name of selectedCategories) {
+      try {
+        await deleteCategory.mutateAsync(name);
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
+        errors.push(`${name}: ${msg}`);
+      }
+    }
+    if (errors.length > 0) {
+      setBulkDeleteError(errors.join('\n'));
+    } else {
+      setSelectedCategories([]);
+      setIsDeleteBulkModalOpen(false);
     }
   };
 
+  // --- Select ---
   const handleSelectCategory = (categoryName: string) => {
     setSelectedCategories(prev =>
       prev.includes(categoryName)
@@ -101,13 +197,14 @@ export const Categories: React.FC = () => {
   };
 
   const handleSelectAll = () => {
-    if (selectedCategories.length === categoriesList.length) {
+    if (selectedCategories.length === displayedCategories.length && displayedCategories.length > 0) {
       setSelectedCategories([]);
     } else {
-      setSelectedCategories(categoriesList.map(cat => cat.description));
+      setSelectedCategories(displayedCategories.map(cat => cat.description));
     }
   };
 
+  // --- Unify ---
   const handleOpenUnifyModal = () => {
     if (selectedCategories.length < 2) return;
     setTargetCategory(selectedCategories[0]);
@@ -125,11 +222,10 @@ export const Categories: React.FC = () => {
       setSelectedCategories([]);
       setTargetCategory('');
       setIsUnifyModalOpen(false);
-    } catch (error) {
-      console.error('Erro ao unificar categorias:', error);
+    } catch (err) {
+      console.error('Erro ao unificar categorias:', err);
     }
   };
-
 
   return (
     <div className="space-y-6">
@@ -140,6 +236,15 @@ export const Categories: React.FC = () => {
           <p className="text-gray-600">Organize suas transações por categorias</p>
         </div>
         <div className="flex items-center space-x-3">
+          {selectedCategories.length >= 1 && (
+            <button
+              onClick={() => { setBulkDeleteError(''); setIsDeleteBulkModalOpen(true); }}
+              className="bg-danger-600 text-white px-4 py-2 rounded-md hover:bg-danger-700 flex items-center space-x-2"
+            >
+              <Trash2 className="w-4 h-4" />
+              <span>Deletar ({selectedCategories.length})</span>
+            </button>
+          )}
           {selectedCategories.length >= 2 && (
             <button
               onClick={handleOpenUnifyModal}
@@ -159,6 +264,33 @@ export const Categories: React.FC = () => {
         </div>
       </div>
 
+      {/* Filtro por grupo */}
+      {uniqueParents.length > 0 && (
+        <div className="bg-white rounded-lg shadow p-4">
+          <div className="flex items-center gap-3">
+            <label className="text-sm font-medium text-gray-700 whitespace-nowrap">Grupo:</label>
+            <select
+              value={selectedParent}
+              onChange={(e) => {
+                setSelectedParent(e.target.value);
+                setSelectedCategories([]);
+              }}
+              className="border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-primary-500 focus:border-primary-500"
+            >
+              <option value="__all__">Todos os grupos</option>
+              {uniqueParents.map(parent => {
+                const cat = catByDescription.get(parent);
+                return (
+                  <option key={parent} value={parent}>
+                    {cat ? getCategoryLabel(cat) : parent}
+                  </option>
+                );
+              })}
+            </select>
+          </div>
+        </div>
+      )}
+
       {/* Lista de categorias */}
       <div className="bg-white rounded-lg shadow overflow-hidden">
         <div className="overflow-x-auto">
@@ -168,7 +300,7 @@ export const Categories: React.FC = () => {
                 <th className="px-6 py-3 w-px text-left">
                   <input
                     type="checkbox"
-                    checked={selectedCategories.length === categoriesList.length && categoriesList.length > 0}
+                    checked={selectedCategories.length === displayedCategories.length && displayedCategories.length > 0}
                     onChange={handleSelectAll}
                     className="h-4 w-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500"
                   />
@@ -185,8 +317,8 @@ export const Categories: React.FC = () => {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {categoriesList.length > 0 ? (
-                categoriesList.map((category) => (
+              {displayedCategories.length > 0 ? (
+                displayedCategories.map((category) => (
                   <tr key={category.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap">
                       <input
@@ -200,7 +332,7 @@ export const Categories: React.FC = () => {
                       <div className="flex items-center">
                         <Tag className="w-5 h-5 text-gray-400 mr-3" />
                         <span className="text-sm font-medium text-gray-900">
-                          {category.description}
+                          {getCategoryLabel(category)}
                         </span>
                       </div>
                     </td>
@@ -208,29 +340,20 @@ export const Categories: React.FC = () => {
                       {category.transaction_count}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      <div className="flex items-center justify-end space-x-3">
-                        <button
-                          onClick={() => handleEditCategory(category)}
-                          className="text-primary-600 hover:text-primary-900 flex items-center space-x-1"
-                        >
-                          <Edit className="w-4 h-4" />
-                          <span>Editar</span>
-                        </button>
-                        <button
-                          onClick={() => handleDeleteCategory(category)}
-                          className="text-danger-600 hover:text-danger-900 flex items-center space-x-1"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                          <span>Deletar</span>
-                        </button>
-                      </div>
+                      <button
+                        onClick={() => handleEditCategory(category)}
+                        className="text-primary-600 hover:text-primary-900 flex items-center space-x-1 ml-auto"
+                      >
+                        <Edit className="w-4 h-4" />
+                        <span>Editar</span>
+                      </button>
                     </td>
                   </tr>
                 ))
               ) : (
                 <tr>
                   <td colSpan={4} className="px-6 py-12 text-center text-gray-500">
-                    Nenhuma categoria encontrada
+                    {selectedParent === '__all__' ? 'Nenhuma categoria encontrada' : 'Nenhuma categoria neste grupo'}
                   </td>
                 </tr>
               )}
@@ -270,6 +393,37 @@ export const Categories: React.FC = () => {
                   />
                 </div>
 
+                <div className="mb-4">
+                  <label htmlFor="newCategoryParent" className="block text-sm font-medium text-gray-700 mb-2">
+                    Grupo
+                  </label>
+                  <select
+                    id="newCategoryParent"
+                    value={parentSelectValue(newCategoryParentId, newCategoryParentDescription)}
+                    onChange={(e) =>
+                      handleParentSelectChange(
+                        e.target.value,
+                        setNewCategoryParentId,
+                        setNewCategoryParentDescription,
+                        newCategoryName.trim(),
+                      )
+                    }
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500"
+                    required
+                  >
+                    <option value="" disabled>Selecione um grupo</option>
+                    {uniqueParents.map(parent => {
+                      const cat = catByDescription.get(parent);
+                      return (
+                        <option key={parent} value={cat?.id ?? parent}>
+                          {cat ? getCategoryLabel(cat) : parent}
+                        </option>
+                      );
+                    })}
+                    <option value="__new__">Criar novo grupo</option>
+                  </select>
+                </div>
+
                 <div className="flex justify-end space-x-3">
                   <button
                     type="button"
@@ -280,7 +434,7 @@ export const Categories: React.FC = () => {
                   </button>
                   <button
                     type="submit"
-                    disabled={createCategory.isPending || !newCategoryName.trim()}
+                    disabled={createCategory.isPending || !newCategoryName.trim() || !newCategoryParentId}
                     className="px-4 py-2 bg-primary-600 border border-transparent rounded-md shadow-sm text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {createCategory.isPending ? 'Criando...' : 'Criar Categoria'}
@@ -323,6 +477,50 @@ export const Categories: React.FC = () => {
                   />
                 </div>
 
+                <div className="mb-4">
+                  <label htmlFor="editDescriptionTranslated" className="block text-sm font-medium text-gray-700 mb-2">
+                    Tradução / Apelido
+                  </label>
+                  <input
+                    id="editDescriptionTranslated"
+                    type="text"
+                    value={editDescriptionTranslated}
+                    onChange={(e) => setEditDescriptionTranslated(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500"
+                    placeholder="Nome traduzido (opcional)"
+                  />
+                </div>
+
+                <div className="mb-4">
+                  <label htmlFor="editParent" className="block text-sm font-medium text-gray-700 mb-2">
+                    Grupo
+                  </label>
+                  <select
+                    id="editParent"
+                    value={parentSelectValue(editParentId, editParentDescription)}
+                    onChange={(e) =>
+                      handleParentSelectChange(
+                        e.target.value,
+                        setEditParentId,
+                        setEditParentDescription,
+                        editCategoryName.trim(),
+                        editingCategory.id,
+                      )
+                    }
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500"
+                  >
+                    {uniqueParents.map(parent => {
+                      const cat = catByDescription.get(parent);
+                      return (
+                        <option key={parent} value={cat?.id ?? parent}>
+                          {cat ? getCategoryLabel(cat) : parent}
+                        </option>
+                      );
+                    })}
+                    <option value="__new__">Criar novo grupo</option>
+                  </select>
+                </div>
+
                 <div className="flex justify-end space-x-3">
                   <button
                     type="button"
@@ -333,10 +531,10 @@ export const Categories: React.FC = () => {
                   </button>
                   <button
                     type="submit"
-                    disabled={updateCategory.isPending || !editCategoryName.trim()}
+                    disabled={updateCategory.isPending || updateCategoryFields.isPending || !editCategoryName.trim()}
                     className="px-4 py-2 bg-primary-600 border border-transparent rounded-md shadow-sm text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    {updateCategory.isPending ? 'Salvando...' : 'Salvar'}
+                    {(updateCategory.isPending || updateCategoryFields.isPending) ? 'Salvando...' : 'Salvar'}
                   </button>
                 </div>
               </form>
@@ -345,40 +543,48 @@ export const Categories: React.FC = () => {
         </div>
       )}
 
-      {/* Delete Category Modal */}
-      {isDeleteModalOpen && deletingCategory && (
+      {/* Bulk Delete Modal */}
+      {isDeleteBulkModalOpen && (
         <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
           <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
             <div className="mt-3">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-medium text-gray-900">Confirmar Exclusão</h3>
                 <button
-                  onClick={() => setIsDeleteModalOpen(false)}
+                  onClick={() => setIsDeleteBulkModalOpen(false)}
                   className="text-gray-400 hover:text-gray-600"
                 >
                   <X className="w-5 h-5" />
                 </button>
               </div>
 
-              <div className="mb-6">
-                <p className="text-sm text-gray-600">
-                  Tem certeza que deseja deletar a categoria <strong>"{deletingCategory.description}"</strong>?
+              <div className="mb-4">
+                <p className="text-sm text-gray-600 mb-2">
+                  Tem certeza que deseja deletar {selectedCategories.length === 1 ? 'a categoria' : `as ${selectedCategories.length} categorias`} abaixo?
                 </p>
+                <ul className="text-sm text-gray-800 list-disc list-inside space-y-1 max-h-40 overflow-y-auto">
+                  {selectedCategories.map(name => (
+                    <li key={name}>{name}</li>
+                  ))}
+                </ul>
                 <p className="text-xs text-danger-600 mt-2">
-                  Esta ação não pode ser desfeita. A categoria não pode ser deletada se estiver sendo usada por transações.
+                  Categorias em uso por transações não serão deletadas.
                 </p>
+                {bulkDeleteError && (
+                  <pre className="text-xs text-danger-700 bg-danger-50 rounded p-2 mt-2 whitespace-pre-wrap">{bulkDeleteError}</pre>
+                )}
               </div>
 
               <div className="flex justify-end space-x-3">
                 <button
                   type="button"
-                  onClick={() => setIsDeleteModalOpen(false)}
+                  onClick={() => setIsDeleteBulkModalOpen(false)}
                   className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
                 >
                   Cancelar
                 </button>
                 <button
-                  onClick={handleConfirmDelete}
+                  onClick={handleBulkDelete}
                   disabled={deleteCategory.isPending}
                   className="px-4 py-2 bg-danger-600 border border-transparent rounded-md shadow-sm text-sm font-medium text-white hover:bg-danger-700 disabled:opacity-50 disabled:cursor-not-allowed"
                 >

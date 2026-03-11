@@ -2,7 +2,6 @@ import axios from 'axios';
 import type {
   ApiResponse,
   Transaction,
-  Category,
   Person,
   Investment,
   FinanceSummary,
@@ -131,8 +130,18 @@ export const categoryService = {
     return response.data;
   },
 
-  create: async (category: Omit<Category, 'id' | 'transaction_count'>) => {
-    const response = await api.post('/categories/', { name: category.description });
+  create: async (category: { description: string; description_translated?: string | null; parent_id?: string | null; parent_description?: string | null }) => {
+    const response = await api.post('/categories/', {
+      name: category.description,
+      description_translated: category.description_translated ?? null,
+      parent_id: category.parent_id ?? null,
+      parent_description: category.parent_description ?? null,
+    });
+    return response.data;
+  },
+
+  updateFields: async (id: string, fields: { description_translated?: string | null; parent_id?: string | null; parent_description?: string | null }) => {
+    const response = await api.patch(`/categories/${id}/fields`, fields);
     return response.data;
   },
 
@@ -226,6 +235,10 @@ export const importService = {
     const response = await api.post('/import/splitwise');
     return response.data;
   },
+};
+
+export const databaseService = {
+  reset: () => api.post('/database/reset'),
 };
 
 export default api;

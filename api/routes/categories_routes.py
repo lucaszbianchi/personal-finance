@@ -30,13 +30,40 @@ def create_category():
         if "name" not in data:
             return jsonify({"error": "Campo 'name' é obrigatório"}), 400
 
-        category = category_service.create_category(data["name"])
+        name = data["name"]
+        category = category_service.create_category(
+            name,
+            description_translated=data.get("description_translated", name),
+            parent_id=data.get("parent_id"),
+            parent_description=data.get("parent_description"),
+        )
         return (
             jsonify(
                 {"id": category.id, "description": category.description}
             ),
             201,
         )
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@bp.route("/<category_id>/fields", methods=["PATCH"])
+def update_category_fields(category_id: str):
+    """Atualiza campos diretos de uma categoria (description_translated, parent_id, parent_description)."""
+    try:
+        data = request.get_json()
+        if not data or not isinstance(data, dict):
+            return jsonify({"error": "Body inválido"}), 400
+
+        category_service.update_category_fields(
+            category_id,
+            description_translated=data.get("description_translated"),
+            parent_id=data.get("parent_id"),
+            parent_description=data.get("parent_description"),
+        )
+        return jsonify({"message": "Campos atualizados com sucesso"})
     except ValueError as e:
         return jsonify({"error": str(e)}), 400
     except Exception as e:
