@@ -71,6 +71,7 @@ TABLES_SQL = [
         name TEXT,
         type TEXT,
         subtype TEXT,
+        amount REAL,
         balance REAL,
         date TEXT,
         due_date TEXT,
@@ -133,6 +134,7 @@ TABLES_SQL = [
 
 MIGRATIONS = [
     "DROP TABLE IF EXISTS rate_limit_usage",
+    "ALTER TABLE investments ADD COLUMN amount REAL",
 ]
 
 RESET_SQL = [

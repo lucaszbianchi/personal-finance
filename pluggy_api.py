@@ -12,6 +12,7 @@ from repositories.rate_limit_repository import RateLimitRepository
 from repositories.transaction_repository import TransactionRepository
 from repositories.investment_repository import InvestmentRepository
 from repositories.splitwise_repository import SplitwiseRepository
+from services.finance_history_service import FinanceHistoryService
 from services.pluggy_auth_service import get_api_key as _get_api_key
 
 INCREMENTAL_DAYS = 6
@@ -218,6 +219,7 @@ class PluggyAPI:
         investment_repo = InvestmentRepository()
         splitwise_repo = SplitwiseRepository()
         rate_limit_repo = RateLimitRepository()
+        bank_balance = 0.0
 
         summary = {
             "bank_transactions_inserted": 0,
@@ -276,6 +278,8 @@ class PluggyAPI:
                 accounts = self.list_accounts(item_id).get("results", [])
                 for account in accounts:
                     account_type = account.get("type")
+                    if account_type == "BANK":
+                        bank_balance += account.get("balance", 0) or 0
                     if account_type not in ["BANK", "CREDIT"]:
                         continue
                     account_id = account.get("id")
@@ -341,6 +345,11 @@ class PluggyAPI:
             if investments:
                 self._save_incremental_json("data/investments.json", investments)
                 print(f"Processados {len(investments)} investimentos")
+
+                # Snapshot mensal automático
+                month = today.strftime("%Y-%m")
+                FinanceHistoryService().update_finance_history_net_worth(month, bank_balance)
+                print(f"[OK] Snapshot mensal gravado para {month}")
 
             # 4. Splitwise
             print("Processando transações Splitwise...")
@@ -470,6 +479,7 @@ class PluggyAPI:
             CREATE TABLE IF NOT EXISTS investments (
                 id TEXT PRIMARY KEY,
                 name TEXT,
+                amount REAL,
                 balance REAL,
                 type TEXT,
                 subtype TEXT,

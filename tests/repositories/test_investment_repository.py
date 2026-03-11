@@ -16,6 +16,7 @@ class TestInvestmentRepository(unittest.TestCase):
                 name TEXT NOT NULL,
                 type TEXT,
                 subtype TEXT,
+                amount REAL,
                 balance REAL,
                 date TEXT,
                 due_date TEXT,
@@ -40,14 +41,15 @@ class TestInvestmentRepository(unittest.TestCase):
         # Insert test data
         self.repo.execute_query(
             """
-            INSERT INTO investments (id, name, type, subtype, balance, date, due_date, issuer, rate_type)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO investments (id, name, type, subtype, amount, balance, date, due_date, issuer, rate_type)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
             (
                 "inv1",
                 "Investment 1",
                 "RENDA_FIXA",
                 "CDB",
+                1100.0,
                 1000.0,
                 "2025-01-01",
                 "2026-01-01",
@@ -57,14 +59,15 @@ class TestInvestmentRepository(unittest.TestCase):
         )
         self.repo.execute_query(
             """
-            INSERT INTO investments (id, name, type, subtype, balance, date, due_date, issuer, rate_type)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO investments (id, name, type, subtype, amount, balance, date, due_date, issuer, rate_type)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
             (
                 "inv2",
                 "Investment 2",
                 "RENDA_VARIAVEL",
                 "ACAO",
+                5500.0,
                 5000.0,
                 "2025-01-15",
                 "2026-06-15",
@@ -84,14 +87,15 @@ class TestInvestmentRepository(unittest.TestCase):
         """Test that investments with zero balance are excluded."""
         self.repo.execute_query(
             """
-            INSERT INTO investments (id, name, type, subtype, balance, date, due_date, issuer, rate_type)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO investments (id, name, type, subtype, amount, balance, date, due_date, issuer, rate_type)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
             (
                 "inv1",
                 "Investment 1",
                 "RENDA_FIXA",
                 "CDB",
+                1100.0,
                 1000.0,
                 "2025-01-01",
                 "2026-01-01",
@@ -101,14 +105,15 @@ class TestInvestmentRepository(unittest.TestCase):
         )
         self.repo.execute_query(
             """
-            INSERT INTO investments (id, name, type, subtype, balance, date, due_date, issuer, rate_type)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO investments (id, name, type, subtype, amount, balance, date, due_date, issuer, rate_type)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
             (
                 "inv2",
                 "Investment 2",
                 "RENDA_VARIAVEL",
                 "ACAO",
+                0,
                 0,
                 "2025-01-15",
                 "2026-06-15",
@@ -126,14 +131,15 @@ class TestInvestmentRepository(unittest.TestCase):
         """Test retrieving a specific investment by ID."""
         self.repo.execute_query(
             """
-            INSERT INTO investments (id, name, type, subtype, balance, date, due_date, issuer, rate_type)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO investments (id, name, type, subtype, amount, balance, date, due_date, issuer, rate_type)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
             (
                 "inv1",
                 "Investment 1",
                 "RENDA_FIXA",
                 "CDB",
+                1100.0,
                 1000.0,
                 "2025-01-01",
                 "2026-01-01",
@@ -182,18 +188,19 @@ class TestInvestmentRepository(unittest.TestCase):
         self.assertEqual(retrieved.name, "New Investment")
         self.assertEqual(retrieved.balance, 1000.0)
 
-    def test_upsert_investment_ignore_existing(self):
-        """Test that upserting an existing investment is ignored (insert_only)."""
+    def test_upsert_investment_updates_existing(self):
+        """Test that upserting an existing investment updates the balance (smart_merge)."""
         self.repo.execute_query(
             """
-            INSERT INTO investments (id, name, type, subtype, balance, date, due_date, issuer, rate_type)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO investments (id, name, type, subtype, amount, balance, date, due_date, issuer, rate_type)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
             (
                 "inv1",
                 "Investment 1",
                 "RENDA_FIXA",
                 "CDB",
+                1100.0,
                 1000.0,
                 "2025-01-01",
                 "2026-01-01",
@@ -207,6 +214,7 @@ class TestInvestmentRepository(unittest.TestCase):
             "name": "Investment 1",
             "type": "RENDA_FIXA",
             "subtype": "CDB",
+            "amount": 1600.0,
             "balance": 1500.0,
             "date": "2025-01-15",
             "dueDate": "2026-01-01",
@@ -217,11 +225,11 @@ class TestInvestmentRepository(unittest.TestCase):
         result = self.repo.upsert_investment(investment_data)
 
         self.assertTrue(result["success"])
-        self.assertEqual(result["action"], "ignored")
+        self.assertEqual(result["action"], "updated")
 
-        # Verify original data was preserved
+        # Verify updated balance
         retrieved = self.repo.get_investment_by_id("inv1")
-        self.assertEqual(retrieved.balance, 1000.0)
+        self.assertEqual(retrieved.balance, 1500.0)
 
     def test_add_investment_new(self):
         """Test legacy add_investment method for new investment."""
@@ -230,6 +238,7 @@ class TestInvestmentRepository(unittest.TestCase):
             name="New Investment",
             type_="RENDA_FIXA",
             subtype="CDB",
+            amount=1100.0,
             balance=1000.0,
             date="2025-01-01",
             due_date="2026-01-01",
@@ -242,17 +251,18 @@ class TestInvestmentRepository(unittest.TestCase):
         self.assertTrue(result)
 
     def test_add_investment_existing_returns_false(self):
-        """Test legacy add_investment method for existing investment returns False (insert_only)."""
+        """Test legacy add_investment method for existing investment returns False (smart_merge action is 'updated', not 'inserted')."""
         self.repo.execute_query(
             """
-            INSERT INTO investments (id, name, type, subtype, balance, date, due_date, issuer, rate_type)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO investments (id, name, type, subtype, amount, balance, date, due_date, issuer, rate_type)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
             (
                 "inv1",
                 "Investment 1",
                 "RENDA_FIXA",
                 "CDB",
+                1100.0,
                 1000.0,
                 "2025-01-01",
                 "2026-01-01",
@@ -266,6 +276,7 @@ class TestInvestmentRepository(unittest.TestCase):
             name="Investment 1 Updated",
             type_="RENDA_FIXA",
             subtype="CDB",
+            amount=2200.0,
             balance=2000.0,
             date="2025-01-15",
             due_date="2026-01-01",
@@ -290,14 +301,15 @@ class TestInvestmentRepository(unittest.TestCase):
         # Insert initial investment
         self.repo.execute_query(
             """
-            INSERT INTO investments (id, name, type, subtype, balance, date, due_date, issuer, rate_type)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO investments (id, name, type, subtype, amount, balance, date, due_date, issuer, rate_type)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
             (
                 "inv1",
                 "Investment 1",
                 "RENDA_FIXA",
                 "CDB",
+                1100.0,
                 1000.0,
                 "2025-01-01",
                 "2026-01-01",
@@ -321,14 +333,15 @@ class TestInvestmentRepository(unittest.TestCase):
         """Test updating balance without providing due_date."""
         self.repo.execute_query(
             """
-            INSERT INTO investments (id, name, type, subtype, balance, date, due_date, issuer, rate_type)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO investments (id, name, type, subtype, amount, balance, date, due_date, issuer, rate_type)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
             (
                 "inv1",
                 "Investment 1",
                 "RENDA_FIXA",
                 "CDB",
+                1100.0,
                 1000.0,
                 "2025-01-01",
                 "2026-01-01",

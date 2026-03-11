@@ -3,12 +3,14 @@ from datetime import datetime
 from repositories.finance_history_repository import FinanceHistoryRepository
 from repositories.transaction_repository import TransactionRepository
 from models.finance_history import FinanceHistory
+from services.settings_service import SettingsService
 
 
 class FinanceHistoryService:
-    def __init__(self):
+    def __init__(self, settings_service: SettingsService = None):
         self.finance_history_repository = FinanceHistoryRepository()
         self.transaction_repository = TransactionRepository()
+        self.settings_service = settings_service or SettingsService()
 
     def update_meal_allowance(
         self, month: Optional[str] = None, value: Optional[float] = None
@@ -87,8 +89,16 @@ class FinanceHistoryService:
                 investments[inv.name] = 0.0
             investments[inv.name] += inv.balance
 
-        total_cash = bank_account
+        total_cash = bank_account + sum(investments.values())
         self.finance_history_repository.save_net_worth(month, total_cash, investments)
+
+        # Carry-forward: propaga meal_allowance da setting se o mês ainda não tem valor
+        meal_value = self.settings_service.get_meal_allowance()
+        if meal_value:
+            entry = self.finance_history_repository.get_by_month(month)
+            if entry and entry.meal_allowance is None:
+                self.finance_history_repository.save_meal_allowance(month, meal_value)
+
         return self._format_net_worth_history(self.finance_history_repository.get_all())
 
     def update_all(self) -> Dict[str, Dict[str, Any]]:

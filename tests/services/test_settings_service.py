@@ -18,40 +18,28 @@ class TestSettingsService(unittest.TestCase):
         self.service.settings_repository = self.mock_settings_repo
 
     def test_update_meal_allowance(self):
-        """Testa atualização das configurações do vale refeição"""
-        # Act
-        self.service.update_meal_allowance(active=True, value=50.0)
+        """Testa atualização do valor do vale refeição"""
+        self.service.update_meal_allowance(value=50.0)
 
-        # Assert
-        self.mock_settings_repo.set_value.assert_called_once_with(
-            "meal_allowance", {"active": True, "value": 50.0}
-        )
+        self.mock_settings_repo.set_value.assert_called_once_with("meal_allowance", 50.0)
 
     def test_get_meal_allowance_with_existing_value(self):
-        """Testa obtenção de configurações existentes do vale refeição"""
-        # Arrange
-        expected_config = {"active": True, "value": 45.0}
-        self.mock_settings_repo.get_value.return_value = expected_config
+        """Testa obtenção do valor existente do vale refeição"""
+        self.mock_settings_repo.get_value.return_value = 45.0
 
-        # Act
         result = self.service.get_meal_allowance()
 
-        # Assert
         self.mock_settings_repo.get_value.assert_called_once_with("meal_allowance")
-        self.assertEqual(result, expected_config)
+        self.assertEqual(result, 45.0)
 
     def test_get_meal_allowance_with_no_existing_value(self):
-        """Testa obtenção de configurações padrão do vale refeição quando não existe"""
-        # Arrange
+        """Testa valor padrão do vale refeição quando não existe"""
         self.mock_settings_repo.get_value.return_value = None
 
-        # Act
         result = self.service.get_meal_allowance()
 
-        # Assert
         self.mock_settings_repo.get_value.assert_called_once_with("meal_allowance")
-        expected_default = {"active": False, "value": 0.0}
-        self.assertEqual(result, expected_default)
+        self.assertEqual(result, 0.0)
 
     def test_update_credit_card_dates_valid_days(self):
         """Testa atualização válida das datas do cartão de crédito"""

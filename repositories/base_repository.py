@@ -52,14 +52,16 @@ class BaseRepository:
         table: str,
         id_col: str,
         data: Dict[str, Any],
+        strategy: str = "insert_only",
     ) -> Dict[str, Any]:
         """
-        Insere um registro se não existir (INSERT OR IGNORE).
+        Insere ou atualiza um registro conforme a estratégia escolhida.
 
         Args:
             table: Nome da tabela alvo
             id_col: Nome da coluna chave primária
             data: Dicionário com pares coluna-valor
+            strategy: "insert_only" (INSERT OR IGNORE) ou "smart_merge" (INSERT OR REPLACE)
 
         Returns:
             Dict com resultado: {"success": bool, "action": str, "affected_rows": int, "id": str}
@@ -80,10 +82,20 @@ class BaseRepository:
         placeholders = ", ".join(["?" for _ in columns])
         column_names = ", ".join(columns)
 
-        query = f"INSERT OR IGNORE INTO {table} ({column_names}) VALUES ({placeholders})"
-        cursor = self.execute_query(query, tuple(processed_data[col] for col in columns))
+        if strategy == "smart_merge":
+            # Check if record exists to report correct action
+            check = self.execute_query(
+                f"SELECT 1 FROM {table} WHERE {id_col} = ?", (record_id,)
+            )
+            existed = check.fetchone() is not None
+            query = f"INSERT OR REPLACE INTO {table} ({column_names}) VALUES ({placeholders})"
+            cursor = self.execute_query(query, tuple(processed_data[col] for col in columns))
+            action = "updated" if existed else "inserted"
+        else:
+            query = f"INSERT OR IGNORE INTO {table} ({column_names}) VALUES ({placeholders})"
+            cursor = self.execute_query(query, tuple(processed_data[col] for col in columns))
+            action = "inserted" if cursor.rowcount > 0 else "ignored"
 
-        action = "inserted" if cursor.rowcount > 0 else "ignored"
         return {
             "success": True,
             "action": action,

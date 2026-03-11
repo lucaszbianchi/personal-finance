@@ -4,6 +4,7 @@ import type {
   Transaction,
   Person,
   Investment,
+  InvestmentHistoryEntry,
   FinanceSummary,
   TransactionFilter,
   CreateTransactionRequest,
@@ -180,11 +181,15 @@ export const personService = {
 };
 
 export const investmentService = {
-  getAll: () =>
-    api.get<ApiResponse<Investment[]>>('/investments'),
+  getAll: async (): Promise<Investment[]> => {
+    const response = await api.get('/investments/');
+    return response.data;
+  },
 
-  getById: (id: string) =>
-    api.get<ApiResponse<Investment>>(`/investments/${id}`),
+  getHistory: async (): Promise<InvestmentHistoryEntry[]> => {
+    const response = await api.get('/investments/history');
+    return response.data;
+  },
 };
 
 export const summaryService = {

@@ -37,7 +37,6 @@ function formatRelativeDate(isoString?: string): string {
 }
 
 type MealAllowanceSettings = {
-  active: boolean
   value: number
 }
 
@@ -106,19 +105,17 @@ export const Settings: React.FC = () => {
     queryFn: () => api.get<MealAllowanceSettings>('/settings/meal-allowance').then(r => r.data),
   })
 
-  const [mealActive, setMealActive] = useState(false)
   const [mealValue, setMealValue] = useState('')
 
   useEffect(() => {
     if (mealData) {
-      setMealActive(mealData.active)
       setMealValue(String(mealData.value))
     }
   }, [mealData])
 
   const saveMeal = useMutation({
     mutationFn: () =>
-      api.post('/settings/meal-allowance', { active: mealActive, value: parseFloat(mealValue) }),
+      api.post('/settings/meal-allowance', { value: parseFloat(mealValue) }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['settings-meal-allowance'] }),
   })
 
@@ -255,17 +252,6 @@ export const Settings: React.FC = () => {
       {/* Vale Refeição */}
       <section className="bg-white rounded-lg shadow p-6 space-y-4">
         <h2 className="text-lg font-semibold text-gray-700">Vale Refeição</h2>
-        <div className="flex items-center gap-3">
-          <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={mealActive}
-              onChange={e => setMealActive(e.target.checked)}
-              className="w-4 h-4 accent-blue-600"
-            />
-            Ativo
-          </label>
-        </div>
         <div className="flex items-center gap-3">
           <label className="text-sm text-gray-700 w-24">Valor (R$)</label>
           <input

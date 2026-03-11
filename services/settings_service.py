@@ -6,18 +6,14 @@ class SettingsService:
     def __init__(self):
         self.settings_repository = SettingsRepository()
 
-    def update_meal_allowance(self, active: bool, value: float):
+    def update_meal_allowance(self, value: float):
         """Atualiza as configurações do vale refeição"""
-        self.settings_repository.set_value(
-            "meal_allowance", {"active": active, "value": value}
-        )
+        self.settings_repository.set_value("meal_allowance", value)
 
-    def get_meal_allowance(self) -> Dict[str, Any]:
-        """Retorna as configurações do vale refeição"""
-        return self.settings_repository.get_value("meal_allowance") or {
-            "active": False,
-            "value": 0.0,
-        }
+    def get_meal_allowance(self) -> float:
+        """Retorna o valor do vale refeição"""
+        stored = self.settings_repository.get_value("meal_allowance")
+        return stored if stored is not None else 0.0
 
     def update_credit_card_dates(self, closing_day: int, due_day: int):
         """Atualiza as datas do cartão de crédito"""

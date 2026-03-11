@@ -4,6 +4,7 @@ from utils.date_helper import DateHelper
 from repositories.base_repository import BaseRepository
 from models.transaction import BankTransaction, CreditTransaction
 from models.investment import Investment
+from repositories.investment_repository import InvestmentRepository
 
 
 class TransactionRepository(BaseRepository):
@@ -76,36 +77,11 @@ class TransactionRepository(BaseRepository):
 
     def get_investments(self) -> List[Investment]:
         """Retorna todas as transações de investimentos."""
-        investment_query = """
-            SELECT 
-                id,
-                name,
-                balance,
-                type,
-                subtype,
-                date,
-                due_date,
-                issuer,
-                rate_type
-            FROM investments
-            WHERE balance != 0
-            ORDER BY date DESC
-        """
-        cursor = self.execute_query(investment_query)
-        return [
-            Investment(
-                investment_id=row["id"],
-                name=row["name"],
-                balance=row["balance"],
-                type_=row["type"],
-                subtype=row["subtype"],
-                date=self.date_helper.format_date(row["date"]),
-                due_date=self.date_helper.format_date(row["due_date"]),
-                issuer=row["issuer"],
-                rate_type=row["rate_type"],
-            )
-            for row in cursor.fetchall()
-        ]
+        repo = InvestmentRepository(db_path=self.db_path)
+        try:
+            return repo.get_investments()
+        finally:
+            repo.close()
 
     def get_bank_transaction_by_id(self, transaction_id: str) -> BankTransaction:
         """Retorna uma transação bancária específica pelo ID."""

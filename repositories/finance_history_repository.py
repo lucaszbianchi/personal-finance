@@ -18,7 +18,7 @@ class FinanceHistoryRepository(BaseRepository):
 
     def save_meal_allowance(self, month: str, meal_allowance: float) -> None:
         """Salva ou atualiza o valor do vale refeição para um determinado mês"""
-        if not meal_allowance:
+        if meal_allowance is None:
             return
         existing = self.get_by_month(month)
         cursor = None
@@ -38,7 +38,7 @@ class FinanceHistoryRepository(BaseRepository):
         self, month: str, current_bill: float, future_bill: float
     ) -> None:
         """Salva ou atualiza as informações de cartão de crédito para um determinado mês"""
-        if not current_bill or not future_bill:
+        if current_bill is None or future_bill is None:
             return
         existing = self.get_by_month(month)
         if existing:
@@ -54,7 +54,7 @@ class FinanceHistoryRepository(BaseRepository):
 
     def save_net_worth(self, month: str, total_cash: float, investments: Dict) -> None:
         """Salva ou atualiza as informações de patrimônio líquido para um determinado mês"""
-        if not total_cash or not investments:
+        if total_cash is None or investments is None:
             return
         existing = self.get_by_month(month)
         if existing:
@@ -70,7 +70,7 @@ class FinanceHistoryRepository(BaseRepository):
 
     def save_cash_flow(self, month: str, income: float, expenses: float) -> None:
         """Salva ou atualiza as informações de fluxo de caixa (receitas e despesas) para um determinado mês"""
-        if not income or not expenses:
+        if income is None or expenses is None:
             return
         existing = self.get_by_month(month)
         if existing:

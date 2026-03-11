@@ -6,6 +6,7 @@ class Investment:
         self,
         investment_id: str,
         name: str,
+        amount: float,
         balance: float,
         type_: str,
         subtype: str,
@@ -16,6 +17,7 @@ class Investment:
     ):
         self.investment_id = investment_id
         self.name = name
+        self.amount = amount
         self.balance = balance
         self.type = type_
         self.subtype = subtype
