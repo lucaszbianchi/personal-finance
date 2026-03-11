@@ -58,6 +58,7 @@ class TestTransactionRepository(unittest.TestCase):
             CREATE TABLE investments (
                 id TEXT PRIMARY KEY,
                 name TEXT,
+                amount REAL,
                 balance REAL,
                 type TEXT,
                 subtype TEXT,
@@ -167,37 +168,31 @@ class TestTransactionRepository(unittest.TestCase):
         self.assertEqual(found.amount, 200.75)
         self.assertEqual(found.status, "POSTED")
 
-    # Testes para linhas 79-95: get_investments
+    # Testes para linhas 79-83: get_investments
     def test_get_investments(self):
-        """Testa get_investments - linhas 79-95"""
-        # Inserir investimento de teste
-        self.repo.execute_query(
-            """
-            INSERT INTO investments (id, name, balance, type, subtype, date,
-            due_date, issuer, rate_type) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """,
-            (
-                "inv123",
-                "Test Investment",
-                1000.0,
-                "CDB",
-                "Pré-fixado",
-                "2023-01-01",
-                "2024-01-01",
-                "Test Bank",
-                "PRE",
-            ),
-        )
+        """Testa get_investments — delega ao InvestmentRepository"""
+        from unittest.mock import MagicMock
+        from models.investment import Investment
 
-        investments = self.repo.get_investments()
+        mock_inv = MagicMock(spec=Investment)
+        mock_inv.investment_id = "inv123"
+        mock_inv.name = "Test Investment"
+        mock_inv.balance = 1000.0
+
+        mock_inv_repo = MagicMock()
+        mock_inv_repo.get_investments.return_value = [mock_inv]
+
+        with patch(
+            "repositories.transaction_repository.InvestmentRepository",
+            return_value=mock_inv_repo,
+        ):
+            investments = self.repo.get_investments()
+
         self.assertIsInstance(investments, list)
-        self.assertGreater(len(investments), 0)
-
-        # Verificar se nosso investimento está na lista
-        found = next((i for i in investments if i.investment_id == "inv123"), None)
-        self.assertIsNotNone(found)
-        self.assertEqual(found.name, "Test Investment")
-        self.assertEqual(found.balance, 1000.0)
+        self.assertEqual(len(investments), 1)
+        self.assertEqual(investments[0].investment_id, "inv123")
+        self.assertEqual(investments[0].name, "Test Investment")
+        mock_inv_repo.close.assert_called_once()
 
     # Testes para linhas 110-143: get_bank_transaction_by_id
     def test_get_bank_transaction_by_id(self):

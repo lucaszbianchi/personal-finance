@@ -12,6 +12,7 @@ from api.routes.settings_routes import bp as settings_bp
 from api.routes.finance_history_routes import bp as finance_history_bp
 from api.routes.pluggy_routes import bp as pluggy_bp
 from api.routes.database_routes import bp as database_bp
+from api.routes.investments_routes import bp as investments_bp
 
 app = Flask(__name__)
 
@@ -27,6 +28,7 @@ app.register_blueprint(dashboard_bp, url_prefix="/api/dashboard")
 app.register_blueprint(finance_history_bp, url_prefix="/api/finance-history")
 app.register_blueprint(pluggy_bp, url_prefix="/api/pluggy")
 app.register_blueprint(database_bp, url_prefix="/api/database")
+app.register_blueprint(investments_bp, url_prefix="/api/investments")
 
 
 @app.route("/")

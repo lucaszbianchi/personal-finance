@@ -23,6 +23,7 @@ class InvestmentRepository(BaseRepository):
                 name,
                 type,
                 subtype,
+                amount,
                 balance,
                 date,
                 due_date,
@@ -39,6 +40,7 @@ class InvestmentRepository(BaseRepository):
                 name=row["name"],
                 type_=row["type"],
                 subtype=row["subtype"],
+                amount=row["amount"],
                 balance=row["balance"],
                 date=self.date_helper.format_date(row["date"]),
                 due_date=self.date_helper.format_date(row["due_date"]),
@@ -56,6 +58,7 @@ class InvestmentRepository(BaseRepository):
                 name,
                 type,
                 subtype,
+                amount,
                 balance,
                 date,
                 due_date,
@@ -74,6 +77,7 @@ class InvestmentRepository(BaseRepository):
             name=row["name"],
             type_=row["type"],
             subtype=row["subtype"],
+            amount=row["amount"],
             balance=row["balance"],
             date=self.date_helper.format_date(row["date"]),
             due_date=self.date_helper.format_date(row["due_date"]),
@@ -85,8 +89,8 @@ class InvestmentRepository(BaseRepository):
 
     def upsert_investment(self, investment_data: dict) -> Dict[str, Any]:
         """
-        Insere um investimento usando strategy insert_only.
-        Registros já existentes são ignorados.
+        Insere ou atualiza um investimento usando strategy smart_merge.
+        Saldos são atualizados a cada sync.
 
         Args:
             investment_data: Dict com dados do investimento da API Pluggy
@@ -99,6 +103,7 @@ class InvestmentRepository(BaseRepository):
             "name": investment_data.get("name"),
             "type": investment_data.get("type"),
             "subtype": investment_data.get("subtype"),
+            "amount": investment_data.get("amount"),
             "balance": investment_data.get("balance"),
             "date": investment_data.get("date"),
             "due_date": investment_data.get("dueDate"),
@@ -106,7 +111,7 @@ class InvestmentRepository(BaseRepository):
             "rate_type": investment_data.get("rateType"),
         }
 
-        return self.upsert("investments", "id", mapped_data)
+        return self.upsert("investments", "id", mapped_data, strategy="smart_merge")
 
     # Métodos legacy para compatibilidade (podem ser removidos futuramente)
 
@@ -117,6 +122,7 @@ class InvestmentRepository(BaseRepository):
             "name": investment.name,
             "type": investment.type,
             "subtype": investment.subtype,
+            "amount": investment.amount,
             "balance": investment.balance,
             "date": investment.date,
             "due_date": investment.due_date,
@@ -125,13 +131,15 @@ class InvestmentRepository(BaseRepository):
         }
 
         result = self.upsert_investment(investment_data)
-        # "ignored" significa que o registro já existia — não é falha
+        # com smart_merge, "inserted" = novo; "updated" = já existia
         return result["action"] == "inserted"
 
     def update_investment_balance(
         self, investment_id: str, balance: float, date: str, due_date: str = None
     ) -> bool:
         """Atualiza saldo de um investimento (método legacy)."""
-        query = "UPDATE investments SET balance = ?, date = ?, due_date = ? WHERE id = ?"
+        query = (
+            "UPDATE investments SET balance = ?, date = ?, due_date = ? WHERE id = ?"
+        )
         cursor = self.execute_query(query, (balance, date, due_date, investment_id))
         return cursor.rowcount > 0

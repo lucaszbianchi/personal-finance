@@ -51,10 +51,20 @@ export interface Investment {
   id: string;
   name: string;
   type: string;
-  value: number;
+  subtype: string;
+  amount: number;
+  balance: number;
   date: string;
-  created_at: string;
-  updated_at: string;
+  due_date: string;
+  issuer: string;
+  rate_type: string;
+}
+
+export interface InvestmentHistoryEntry {
+  month: string;
+  investments: Record<string, number>;
+  by_type: Record<string, number>;
+  total: number;
 }
 
 export interface FinanceSummary {

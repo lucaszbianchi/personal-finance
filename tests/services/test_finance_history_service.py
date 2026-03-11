@@ -6,11 +6,14 @@ from models.finance_history import FinanceHistory
 
 class TestFinanceHistoryService(unittest.TestCase):
     def setUp(self):
+        self.mock_settings = MagicMock()
+        self.mock_settings.get_meal_allowance.return_value = 0.0
+
         # Mock repositories
         with patch("services.finance_history_service.FinanceHistoryRepository"), patch(
             "services.finance_history_service.TransactionRepository"
         ):
-            self.service = FinanceHistoryService()
+            self.service = FinanceHistoryService(settings_service=self.mock_settings)
 
         self.mock_repo = MagicMock()
         self.mock_txn_repo = MagicMock()
@@ -39,7 +42,7 @@ class TestFinanceHistoryService(unittest.TestCase):
         self.mock_repo.get_all.return_value = []
         self.service.update_finance_history_net_worth("11/25", 500)
         self.mock_repo.save_net_worth.assert_called_with(
-            "11/25", 500, {"Tesouro": 1000}
+            "11/25", 1500.0, {"Tesouro": 1000}
         )
 
     def test_update_cash_flow_calls_repo_and_risk(self):
@@ -171,7 +174,7 @@ class TestFinanceHistoryService(unittest.TestCase):
         self.service.update_finance_history_net_worth("2026-03", 200.0)
 
         self.mock_repo.save_net_worth.assert_called_once_with(
-            "2026-03", 200.0, {"CDB": 1500.0}
+            "2026-03", 1700.0, {"CDB": 1500.0}
         )
 
     def test_update_all_calls_all_repos(self):
