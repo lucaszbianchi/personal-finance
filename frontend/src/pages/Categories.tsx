@@ -42,6 +42,7 @@ export const Categories: React.FC = () => {
     catByDescription,
     uniqueParents,
     filteredCategories: displayedCategories,
+    ungroupedCount,
   } = useCategoryFilter(categoriesList);
 
   if (isLoading) {
@@ -171,15 +172,20 @@ export const Categories: React.FC = () => {
   const handleBulkDelete = async () => {
     setBulkDeleteError('');
     const errors: string[] = [];
+    const failed = new Set<string>();
     for (const name of selectedCategories) {
       try {
         await deleteCategory.mutateAsync(name);
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);
         errors.push(`${name}: ${msg}`);
+        failed.add(name);
       }
     }
     if (errors.length > 0) {
+      // Remover da seleção apenas as categorias já deletadas com sucesso,
+      // mantendo as que falharam para o usuário poder revisar e tentar novamente.
+      setSelectedCategories(prev => prev.filter(name => failed.has(name)));
       setBulkDeleteError(errors.join('\n'));
     } else {
       setSelectedCategories([]);
@@ -229,67 +235,73 @@ export const Categories: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold text-gray-900">Categorias</h2>
-          <p className="text-gray-600">Organize suas transações por categorias</p>
-        </div>
-        <div className="flex items-center space-x-3">
-          {selectedCategories.length >= 1 && (
+      {/* Sticky header + filtro — bg-gray-50 deve coincidir com o fundo do <main> em Layout.tsx */}
+      <div className="sticky top-0 z-10 bg-gray-50 pb-2 space-y-4">
+        {/* Header */}
+        <div className="flex items-center justify-between pt-1">
+          <div>
+            <h2 className="text-2xl font-bold text-gray-900">Categorias</h2>
+            <p className="text-gray-600">Organize suas transações por categorias</p>
+          </div>
+          <div className="flex items-center space-x-3">
+            {selectedCategories.length >= 1 && (
+              <button
+                onClick={() => { setBulkDeleteError(''); setIsDeleteBulkModalOpen(true); }}
+                className="bg-danger-600 text-white px-4 py-2 rounded-md hover:bg-danger-700 flex items-center space-x-2"
+              >
+                <Trash2 className="w-4 h-4" />
+                <span>Deletar ({selectedCategories.length})</span>
+              </button>
+            )}
+            {selectedCategories.length >= 2 && (
+              <button
+                onClick={handleOpenUnifyModal}
+                className="bg-secondary-600 text-white px-4 py-2 rounded-md hover:bg-secondary-700 flex items-center space-x-2"
+              >
+                <GitMerge className="w-4 h-4" />
+                <span>Unificar Categorias ({selectedCategories.length})</span>
+              </button>
+            )}
             <button
-              onClick={() => { setBulkDeleteError(''); setIsDeleteBulkModalOpen(true); }}
-              className="bg-danger-600 text-white px-4 py-2 rounded-md hover:bg-danger-700 flex items-center space-x-2"
+              onClick={() => setIsCreateModalOpen(true)}
+              className="bg-primary-600 text-white px-4 py-2 rounded-md hover:bg-primary-700 flex items-center space-x-2"
             >
-              <Trash2 className="w-4 h-4" />
-              <span>Deletar ({selectedCategories.length})</span>
+              <Plus className="w-4 h-4" />
+              <span>Nova Categoria</span>
             </button>
-          )}
-          {selectedCategories.length >= 2 && (
-            <button
-              onClick={handleOpenUnifyModal}
-              className="bg-secondary-600 text-white px-4 py-2 rounded-md hover:bg-secondary-700 flex items-center space-x-2"
-            >
-              <GitMerge className="w-4 h-4" />
-              <span>Unificar Categorias ({selectedCategories.length})</span>
-            </button>
-          )}
-          <button
-            onClick={() => setIsCreateModalOpen(true)}
-            className="bg-primary-600 text-white px-4 py-2 rounded-md hover:bg-primary-700 flex items-center space-x-2"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Nova Categoria</span>
-          </button>
-        </div>
-      </div>
-
-      {/* Filtro por grupo */}
-      {uniqueParents.length > 0 && (
-        <div className="bg-white rounded-lg shadow p-4">
-          <div className="flex items-center gap-3">
-            <label className="text-sm font-medium text-gray-700 whitespace-nowrap">Grupo:</label>
-            <select
-              value={selectedParent}
-              onChange={(e) => {
-                setSelectedParent(e.target.value);
-                setSelectedCategories([]);
-              }}
-              className="border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-primary-500 focus:border-primary-500"
-            >
-              <option value="__all__">Todos os grupos</option>
-              {uniqueParents.map(parent => {
-                const cat = catByDescription.get(parent);
-                return (
-                  <option key={parent} value={parent}>
-                    {cat ? getCategoryLabel(cat) : parent}
-                  </option>
-                );
-              })}
-            </select>
           </div>
         </div>
-      )}
+
+        {/* Filtro por grupo */}
+        {uniqueParents.length > 0 && (
+          <div className="bg-white rounded-lg shadow p-4">
+            <div className="flex items-center gap-3">
+              <label className="text-sm font-medium text-gray-700 whitespace-nowrap">Grupo:</label>
+              <select
+                value={selectedParent}
+                onChange={(e) => {
+                  setSelectedParent(e.target.value);
+                  setSelectedCategories([]);
+                }}
+                className="border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-primary-500 focus:border-primary-500"
+              >
+                <option value="__all__">Todos os grupos</option>
+                {ungroupedCount > 0 && (
+                  <option value="__ungrouped__">Sem grupo ({ungroupedCount})</option>
+                )}
+                {uniqueParents.map(parent => {
+                  const cat = catByDescription.get(parent);
+                  return (
+                    <option key={parent} value={parent}>
+                      {cat ? getCategoryLabel(cat) : parent}
+                    </option>
+                  );
+                })}
+              </select>
+            </div>
+          </div>
+        )}
+      </div>
 
       {/* Lista de categorias */}
       <div className="bg-white rounded-lg shadow overflow-hidden">
@@ -353,7 +365,12 @@ export const Categories: React.FC = () => {
               ) : (
                 <tr>
                   <td colSpan={4} className="px-6 py-12 text-center text-gray-500">
-                    {selectedParent === '__all__' ? 'Nenhuma categoria encontrada' : 'Nenhuma categoria neste grupo'}
+                    {selectedParent === '__all__'
+                      ? 'Nenhuma categoria encontrada'
+                      : selectedParent === '__ungrouped__'
+                        ? 'Nenhuma categoria sem grupo'
+                        : 'Nenhuma categoria neste grupo'
+                    }
                   </td>
                 </tr>
               )}

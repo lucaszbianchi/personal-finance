@@ -171,7 +171,7 @@ class TestCategoryService(unittest.TestCase):
         self.mock_category_repo.update_category.assert_has_calls(expected_calls)
 
     def test_delete_category_success(self):
-        """Testa exclusão de categoria quando não está em uso"""
+        """Testa exclusão de categoria quando não está em uso e sem filhos"""
         # Arrange
         category_name = "Categoria a Deletar"
         mock_category = MagicMock()
@@ -180,6 +180,7 @@ class TestCategoryService(unittest.TestCase):
         self.mock_category_repo.get_category_by_name.return_value = mock_category
         self.mock_transaction_repo.category_in_use.return_value = False
         self.mock_splitwise_repo.category_in_use.return_value = False
+        self.mock_category_repo.get_children_of.return_value = []
         self.mock_category_repo.delete_category.return_value = True
 
         # Act
@@ -187,8 +188,8 @@ class TestCategoryService(unittest.TestCase):
 
         # Assert
         self.mock_category_repo.get_category_by_name.assert_called_once_with(category_name)
-        self.mock_transaction_repo.category_in_use.assert_called_once_with("cat123")
-        self.mock_splitwise_repo.category_in_use.assert_called_once_with("cat123")
+        self.mock_category_repo.get_children_of.assert_called_once_with("cat123")
+        self.mock_category_repo.clear_parent_refs.assert_called_once_with("cat123")
         self.mock_category_repo.delete_category.assert_called_once_with("cat123")
         self.assertTrue(result)
 
@@ -283,6 +284,80 @@ class TestCategoryService(unittest.TestCase):
         self.mock_transaction_repo.category_in_use.assert_called_once_with("cat123")
         self.mock_splitwise_repo.category_in_use.assert_called_once_with("cat123")
         self.mock_category_repo.delete_category.assert_not_called()
+
+    def test_delete_parent_category_clears_children_refs(self):
+        """Deletar categoria pai limpa parent_id/parent_description dos filhos"""
+        # Arrange
+        category_name = "Pai"
+        mock_parent = MagicMock()
+        mock_parent.id = "01000000"
+
+        mock_child1 = MagicMock()
+        mock_child1.id = "01010000"
+        mock_child1.description = "Filho1"
+        mock_child2 = MagicMock()
+        mock_child2.id = "01020000"
+        mock_child2.description = "Filho2"
+
+        self.mock_category_repo.get_category_by_name.return_value = mock_parent
+        self.mock_transaction_repo.category_in_use.return_value = False
+        self.mock_splitwise_repo.category_in_use.return_value = False
+        self.mock_category_repo.get_children_of.return_value = [mock_child1, mock_child2]
+        self.mock_category_repo.delete_category.return_value = True
+
+        # Act
+        result = self.service.delete_category(category_name)
+
+        # Assert
+        self.mock_category_repo.get_children_of.assert_called_once_with("01000000")
+        self.mock_category_repo.clear_parent_refs.assert_called_once_with("01000000")
+        self.mock_category_repo.delete_category.assert_called_once_with("01000000")
+        self.assertTrue(result)
+
+    def test_delete_parent_blocked_when_child_in_use(self):
+        """Deletar categoria pai é bloqueado se algum filho estiver em uso"""
+        # Arrange
+        category_name = "Pai"
+        mock_parent = MagicMock()
+        mock_parent.id = "01000000"
+
+        mock_child = MagicMock()
+        mock_child.id = "01010000"
+        mock_child.description = "FilhoEmUso"
+
+        self.mock_category_repo.get_category_by_name.return_value = mock_parent
+        # O próprio pai não está em uso
+        self.mock_transaction_repo.category_in_use.side_effect = lambda id_: id_ == "01010000"
+        self.mock_splitwise_repo.category_in_use.return_value = False
+        self.mock_category_repo.get_children_of.return_value = [mock_child]
+
+        # Act & Assert
+        with self.assertRaises(ValueError) as context:
+            self.service.delete_category(category_name)
+
+        self.assertIn("FilhoEmUso", str(context.exception))
+        self.mock_category_repo.clear_parent_refs.assert_not_called()
+        self.mock_category_repo.delete_category.assert_not_called()
+
+    def test_delete_category_without_children_always_calls_clear(self):
+        """clear_parent_refs é sempre chamado, mesmo sem filhos — UPDATE com 0 linhas é no-op seguro"""
+        # Arrange
+        category_name = "SemFilhos"
+        mock_category = MagicMock()
+        mock_category.id = "01000000"
+
+        self.mock_category_repo.get_category_by_name.return_value = mock_category
+        self.mock_transaction_repo.category_in_use.return_value = False
+        self.mock_splitwise_repo.category_in_use.return_value = False
+        self.mock_category_repo.get_children_of.return_value = []
+        self.mock_category_repo.delete_category.return_value = True
+
+        # Act
+        self.service.delete_category(category_name)
+
+        # Assert
+        self.mock_category_repo.clear_parent_refs.assert_called_once_with("01000000")
+        self.mock_category_repo.delete_category.assert_called_once_with("01000000")
 
 
 if __name__ == "__main__":
