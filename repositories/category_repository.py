@@ -77,14 +77,21 @@ class CategoryRepository(BaseRepository):
         return None
 
     def update_category(self, old_name: str, new_name: str) -> str:
-        """Atualiza a descrição de uma categoria e ajusta todas as transações que referenciam ela. Retorna o novo id da categoria."""
+        """Atualiza a descrição de uma categoria e ajusta todas as transações que referenciam ela. Retorna o novo id da categoria.
+
+        ATENÇÃO: esta operação não é atômica — cada execute_query faz commit individualmente.
+        Se ocorrer erro após a criação da nova categoria e antes do DELETE final, o banco ficará
+        em estado inconsistente. Refatorar para usar BEGIN/ROLLBACK explícito quando necessário.
+        """
         cursor = self.execute_query(
-            "SELECT id FROM categories WHERE description = ?", (old_name,)
+            "SELECT id, parent_id, parent_description FROM categories WHERE description = ?", (old_name,)
         )
         old_cat = cursor.fetchone()
         if not old_cat:
             raise ValueError(f"Categoria '{old_name}' não encontrada.")
         old_id = old_cat["id"]
+        old_parent_id = old_cat["parent_id"]
+        old_parent_description = old_cat["parent_description"]
 
         cursor = self.execute_query(
             "SELECT id FROM categories WHERE description = ?", (new_name,)
@@ -93,8 +100,9 @@ class CategoryRepository(BaseRepository):
         if new_cat_row:
             new_id = new_cat_row["id"]
         else:
-            new_id = self.create_category(new_name)
-            self._get_connection().commit()
+            # Preservar parent_id/parent_description ao criar a categoria renomeada.
+            # execute_query já faz commit automaticamente — commit() explícito removido.
+            new_id = self.create_category(new_name, parent_id=old_parent_id, parent_description=old_parent_description)
 
         bank_query = (
             "UPDATE bank_transactions SET category_id = ? WHERE category_id = ?"
@@ -108,6 +116,9 @@ class CategoryRepository(BaseRepository):
 
         splitwise_query = "UPDATE splitwise SET category_id = ? WHERE category_id = ?"
         self.execute_query(splitwise_query, (new_id, old_id))
+
+        # Propagar novo parent_id e novo nome para todos os filhos da categoria renomeada
+        self.update_children_parent(old_id, new_id, new_name)
 
         self.execute_query("DELETE FROM categories WHERE id = ?", (old_id,))
         return new_id
@@ -188,6 +199,44 @@ class CategoryRepository(BaseRepository):
             (description_translated, parent_id, parent_description, category_id),
         )
         return cursor.rowcount > 0
+
+    def get_children_of(self, parent_id: str) -> List[Category]:
+        """Retorna todas as categorias filhas de um dado parent_id."""
+        cursor = self.execute_query(
+            # AND id != ? exclui self-parent (grupos raiz onde parent_id = id)
+            "SELECT id, description, description_translated, parent_id, parent_description FROM categories WHERE parent_id = ? AND id != ?",
+            (parent_id, parent_id),
+        )
+        return [
+            Category(
+                id_=row["id"],
+                description=row["description"],
+                description_translated=row["description_translated"],
+                parent_id=row["parent_id"],
+                parent_description=row["parent_description"],
+            )
+            for row in cursor.fetchall()
+        ]
+
+    def clear_parent_refs(self, parent_id: str) -> int:
+        """Limpa parent_id e parent_description de todos os filhos de um pai.
+        Retorna o número de linhas afetadas. Com 0 filhos, é no-op seguro."""
+        cursor = self.execute_query(
+            # AND id != ? exclui self-parent (grupos raiz onde parent_id = id)
+            "UPDATE categories SET parent_id = NULL, parent_description = NULL WHERE parent_id = ? AND id != ?",
+            (parent_id, parent_id),
+        )
+        return cursor.rowcount
+
+    def update_children_parent(self, old_parent_id: str, new_parent_id: str, new_parent_description: str) -> int:
+        """Atualiza parent_id e parent_description de todos os filhos de old_parent_id.
+        Retorna o número de linhas afetadas."""
+        cursor = self.execute_query(
+            # AND id != ? exclui self-parent (grupos raiz onde parent_id = id)
+            "UPDATE categories SET parent_id = ?, parent_description = ? WHERE parent_id = ? AND id != ?",
+            (new_parent_id, new_parent_description, old_parent_id, old_parent_id),
+        )
+        return cursor.rowcount
 
     def delete_category(self, category_id: str) -> bool:
         """Deleta uma categoria pelo seu ID."""

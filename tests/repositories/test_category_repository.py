@@ -171,6 +171,71 @@ class TestCategoryRepository(unittest.TestCase):
         result = self.repo.update_category_fields("99999999", description_translated="X")
         self.assertFalse(result)
 
+    def test_get_children_of_returns_children(self):
+        """get_children_of retorna filhos diretos do pai"""
+        self.repo.create_category("Root", id_="01000000")
+        self.repo.create_category("Child1", id_="01010000", parent_id="01000000", parent_description="Root")
+        self.repo.create_category("Child2", id_="01020000", parent_id="01000000", parent_description="Root")
+        self.repo.create_category("Other", id_="02000000")
+
+        children = self.repo.get_children_of("01000000")
+        child_ids = {c.id for c in children}
+        self.assertEqual(child_ids, {"01010000", "01020000"})
+
+    def test_get_children_of_excludes_self_reference(self):
+        """Categoria self-parent (grupo raiz) não deve aparecer como filha de si mesma"""
+        self.repo.create_category("Root", id_="01000000", parent_id="01000000", parent_description="Root")
+        children = self.repo.get_children_of("01000000")
+        self.assertEqual(children, [])
+
+    def test_clear_parent_refs(self):
+        """clear_parent_refs zera parent_id e parent_description dos filhos"""
+        self.repo.create_category("Root", id_="01000000")
+        self.repo.create_category("Child1", id_="01010000", parent_id="01000000", parent_description="Root")
+        self.repo.create_category("Child2", id_="01020000", parent_id="01000000", parent_description="Root")
+
+        count = self.repo.clear_parent_refs("01000000")
+        self.assertEqual(count, 2)
+
+        child1 = self.repo.get_category_by_id("01010000")
+        self.assertIsNone(child1.parent_id)
+        self.assertIsNone(child1.parent_description)
+
+    def test_update_children_parent(self):
+        """update_children_parent atualiza parent_id e parent_description dos filhos"""
+        self.repo.create_category("Root", id_="01000000")
+        self.repo.create_category("Child1", id_="01010000", parent_id="01000000", parent_description="Root")
+        self.repo.create_category("Root2", id_="02000000")
+
+        count = self.repo.update_children_parent("01000000", "02000000", "Root2")
+        self.assertEqual(count, 1)
+
+        child1 = self.repo.get_category_by_id("01010000")
+        self.assertEqual(child1.parent_id, "02000000")
+        self.assertEqual(child1.parent_description, "Root2")
+
+    def test_update_category_preserves_parent_on_rename(self):
+        """Renomear categoria preserva parent_id e parent_description no novo registro"""
+        self.repo.create_category("Root", id_="01000000", parent_id="01000000", parent_description="Root")
+        self.repo.create_category("Child", id_="01010000", parent_id="01000000", parent_description="Root")
+
+        new_id = self.repo.update_category("Child", "ChildRenamed")
+        renamed = self.repo.get_category_by_id(new_id)
+
+        self.assertEqual(renamed.parent_id, "01000000")
+        self.assertEqual(renamed.parent_description, "Root")
+
+    def test_update_category_propagates_new_parent_to_children(self):
+        """Renomear categoria-pai propaga novo parent_id e parent_description para os filhos"""
+        self.repo.create_category("Root", id_="01000000", parent_id="01000000", parent_description="Root")
+        self.repo.create_category("Child", id_="01010000", parent_id="01000000", parent_description="Root")
+
+        new_id = self.repo.update_category("Root", "RootRenamed")
+
+        child = self.repo.get_category_by_id("01010000")
+        self.assertEqual(child.parent_id, new_id)
+        self.assertEqual(child.parent_description, "RootRenamed")
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -17,14 +17,22 @@ export const useCategoryFilter = (categoriesList: Category[]) => {
     return Array.from(groups).sort();
   }, [categoriesList]);
 
+  const ungroupedCategories = useMemo(
+    () => categoriesList.filter(cat => !cat.parent_id),
+    [categoriesList]
+  );
+
+  const ungroupedCount = ungroupedCategories.length;
+
   const filteredCategories = useMemo(() => {
     if (parentFilter === '__all__') return categoriesList;
+    if (parentFilter === '__ungrouped__') return ungroupedCategories;
     return categoriesList.filter(
       cat => cat.parent_description === parentFilter || cat.description === parentFilter
     );
-  }, [categoriesList, parentFilter]);
+  }, [categoriesList, parentFilter, ungroupedCategories]);
 
   const resetFilter = () => setParentFilter('__all__');
 
-  return { parentFilter, setParentFilter, catByDescription, uniqueParents, filteredCategories, resetFilter };
+  return { parentFilter, setParentFilter, catByDescription, uniqueParents, filteredCategories, ungroupedCount, resetFilter };
 };
