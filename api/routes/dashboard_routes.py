@@ -1,10 +1,12 @@
-from flask import Blueprint, jsonify
+from flask import Blueprint, jsonify, request
 from datetime import date
 from dateutil.relativedelta import relativedelta
 from services.finance_summary_service import FinanceSummaryService
+from services.spending_pace_service import SpendingPaceService
 
 bp = Blueprint("dashboard", __name__)
 finance_summary_service = FinanceSummaryService()
+spending_pace_service = SpendingPaceService()
 
 
 @bp.route("/data", methods=["GET"])
@@ -55,3 +57,17 @@ def get_dashboard_data():
         "category_breakdown": category_breakdown,
         "history": history,
     })
+
+
+@bp.route("/spending-pace", methods=["GET"])
+def get_spending_pace():
+    month_param = request.args.get("month")
+    if month_param:
+        try:
+            date.fromisoformat(f"{month_param}-01")
+        except ValueError:
+            return jsonify({"error": "Invalid month format. Use YYYY-MM"}), 400
+        month = month_param
+    else:
+        month = date.today().strftime("%Y-%m")
+    return jsonify(spending_pace_service.get_spending_pace(month))

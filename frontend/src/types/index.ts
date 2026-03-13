@@ -175,3 +175,16 @@ export interface MonthlySummary {
     balance_delta_pct: number | null;
   };
 }
+
+export interface SpendingPaceDayEntry {
+  day: number;
+  cumulative_amount: number;
+  prev_month_cumulative: number;
+}
+
+export interface SpendingPace {
+  daily_series: SpendingPaceDayEntry[];
+  monthly_goal: number | null;
+  monthly_avg: number | null;
+  unavoidable_avg: number | null;
+}
