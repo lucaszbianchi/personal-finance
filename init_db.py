@@ -50,6 +50,9 @@ TABLES_SQL = [
         category_id TEXT,
         status TEXT,
         excluded INTEGER DEFAULT 0,
+        installment_number INT,
+        total_installments INT,
+        total_amount REAL,
         FOREIGN KEY (category_id) REFERENCES categories(id)
     )
     """,
@@ -119,7 +122,10 @@ TABLES_SQL = [
         total_amount_currency_code TEXT,
         minimum_payment_amount REAL,
         allows_installments INTEGER DEFAULT 0,
-        finance_charges TEXT
+        finance_charges TEXT,
+        is_open INTEGER DEFAULT 1,
+        payment_date TEXT,
+        total_amount_paid REAL
     )
     """,
     """
@@ -173,12 +179,99 @@ TABLES_SQL = [
         PRIMARY KEY (item_id, month, category, transaction_type, account_subtype)
     )
     """,
+    """
+    CREATE TABLE IF NOT EXISTS pluggy_insights (
+        item_id    TEXT NOT NULL,
+        month      TEXT NOT NULL,
+        type       TEXT NOT NULL,
+        data       TEXT,
+        fetched_at TEXT,
+        PRIMARY KEY (item_id, month, type)
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS user_goals (
+        id          INTEGER PRIMARY KEY AUTOINCREMENT,
+        category_id TEXT,
+        type        TEXT,
+        amount      REAL,
+        period      TEXT,
+        created_at  TEXT DEFAULT (datetime('now')),
+        updated_at  TEXT DEFAULT (datetime('now')),
+        UNIQUE(category_id, type)
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS accounts_snapshot (
+        id               TEXT,
+        item_id          TEXT,
+        name             TEXT,
+        type             TEXT,
+        subtype          TEXT,
+        balance          REAL,
+        credit_limit     REAL,
+        available_credit REAL,
+        due_date         TEXT,
+        snapshotted_at   TEXT,
+        PRIMARY KEY (id, snapshotted_at)
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS recurrent_expenses (
+        id              TEXT PRIMARY KEY,
+        item_id         TEXT,
+        description     TEXT,
+        amount          REAL,
+        frequency       TEXT,
+        next_occurrence TEXT,
+        category_id     TEXT REFERENCES categories(id),
+        merchant_name   TEXT,
+        confidence      REAL,
+        source          TEXT DEFAULT 'pluggy',
+        is_unavoidable  INTEGER DEFAULT 0,
+        synced_at       TEXT
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS income_sources (
+        id              TEXT PRIMARY KEY,
+        item_id         TEXT,
+        description     TEXT,
+        amount          REAL,
+        frequency       TEXT,
+        last_occurrence TEXT,
+        confidence      REAL,
+        total_m1        REAL,
+        total_m3        REAL,
+        total_m6        REAL,
+        total_m12       REAL,
+        source          TEXT DEFAULT 'pluggy',
+        synced_at       TEXT
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS automation_rules (
+        id          INTEGER PRIMARY KEY AUTOINCREMENT,
+        name        TEXT,
+        conditions  TEXT NOT NULL,
+        actions     TEXT NOT NULL,
+        priority    INTEGER DEFAULT 0,
+        enabled     INTEGER DEFAULT 1,
+        created_at  TEXT DEFAULT (datetime('now'))
+    )
+    """,
 ]
 
 RESET_SQL = [
     "DROP TABLE IF EXISTS pluggy_book_categories",
     "DROP TABLE IF EXISTS pluggy_book_summary",
     "DROP TABLE IF EXISTS rate_limit_usage",
+    "DROP TABLE IF EXISTS pluggy_insights",
+    "DROP TABLE IF EXISTS user_goals",
+    "DROP TABLE IF EXISTS automation_rules",
+    "DROP TABLE IF EXISTS accounts_snapshot",
+    "DROP TABLE IF EXISTS income_sources",
+    "DROP TABLE IF EXISTS recurrent_expenses",
     "DROP TABLE IF EXISTS bills",
     "DROP TABLE IF EXISTS pluggy_items",
     "DROP TABLE IF EXISTS finance_history",
