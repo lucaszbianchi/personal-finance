@@ -1,87 +1,33 @@
 import React from 'react';
-import { useFinanceSummary, useDashboardData } from '@/hooks/useSummary';
-import { DollarSign, TrendingUp, TrendingDown, CreditCard } from 'lucide-react';
-
-interface MetricCardProps {
-  title: string;
-  value: string;
-  change?: string;
-  icon: React.ReactNode;
-  trend?: 'up' | 'down' | 'neutral';
-}
-
-const MetricCard: React.FC<MetricCardProps> = ({ title, value, change, icon, trend = 'neutral' }) => {
-  const getTrendColor = () => {
-    switch (trend) {
-      case 'up':
-        return 'text-success-600';
-      case 'down':
-        return 'text-danger-600';
-      default:
-        return 'text-gray-600';
-    }
-  };
-
-  const getTrendIcon = () => {
-    switch (trend) {
-      case 'up':
-        return <TrendingUp className="w-4 h-4" />;
-      case 'down':
-        return <TrendingDown className="w-4 h-4" />;
-      default:
-        return null;
-    }
-  };
-
-  return (
-    <div className="bg-white rounded-lg shadow p-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-sm font-medium text-gray-600">{title}</p>
-          <p className="text-2xl font-semibold text-gray-900">{value}</p>
-          {change && (
-            <div className={`flex items-center mt-1 ${getTrendColor()}`}>
-              {getTrendIcon()}
-              <span className="text-sm ml-1">{change}</span>
-            </div>
-          )}
-        </div>
-        <div className="p-3 bg-primary-50 rounded-full">
-          {icon}
-        </div>
-      </div>
-    </div>
-  );
-};
+import { DollarSign, TrendingUp, TrendingDown } from 'lucide-react';
+import { useDashboardData } from '@/hooks/useDashboardData';
+import { KpiCard } from '@/components/KpiCard';
+import { MonthlyBarChart } from '@/components/MonthlyBarChart';
+import { CategoryPieChart } from '@/components/CategoryPieChart';
+import { formatCurrency } from '@/utils/format';
 
 export const Dashboard: React.FC = () => {
-  const { data: summary, isLoading: summaryLoading, error: summaryError } = useFinanceSummary();
-  const { isLoading: dashboardLoading } = useDashboardData();
+  const { data, isLoading, error } = useDashboardData();
 
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('pt-BR', {
-      style: 'currency',
-      currency: 'BRL'
-    }).format(value);
-  };
-
-  if (summaryLoading || dashboardLoading) {
+  if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600" />
       </div>
     );
   }
 
-  if (summaryError) {
+  if (error) {
     return (
-      <div className="bg-danger-50 border border-danger-200 rounded-md p-4">
-        <p className="text-danger-600">Erro ao carregar dados do dashboard</p>
+      <div className="bg-red-50 border border-red-200 rounded-md p-4">
+        <p className="text-red-600">Erro ao carregar dados do dashboard</p>
       </div>
     );
   }
 
-  const summaryData = summary?.data?.data;
+  const cm = data?.current_month;
+  const history = data?.history ?? [];
+  const categoryBreakdown = data?.category_breakdown ?? [];
 
   return (
     <div className="space-y-6">
@@ -90,71 +36,51 @@ export const Dashboard: React.FC = () => {
         <p className="text-gray-600">Visão geral das suas finanças pessoais</p>
       </div>
 
-      {/* Métricas principais */}
-      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
-        <MetricCard
+      {/* KPI Cards */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <KpiCard
           title="Receitas do Mês"
-          value={formatCurrency(summaryData?.total_income || 0)}
-          trend="up"
+          value={formatCurrency(cm?.income)}
           icon={<TrendingUp className="w-6 h-6 text-primary-600" />}
         />
-        <MetricCard
+        <KpiCard
           title="Gastos do Mês"
-          value={formatCurrency(summaryData?.total_expenses || 0)}
-          trend="down"
+          value={formatCurrency(cm?.expenses)}
           icon={<TrendingDown className="w-6 h-6 text-primary-600" />}
         />
-        <MetricCard
+        <KpiCard
           title="Saldo Líquido"
-          value={formatCurrency(summaryData?.net_balance || 0)}
-          trend={summaryData?.net_balance && summaryData.net_balance > 0 ? 'up' : 'down'}
+          value={formatCurrency(cm?.balance)}
           icon={<DollarSign className="w-6 h-6 text-primary-600" />}
-        />
-        <MetricCard
-          title="Cartões de Crédito"
-          value={formatCurrency(0)} // TODO: Implementar valor real
-          icon={<CreditCard className="w-6 h-6 text-primary-600" />}
         />
       </div>
 
-      {/* Gráficos e tabelas */}
+      {/* Charts row */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Breakdown por categorias */}
         <div className="bg-white rounded-lg shadow p-6">
           <h3 className="text-lg font-medium text-gray-900 mb-4">
-            Gastos por Categoria
+            Histórico 12 Meses — Receitas vs Gastos
           </h3>
-          {summaryData?.categories_breakdown?.length ? (
-            <div className="space-y-3">
-              {summaryData.categories_breakdown.map((item, index) => (
-                <div key={index} className="flex items-center justify-between">
-                  <span className="text-sm text-gray-600">{item.category}</span>
-                  <div className="flex items-center space-x-2">
-                    <span className="text-sm font-medium">{item.percentage.toFixed(1)}%</span>
-                    <span className="text-sm text-gray-500">
-                      {formatCurrency(item.amount)}
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
+          {history.length > 0 ? (
+            <MonthlyBarChart data={history} />
           ) : (
-            <p className="text-gray-500 text-center py-8">
-              Nenhum dado de categoria disponível
+            <p className="text-gray-500 text-center py-8 text-sm">
+              Nenhum histórico disponível
             </p>
           )}
         </div>
 
-        {/* Transações recentes */}
         <div className="bg-white rounded-lg shadow p-6">
           <h3 className="text-lg font-medium text-gray-900 mb-4">
-            Transações Recentes
+            Distribuição por Categoria
           </h3>
-          <div className="space-y-3">
-            <p className="text-gray-500 text-center py-8">
-              Implementar lista de transações recentes
+          {categoryBreakdown.length > 0 ? (
+            <CategoryPieChart data={categoryBreakdown} />
+          ) : (
+            <p className="text-gray-500 text-center py-8 text-sm">
+              Nenhum dado de categoria disponível
             </p>
-          </div>
+          )}
         </div>
       </div>
     </div>

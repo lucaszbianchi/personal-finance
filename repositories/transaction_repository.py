@@ -17,17 +17,18 @@ class TransactionRepository(BaseRepository):
     def get_bank_transactions(self) -> List[BankTransaction]:
         """Retorna todas as transações bancárias como objetos BankTransaction."""
         query = """
-            SELECT 
+            SELECT
                 bank_transactions.id,
                 date,
                 description,
                 amount,
                 category_id,
+                type,
                 operation_type,
                 split_info,
-                payment_data
+                payment_data,
+                excluded
             FROM bank_transactions
-            WHERE description NOT IN ('Resgate RDB', 'Aplicação RDB', 'Aplicação em CDB')
             ORDER BY date DESC
         """
         cursor = self.execute_query(query)
@@ -38,6 +39,7 @@ class TransactionRepository(BaseRepository):
                 description=row["description"],
                 amount=row["amount"],
                 category_id=row["category_id"],
+                type_=row["type"],
                 operation_type=row["operation_type"],
                 split_info=(
                     json.loads(row["split_info"]) if row["split_info"] else None
@@ -45,6 +47,7 @@ class TransactionRepository(BaseRepository):
                 payment_data=(
                     json.loads(row["payment_data"]) if row["payment_data"] else None
                 ),
+                excluded=row["excluded"] or 0,
             )
             for row in cursor.fetchall()
         ]
@@ -52,13 +55,14 @@ class TransactionRepository(BaseRepository):
     def get_credit_transactions(self) -> List[CreditTransaction]:
         """Retorna todas as transações de crédito como objetos CreditTransaction."""
         query = """
-            SELECT 
+            SELECT
                 credit_transactions.id,
                 date,
                 description,
                 amount,
                 category_id,
-                status
+                status,
+                excluded
             FROM credit_transactions
             ORDER BY date DESC
         """
@@ -71,6 +75,7 @@ class TransactionRepository(BaseRepository):
                 amount=row["amount"],
                 category_id=row["category_id"],
                 status=row["status"],
+                excluded=row["excluded"] or 0,
             )
             for row in cursor.fetchall()
         ]
@@ -322,6 +327,19 @@ class TransactionRepository(BaseRepository):
 
     # Métodos de Upsert usando a nova funcionalidade do BaseRepository
 
+    _TABLE_MAP = {"bank": "bank_transactions", "credit": "credit_transactions"}
+
+    def set_excluded(self, table: str, transaction_id: str, excluded: bool) -> bool:
+        """Marca ou desmarca uma transação como excluída das análises."""
+        if table not in self._TABLE_MAP:
+            raise ValueError(f"Invalid table: {table!r}")
+        col = self._TABLE_MAP[table]
+        cursor = self.execute_query(
+            f"UPDATE {col} SET excluded = ? WHERE id = ?",
+            (1 if excluded else 0, transaction_id),
+        )
+        return cursor.rowcount > 0
+
     def upsert_bank_transaction(self, transaction_data: dict) -> dict:
         """
         Insere ou atualiza uma transação bancária usando strategy insert_only.
@@ -333,20 +351,26 @@ class TransactionRepository(BaseRepository):
         Returns:
             Dict com resultado da operação
         """
+        description = transaction_data.get("description", "") or ""
+        op_type = transaction_data.get("operationType", "") or ""
+        auto_excluded = (
+            op_type == "RESGATE_APLIC_FINANCEIRA"
+            or description.startswith("Pagamento de fatura")
+        )
+
         mapped_data = {
             "id": transaction_data["id"],
             "date": transaction_data["date"],
-            "description": transaction_data.get("description"),
+            "description": description,
             "amount": transaction_data.get("amount"),
             "category_id": transaction_data.get("categoryId"),
             "type": transaction_data.get("type"),
-            "operation_type": transaction_data.get("operationType"),
+            "operation_type": op_type,
             "payment_data": transaction_data.get("paymentData"),
+            "excluded": 1 if auto_excluded else 0,
         }
 
-        result = self.upsert(
-            "bank_transactions", "id", mapped_data
-        )
+        result = self.upsert("bank_transactions", "id", mapped_data)
 
         if result["action"] == "inserted":
             self._process_pix_person_extraction(transaction_data)
@@ -365,17 +389,20 @@ class TransactionRepository(BaseRepository):
         Returns:
             Dict com resultado da operação
         """
+        amount = (
+            transaction_data.get("amountInAccountCurrency")
+            if transaction_data.get("amountInAccountCurrency") is not None
+            else transaction_data.get("amount", 0)
+        )
+
         mapped_data = {
             "id": transaction_data["id"],
             "date": transaction_data["date"],
             "description": transaction_data.get("description"),
-            "amount": (
-                transaction_data.get("amountInAccountCurrency")
-                if transaction_data.get("amountInAccountCurrency") is not None
-                else transaction_data.get("amount")
-            ),
+            "amount": amount,
             "category_id": transaction_data.get("categoryId"),
             "status": transaction_data.get("status"),
+            "excluded": 1 if (amount or 0) < 0 else 0,
         }
 
         result = self.upsert(
@@ -605,7 +632,9 @@ class TransactionRepository(BaseRepository):
         """Atualiza a categoria de múltiplas transações em uma única query."""
         if transaction_type not in ("bank", "credit"):
             raise ValueError(f"transaction_type inválido: {transaction_type!r}")
-        table = "bank_transactions" if transaction_type == "bank" else "credit_transactions"
+        table = (
+            "bank_transactions" if transaction_type == "bank" else "credit_transactions"
+        )
         placeholders = ",".join("?" * len(transaction_ids))
         query = f"UPDATE {table} SET category_id = ? WHERE id IN ({placeholders})"
         values = [category_id] + transaction_ids

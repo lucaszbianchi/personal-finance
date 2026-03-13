@@ -126,3 +126,52 @@ export interface CreateCreditTransactionRequest {
   category_id?: string;
   status?: string;
 }
+
+// Dashboard types
+export interface CategoryBreakdownItem {
+  id: string;
+  description: string;
+  total: number;
+}
+
+export interface HistoryEntry {
+  month: string;
+  income: number | null;
+  expenses: number | null;
+  investments: number | null;
+}
+
+export interface DashboardData {
+  current_month: {
+    income: number | null;
+    expenses: number | null;
+    balance: number | null;
+    credit_card_bill: number | null;
+    total_cash: number | null;
+  };
+  category_breakdown: CategoryBreakdownItem[];
+  history: HistoryEntry[];
+}
+
+// Summary types
+export interface MonthlySummary {
+  current: {
+    month: string;
+    income: number;
+    expenses: number;
+    balance: number;
+    credit_card_bill: number | null;
+    category_breakdown: CategoryBreakdownItem[];
+  };
+  previous: {
+    month: string;
+    income: number | null;
+    expenses: number | null;
+    balance: number | null;
+  };
+  comparison: {
+    income_delta_pct: number | null;
+    expenses_delta_pct: number | null;
+    balance_delta_pct: number | null;
+  };
+}

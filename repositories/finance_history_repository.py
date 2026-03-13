@@ -84,36 +84,38 @@ class FinanceHistoryRepository(BaseRepository):
                 (month, income, expenses),
             )
 
+    def save_credit_card_bills(
+        self, month: str, current_bill: float, future_bill: float
+    ) -> None:
+        """Salva as faturas de cartão calculadas automaticamente."""
+        existing = self.get_by_month(month)
+        if existing:
+            self.execute_query(
+                "UPDATE finance_history SET credit_card_bill = ?, credit_card_future_bill = ? WHERE month = ?",
+                (current_bill, future_bill, month),
+            )
+        else:
+            self.execute_query(
+                "INSERT INTO finance_history (month, credit_card_bill, credit_card_future_bill) VALUES (?, ?, ?)",
+                (month, current_bill, future_bill),
+            )
+
     def calculate_and_save_risk_management(self, month: str) -> None:
-        """Calcula e salva o indicador de gestão de risco baseado nos dados existentes do mês"""
+        """Calcula e salva o indicador de gestão de risco baseado nos dados existentes do mês."""
         finance_data = self.get_by_month(month)
         if not finance_data:
             return
 
-        # Calcula o risco com base nos dados financeiros
-        # Exemplo de cálculo (você pode ajustar conforme sua necessidade):
-        # - Verifica se há dinheiro suficiente para cobrir despesas fixas
-        # - Analisa o nível de endividamento com cartão de crédito
-        # - Considera a diversificação dos investimentos
-        total_fixed_costs = finance_data.credit_card_bill + finance_data.expenses
-        available_cash = finance_data.total_cash + finance_data.meal_allowance
-        investment_count = len(finance_data.investments)
+        total_fixed_costs = (finance_data.credit_card_bill or 0) + (finance_data.expenses or 0)
+        available_cash = (finance_data.total_cash or 0) + (finance_data.meal_allowance or 0)
+        investment_count = len(finance_data.investments) if finance_data.investments else 0
+        income = finance_data.income or 0
 
-        # Score de 0 a 100, onde maior é melhor
-        risk_score = min(
-            100,
-            (
-                (available_cash / total_fixed_costs * 50)
-                if total_fixed_costs > 0
-                else (
-                    50  # Liquidez
-                    + (investment_count * 10)  # Diversificação
-                    + (finance_data.income / total_fixed_costs * 40)
-                    if total_fixed_costs > 0
-                    else 40
-                )  # Capacidade de pagamento
-            ),
-        )
+        # Score de 0 a 100 com 3 componentes
+        liquidity = (available_cash / total_fixed_costs * 50) if total_fixed_costs > 0 else 50
+        diversification = min(investment_count * 10, 30)
+        income_coverage = min((income / total_fixed_costs * 20), 20) if total_fixed_costs > 0 else 20
+        risk_score = min(100, liquidity + diversification + income_coverage)
 
         self.execute_query(
             "UPDATE finance_history SET risk_management = ? WHERE month = ?",

@@ -1,15 +1,25 @@
 from typing import Any, Dict, List, Optional
-from datetime import datetime
+from datetime import datetime, date
 from repositories.finance_history_repository import FinanceHistoryRepository
 from repositories.transaction_repository import TransactionRepository
+from repositories.bill_repository import BillRepository
 from models.finance_history import FinanceHistory
 from services.settings_service import SettingsService
+
+
+def _first_day_of_next_month(month: str) -> str:
+    """Returns YYYY-MM-DD for the first day of the month after `month` (YYYY-MM)."""
+    year, mon = int(month[:4]), int(month[5:7])
+    if mon == 12:
+        return f"{year + 1}-01-01"
+    return f"{year}-{mon + 1:02d}-01"
 
 
 class FinanceHistoryService:
     def __init__(self, settings_service: SettingsService = None):
         self.finance_history_repository = FinanceHistoryRepository()
         self.transaction_repository = TransactionRepository()
+        self.bill_repository = BillRepository()
         self.settings_service = settings_service or SettingsService()
 
     def update_meal_allowance(
@@ -42,6 +52,23 @@ class FinanceHistoryService:
             month, current_bill, future_bill
         )
         return self._format_net_worth_history(self.finance_history_repository.get_all())
+
+    def update_finance_history_from_sync(self, month: str) -> None:
+        """Calcula e persiste income, expenses, credit_card_bill e risk_management após o sync."""
+        from services.finance_summary_service import FinanceSummaryService
+
+        start_date = f"{month}-01"
+        end_date = _first_day_of_next_month(month)
+
+        finance_summary = FinanceSummaryService()
+        income = finance_summary.get_income(start_date, end_date)
+        expenses = finance_summary.get_expenses(start_date, end_date)
+        self.finance_history_repository.save_cash_flow(month, income, expenses)
+
+        current_bill, future_bill = self.bill_repository.get_current_and_future_bill(month)
+        self.finance_history_repository.save_credit_card_bills(month, current_bill, future_bill)
+
+        self.finance_history_repository.calculate_and_save_risk_management(month)
 
     def update_net_worth(self) -> Dict[str, Dict[str, Any]]:
         """Atualiza as informações de patrimônio líquido"""

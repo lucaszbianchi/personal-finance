@@ -24,6 +24,26 @@ class BillRepository(BaseRepository):
         }
         return self.upsert("bills", "id", mapped_data)
 
+    def get_current_and_future_bill(self, month: str) -> tuple[float, float]:
+        """Returns (current_bill, future_bill) totals for the given month and next month."""
+        from datetime import datetime, date
+        year, mon = int(month[:4]), int(month[5:7])
+        # current: due_date in this month
+        current_row = self.execute_query(
+            "SELECT COALESCE(SUM(total_amount), 0) FROM bills WHERE strftime('%Y-%m', due_date) = ?",
+            (month,),
+        ).fetchone()
+        # future: due_date in next month
+        if mon == 12:
+            next_month = f"{year + 1}-01"
+        else:
+            next_month = f"{year}-{mon + 1:02d}"
+        future_row = self.execute_query(
+            "SELECT COALESCE(SUM(total_amount), 0) FROM bills WHERE strftime('%Y-%m', due_date) = ?",
+            (next_month,),
+        ).fetchone()
+        return float(current_row[0] or 0), float(future_row[0] or 0)
+
     def get_all_bills(self) -> list:
         """Retorna todas as faturas."""
         cursor = self.execute_query("SELECT * FROM bills ORDER BY due_date DESC")

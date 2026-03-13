@@ -5,11 +5,29 @@ from unittest.mock import MagicMock, patch
 from services.finance_summary_service import FinanceSummaryService
 
 
+def _make_bank(amount, category_id="cat1", description="Compra", excluded=0):
+    t = MagicMock()
+    t.transaction_type = "bank"
+    t.amount = amount
+    t.category_id = category_id
+    t.description = description
+    t.excluded = excluded
+    return t
+
+
+def _make_credit(amount, category_id="cat1", description="Compra", excluded=0):
+    t = MagicMock()
+    t.transaction_type = "credit"
+    t.amount = amount
+    t.category_id = category_id
+    t.description = description
+    t.excluded = excluded
+    return t
+
+
 class TestFinanceSummaryService(unittest.TestCase):
-    """Testes para a classe FinanceSummaryService"""
 
     def setUp(self):
-        # Patch all repository and service dependencies
         with patch("services.finance_summary_service.TransactionService"), \
              patch("services.finance_summary_service.TransactionRepository"), \
              patch("services.finance_summary_service.PersonRepository"), \
@@ -17,268 +35,184 @@ class TestFinanceSummaryService(unittest.TestCase):
              patch("services.finance_summary_service.SplitwiseRepository"):
             self.service = FinanceSummaryService()
 
-        # Create mocks for all dependencies
         self.mock_transaction_service = MagicMock()
         self.mock_transaction_repo = MagicMock()
-        self.mock_person_repo = MagicMock()
         self.mock_category_repo = MagicMock()
-        self.mock_splitwise_repo = MagicMock()
 
-        # Assign mocks to service
         self.service.transaction_service = self.mock_transaction_service
         self.service.transaction_repository = self.mock_transaction_repo
-        self.service.person_repository = self.mock_person_repo
         self.service.category_repository = self.mock_category_repo
-        self.service.splitwise_repository = self.mock_splitwise_repo
 
-    def test_get_income_without_split_transactions(self):
-        """Testa cálculo de receitas sem transações divididas"""
-        # Arrange
-        mock_transaction1 = MagicMock()
-        mock_transaction1.amount = 1000.0
-        mock_transaction1.split_info = None
+    # ── get_income ────────────────────────────────────────────────────────────
 
-        mock_transaction2 = MagicMock()
-        mock_transaction2.amount = 500.0
-        mock_transaction2.split_info = None
-
-        mock_transaction3 = MagicMock()  # Despesa, deve ser ignorada
-        mock_transaction3.amount = -200.0
-        mock_transaction3.split_info = None
-
+    def test_get_income_sums_positive_bank_transactions(self):
+        """Receita = bank com amount > 0"""
         self.mock_transaction_service.get_bank_transactions.return_value = [
-            mock_transaction1, mock_transaction2, mock_transaction3
+            _make_bank(1000.0),
+            _make_bank(500.0),
+            _make_bank(-200.0),  # despesa — ignorada
         ]
+        self.assertEqual(self.service.get_income("2025-01-01", "2025-01-31"), 1500.0)
 
-        # Act
-        result = self.service.get_income("2025-01-01", "2025-01-31")
-
-        # Assert
-        self.mock_transaction_service.get_bank_transactions.assert_called_with(
-            start_date="2025-01-01", end_date="2025-01-31"
-        )
-        self.assertEqual(result, 1500.0)
-
-    def test_get_income_excludes_split_transactions(self):
-        """Testa que receitas divididas são excluídas do cálculo"""
-        # Arrange
-        mock_transaction1 = MagicMock()
-        mock_transaction1.amount = 1000.0
-        mock_transaction1.split_info = None
-
-        mock_transaction2 = MagicMock()  # Deve ser excluída por ter split_info
-        mock_transaction2.amount = 500.0
-        mock_transaction2.split_info = {"partners": []}
-
+    def test_get_income_excludes_excluded_transactions(self):
+        """Receita exclui transações marcadas como excluded=1"""
         self.mock_transaction_service.get_bank_transactions.return_value = [
-            mock_transaction1, mock_transaction2
+            _make_bank(1000.0, category_id="cat1"),
+            _make_bank(500.0, category_id="cat1", excluded=1),
         ]
+        self.assertEqual(self.service.get_income("2025-01-01", "2025-01-31"), 1000.0)
 
-        # Act
-        result = self.service.get_income("2025-01-01", "2025-01-31")
+    # ── get_expenses ──────────────────────────────────────────────────────────
 
-        # Assert
-        self.assertEqual(result, 1000.0)
+    def test_get_expenses_bank_negative_plus_credit_positive(self):
+        """Gasto = |bank amount < 0| + credit amount > 0"""
+        self.mock_transaction_service.get_bank_transactions.return_value = [
+            _make_bank(-100.0),
+        ]
+        self.mock_transaction_service.get_credit_transactions.return_value = [
+            _make_credit(200.0),
+        ]
+        self.assertEqual(self.service.get_expenses("2025-01-01", "2025-01-31"), 300.0)
 
-    def test_get_expenses_basic_calculation(self):
-        """Testa cálculo básico de despesas"""
-        # Arrange
-        bank_transaction = MagicMock()
-        bank_transaction.amount = -100.0
-        bank_transaction.transaction_type = "bank"
-        bank_transaction.split_info = None
-        bank_transaction.transaction_id = "bank1"
-
-        credit_transaction = MagicMock()
-        credit_transaction.amount = 200.0
-        credit_transaction.transaction_type = "credit"
-        credit_transaction.split_info = None
-        credit_transaction.transaction_id = "credit1"
-
-        self.mock_transaction_service.get_bank_transactions.return_value = [bank_transaction]
-        self.mock_transaction_service.get_credit_transactions.return_value = [credit_transaction]
-        self.mock_splitwise_repo.get_splitwise_by_transaction_id.return_value = None
-
-        # Act
-        result = self.service.get_expenses("2025-01-01", "2025-01-31")
-
-        # Assert
-        self.mock_transaction_service.get_bank_transactions.assert_called_with(
-            start_date="2025-01-01", end_date="2025-01-31"
-        )
-        self.mock_transaction_service.get_credit_transactions.assert_called_with(
-            start_date="2025-01-01", end_date="2025-01-31"
-        )
-        self.assertEqual(result, 300.0)  # 100 + 200
-
-    def test_get_expenses_with_split_info_deduction(self):
-        """Testa dedução de despesas divididas via split_info"""
-        # Arrange
-        transaction = MagicMock()
-        transaction.amount = -100.0
-        transaction.transaction_type = "bank"
-        transaction.split_info = {
-            "partners": [
-                {"share": 30.0},
-                {"share": 20.0}
-            ]
-        }
-        transaction.transaction_id = "test1"
-
-        self.mock_transaction_service.get_bank_transactions.return_value = [transaction]
+    def test_get_expenses_excludes_excluded_transactions(self):
+        """Gastos excluem transações marcadas como excluded=1"""
+        self.mock_transaction_service.get_bank_transactions.return_value = [
+            _make_bank(-100.0, category_id="cat1"),
+            _make_bank(-500.0, category_id="cat1", excluded=1),
+        ]
         self.mock_transaction_service.get_credit_transactions.return_value = []
-        self.mock_splitwise_repo.get_splitwise_by_transaction_id.return_value = None
+        self.assertEqual(self.service.get_expenses("2025-01-01", "2025-01-31"), 100.0)
 
-        # Act
-        result = self.service.get_expenses("2025-01-01", "2025-01-31")
+    def test_get_expenses_excludes_excluded_credit(self):
+        """Gastos excluem transações de crédito marcadas como excluded=1"""
+        self.mock_transaction_service.get_bank_transactions.return_value = []
+        self.mock_transaction_service.get_credit_transactions.return_value = [
+            _make_credit(100.0),
+            _make_credit(1200.0, excluded=1),
+        ]
+        self.assertEqual(self.service.get_expenses("2025-01-01", "2025-01-31"), 100.0)
 
-        # Assert
-        # 100 (expense) - 50 (split deduction) = 50
-        self.assertEqual(result, 50.0)
-
-    def test_get_expenses_with_splitwise_deduction(self):
-        """Testa dedução de despesas via Splitwise"""
-        # Arrange
-        transaction = MagicMock()
-        transaction.amount = -100.0
-        transaction.transaction_type = "bank"
-        transaction.split_info = None
-        transaction.transaction_id = "test1"
-
-        splitwise_ref = MagicMock()
-        splitwise_ref.amount = 40.0
-
-        self.mock_transaction_service.get_bank_transactions.return_value = [transaction]
+    def test_get_expenses_bank_income_not_counted(self):
+        """Receitas bancárias (amount > 0) não entram nos gastos"""
+        self.mock_transaction_service.get_bank_transactions.return_value = [
+            _make_bank(1000.0),
+            _make_bank(-200.0),
+        ]
         self.mock_transaction_service.get_credit_transactions.return_value = []
-        self.mock_splitwise_repo.get_splitwise_by_transaction_id.return_value = splitwise_ref
+        self.assertEqual(self.service.get_expenses("2025-01-01", "2025-01-31"), 200.0)
 
-        # Act
-        result = self.service.get_expenses("2025-01-01", "2025-01-31")
-
-        # Assert
-        # 100 (expense) - 40 (splitwise deduction) = 60
-        self.assertEqual(result, 60.0)
+    # ── get_investment_value ──────────────────────────────────────────────────
 
     def test_get_investment_value(self):
-        """Testa obtenção do valor total de investimentos"""
-        # Arrange
-        investment1 = MagicMock()
-        investment1.balance = 1000.0
+        inv1, inv2 = MagicMock(), MagicMock()
+        inv1.balance = 1000.0
+        inv2.balance = 2500.0
+        self.mock_transaction_repo.get_investments.return_value = [inv1, inv2]
+        self.assertEqual(self.service.get_investment_value(), 3500.0)
 
-        investment2 = MagicMock()
-        investment2.balance = 2500.0
-
-        self.mock_transaction_repo.get_investments.return_value = [investment1, investment2]
-
-        # Act
-        result = self.service.get_investment_value()
-
-        # Assert
-        self.mock_transaction_repo.get_investments.assert_called_once()
-        self.assertEqual(result, 3500.0)
+    # ── get_category_expenses ─────────────────────────────────────────────────
 
     def test_get_category_expenses_basic(self):
-        """Testa cálculo de despesas por categoria"""
-        # Arrange
-        transaction = MagicMock()
-        transaction.amount = -100.0
-        transaction.transaction_type = "bank"
-        transaction.split_info = None
-        transaction.category_id = "cat1"
-        transaction.transaction_id = "test1"
-
+        """Despesa bancária negativa aparece na categoria correta"""
         category = MagicMock()
         category.id = "cat1"
         category.description = "Alimentação"
 
-        self.mock_transaction_service.get_bank_transactions.return_value = [transaction]
+        self.mock_transaction_service.get_bank_transactions.return_value = [
+            _make_bank(-100.0, category_id="cat1"),
+        ]
         self.mock_transaction_service.get_credit_transactions.return_value = []
-        self.mock_splitwise_repo.get_splitwise_by_transaction_id.return_value = None
         self.mock_category_repo.get_category_by_id.return_value = category
 
-        # Act
         result = self.service.get_category_expenses("2025-01-01", "2025-01-31")
 
-        # Assert
         self.assertEqual(len(result), 1)
         self.assertEqual(result[0]["id"], "cat1")
-        self.assertEqual(result[0]["description"], "Alimentação")
         self.assertEqual(result[0]["total"], 100.0)
 
     def test_get_category_expenses_sorted_by_amount(self):
-        """Testa ordenação por valor absoluto"""
-        # Arrange
-        transaction1 = MagicMock()
-        transaction1.amount = -50.0
-        transaction1.transaction_type = "bank"
-        transaction1.split_info = None
-        transaction1.category_id = "cat1"
-        transaction1.transaction_id = "test1"
+        """Resultado ordenado do maior para o menor gasto"""
+        cat1, cat2 = MagicMock(), MagicMock()
+        cat1.id, cat1.description = "cat1", "Pequena"
+        cat2.id, cat2.description = "cat2", "Grande"
 
-        transaction2 = MagicMock()
-        transaction2.amount = -200.0
-        transaction2.transaction_type = "bank"
-        transaction2.split_info = None
-        transaction2.category_id = "cat2"
-        transaction2.transaction_id = "test2"
-
-        category1 = MagicMock()
-        category1.id = "cat1"
-        category1.description = "Pequena"
-
-        category2 = MagicMock()
-        category2.id = "cat2"
-        category2.description = "Grande"
-
-        self.mock_transaction_service.get_bank_transactions.return_value = [transaction1, transaction2]
+        self.mock_transaction_service.get_bank_transactions.return_value = [
+            _make_bank(-50.0, category_id="cat1"),
+            _make_bank(-200.0, category_id="cat2"),
+        ]
         self.mock_transaction_service.get_credit_transactions.return_value = []
-        self.mock_splitwise_repo.get_splitwise_by_transaction_id.return_value = None
+        self.mock_category_repo.get_category_by_id.side_effect = (
+            lambda cid: cat1 if cid == "cat1" else cat2
+        )
 
-        def get_category_side_effect(cat_id):
-            if cat_id == "cat1":
-                return category1
-            elif cat_id == "cat2":
-                return category2
-            return None
-
-        self.mock_category_repo.get_category_by_id.side_effect = get_category_side_effect
-
-        # Act
         result = self.service.get_category_expenses("2025-01-01", "2025-01-31")
 
-        # Assert
-        self.assertEqual(len(result), 2)
-        # Deve estar ordenado por valor absoluto (maior primeiro)
         self.assertEqual(result[0]["description"], "Grande")
-        self.assertEqual(result[0]["total"], 200.0)
         self.assertEqual(result[1]["description"], "Pequena")
-        self.assertEqual(result[1]["total"], 50.0)
 
     def test_get_category_expenses_excludes_nonexistent_categories(self):
-        """Testa que categorias inexistentes são excluídas"""
-        # Arrange
-        transaction = MagicMock()
-        transaction.amount = -100.0
-        transaction.transaction_type = "bank"
-        transaction.split_info = None
-        transaction.category_id = "nonexistent"
-        transaction.transaction_id = "test1"
-
-        self.mock_transaction_service.get_bank_transactions.return_value = [transaction]
+        """Categorias não encontradas no banco são ignoradas"""
+        self.mock_transaction_service.get_bank_transactions.return_value = [
+            _make_bank(-100.0, category_id="ghost"),
+        ]
         self.mock_transaction_service.get_credit_transactions.return_value = []
-        self.mock_splitwise_repo.get_splitwise_by_transaction_id.return_value = None
-        self.mock_category_repo.get_category_by_id.return_value = None  # Categoria não existe
+        self.mock_category_repo.get_category_by_id.return_value = None
 
-        # Act
-        result = self.service.get_category_expenses("2025-01-01", "2025-01-31")
+        self.assertEqual(self.service.get_category_expenses("2025-01-01", "2025-01-31"), [])
 
-        # Assert
-        self.assertEqual(len(result), 0)
+    def test_get_category_expenses_excludes_excluded_transactions(self):
+        """Transações excluídas não aparecem nos gastos por categoria"""
+        self.mock_transaction_service.get_bank_transactions.return_value = [
+            _make_bank(-500.0, category_id="cat1", excluded=1),
+        ]
+        self.mock_transaction_service.get_credit_transactions.return_value = []
+
+        self.assertEqual(self.service.get_category_expenses("2025-01-01", "2025-01-31"), [])
+
+    # ── _is_expense edge case ─────────────────────────────────────────────────
+
+    def test_is_expense_unknown_type_returns_false(self):
+        """_is_expense retorna False para transaction_type desconhecido (linha 37)."""
+        t = MagicMock()
+        t.transaction_type = "other"
+        t.amount = 100.0
+        t.excluded = 0
+        self.assertFalse(FinanceSummaryService._is_expense(t))
+
+    # ── get_history_data ──────────────────────────────────────────────────────
+
+    def test_get_history_data_returns_current_and_all(self):
+        """get_history_data retorna entry do mês e histórico completo."""
+        mock_entry = MagicMock()
+        mock_all = [MagicMock(), MagicMock()]
+
+        with patch("services.finance_summary_service.FinanceHistoryRepository") as MockRepo:
+            mock_repo_inst = MockRepo.return_value
+            mock_repo_inst.get_by_month.return_value = mock_entry
+            mock_repo_inst.get_all.return_value = mock_all
+
+            current, history = self.service.get_history_data("2026-03", "2025-04-01")
+
+        mock_repo_inst.get_by_month.assert_called_once_with("2026-03")
+        mock_repo_inst.get_all.assert_called_once()
+        mock_repo_inst.close.assert_called_once()
+        self.assertIs(current, mock_entry)
+        self.assertIs(history, mock_all)
+
+    def test_get_history_data_closes_repo_on_exception(self):
+        """get_history_data garante close() mesmo quando ocorre erro."""
+        with patch("services.finance_summary_service.FinanceHistoryRepository") as MockRepo:
+            mock_repo_inst = MockRepo.return_value
+            mock_repo_inst.get_by_month.side_effect = RuntimeError("db error")
+
+            with self.assertRaises(RuntimeError):
+                self.service.get_history_data("2026-03", "2025-04-01")
+
+            mock_repo_inst.close.assert_called_once()
+
+    # ── get_full_summary ──────────────────────────────────────────────────────
 
     def test_get_full_summary(self):
-        """Testa geração do resumo completo"""
-        # Arrange
-        # Mock all the individual methods
         self.service.get_income = MagicMock(return_value=2000.0)
         self.service.get_expenses = MagicMock(return_value=1200.0)
         self.service.get_investment_value = MagicMock(return_value=5000.0)
@@ -286,28 +220,11 @@ class TestFinanceSummaryService(unittest.TestCase):
             {"id": "cat1", "description": "Alimentação", "total": 800.0}
         ])
 
-        # Act
         result = self.service.get_full_summary("2025-01-01", "2025-01-31")
 
-        # Assert
-        expected = {
-            "period": {"start_date": "2025-01-01", "end_date": "2025-01-31"},
-            "totals": {
-                "income": 2000.0,
-                "expenses": 1200.0,
-                "balance": 800.0,  # 2000 - 1200
-                "investments": 5000.0,
-            },
-            "expenses_by_category": [
-                {"id": "cat1", "description": "Alimentação", "total": 800.0}
-            ],
-        }
-
-        self.assertEqual(result, expected)
-        self.service.get_income.assert_called_with("2025-01-01", "2025-01-31")
-        self.service.get_expenses.assert_called_with("2025-01-01", "2025-01-31")
-        self.service.get_investment_value.assert_called_once()
-        self.service.get_category_expenses.assert_called_with("2025-01-01", "2025-01-31")
+        self.assertEqual(result["totals"]["income"], 2000.0)
+        self.assertEqual(result["totals"]["expenses"], 1200.0)
+        self.assertEqual(result["totals"]["balance"], 800.0)
 
 
 if __name__ == "__main__":

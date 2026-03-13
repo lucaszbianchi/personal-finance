@@ -3,8 +3,8 @@ import { useCategories } from '@/hooks/useCategories';
 import { useCategoryLabel, useCategoryLabelByName } from '@/hooks/useCategoryLabel';
 import { useCategoryFilter } from '@/hooks/useCategoryFilter';
 import { TransactionForm } from '@/components/TransactionForm';
-import { DeleteTransactionButton } from '@/components/DeleteTransactionButton';
-import { CreditCard, Landmark, Filter, X, ChevronDown, Plus, Tag } from 'lucide-react';
+import { useDeleteBankTransaction, useDeleteCreditTransaction, useToggleExcluded } from '@/hooks/useTransactions';
+import { CreditCard, Landmark, Filter, X, ChevronDown, Plus, Tag, MoreVertical, Trash2, AlertTriangle } from 'lucide-react';
 import type { Category } from '@/types';
 
 interface Transaction {
@@ -18,6 +18,7 @@ interface Transaction {
   type?: string;
   split_info?: any;
   payment_data?: any;
+  excluded?: number;
 }
 
 type TransactionType = 'bank' | 'credit';
@@ -39,6 +40,18 @@ export const Transactions: React.FC = () => {
   // Estado para formulário de criação
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
+
+  // Estado para exclusão de análises
+  const [showExcluded, setShowExcluded] = useState(false);
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const [menuPosition, setMenuPosition] = useState<{ top: number; right: number } | null>(null);
+
+  // Estado para confirmação de delete
+  const [deleteTarget, setDeleteTarget] = useState<Transaction | null>(null);
+  const deleteBankTransaction = useDeleteBankTransaction();
+  const deleteCreditTransaction = useDeleteCreditTransaction();
+  const toggleExcluded = useToggleExcluded();
+  const isDeleting = deleteBankTransaction.isPending || deleteCreditTransaction.isPending;
 
   // Estado para multi-select e bulk category
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -129,9 +142,13 @@ export const Transactions: React.FC = () => {
     fetchTransactions();
   }, [activeTab, selectedPeriod, selectedCategory, refreshTrigger]);
 
-  // Aplicar filtro de texto (busca) no frontend
+  // Aplicar filtro de texto (busca) e exclusão no frontend
   useEffect(() => {
     let filtered = [...transactions];
+
+    if (!showExcluded) {
+      filtered = filtered.filter(t => !t.excluded);
+    }
 
     if (searchTerm) {
       const search = searchTerm.toLowerCase();
@@ -141,7 +158,7 @@ export const Transactions: React.FC = () => {
     }
 
     setFilteredTransactions(filtered);
-  }, [transactions, searchTerm]);
+  }, [transactions, searchTerm, showExcluded]);
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', {
@@ -195,6 +212,30 @@ export const Transactions: React.FC = () => {
     setSelectedIds(prev =>
       prev.includes(id) ? prev.filter(sid => sid !== id) : [...prev, id]
     );
+  };
+
+  const handleToggleExcluded = async (transaction: Transaction) => {
+    await toggleExcluded.mutateAsync({
+      type: activeTab,
+      id: transaction.id,
+      excluded: !transaction.excluded,
+    });
+    setRefreshTrigger(prev => prev + 1);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!deleteTarget) return;
+    try {
+      if (activeTab === 'bank') {
+        await deleteBankTransaction.mutateAsync(deleteTarget.id);
+      } else {
+        await deleteCreditTransaction.mutateAsync(deleteTarget.id);
+      }
+      setDeleteTarget(null);
+      setRefreshTrigger(prev => prev + 1);
+    } catch {
+      alert('Erro ao deletar transação. Tente novamente.');
+    }
   };
 
   const handleBulkCategorySave = async () => {
@@ -305,6 +346,7 @@ export const Transactions: React.FC = () => {
         </div>
 
         {showFilters && (
+          <>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {/* Filtro de Período */}
             <div>
@@ -358,6 +400,19 @@ export const Transactions: React.FC = () => {
               />
             </div>
           </div>
+          <div className="mt-4">
+            <button
+              onClick={() => setShowExcluded(prev => !prev)}
+              className={`px-3 py-1.5 rounded-md text-sm font-medium border transition-colors ${
+                showExcluded
+                  ? 'bg-gray-700 text-white border-gray-700'
+                  : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'
+              }`}
+            >
+              {showExcluded ? 'Ocultar excluídas' : 'Mostrar excluídas'}
+            </button>
+          </div>
+          </>
         )}
 
         {/* Resumo dos resultados e botão de bulk */}
@@ -419,7 +474,7 @@ export const Transactions: React.FC = () => {
                 filteredTransactions.map((transaction) => (
                   <tr
                     key={transaction.id}
-                    className="hover:bg-gray-50 transition-colors"
+                    className={`hover:bg-gray-50 transition-colors ${transaction.excluded ? 'opacity-40' : ''}`}
                   >
                     <td className="px-4 py-4">
                       <input
@@ -448,12 +503,21 @@ export const Transactions: React.FC = () => {
                       {formatCurrency(transaction.amount)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm text-gray-500">
-                      <DeleteTransactionButton
-                        transactionId={transaction.id}
-                        transactionType={activeTab}
-                        transactionDescription={transaction.description}
-                        onSuccess={() => setRefreshTrigger(prev => prev + 1)}
-                      />
+                      <button
+                        onClick={(e) => {
+                          if (openMenuId === transaction.id) {
+                            setOpenMenuId(null);
+                            setMenuPosition(null);
+                          } else {
+                            const rect = e.currentTarget.getBoundingClientRect();
+                            setMenuPosition({ top: rect.bottom + window.scrollY, right: window.innerWidth - rect.right });
+                            setOpenMenuId(transaction.id);
+                          }
+                        }}
+                        className="p-1 rounded hover:bg-gray-200 text-gray-500"
+                      >
+                        <MoreVertical className="w-4 h-4" />
+                      </button>
                     </td>
                   </tr>
                 ))
@@ -485,6 +549,79 @@ export const Transactions: React.FC = () => {
         transactionType={activeTab}
         onSuccess={handleTransactionCreated}
       />
+
+      {/* Dropdown de ações (fixo na viewport para escapar de overflow) */}
+      {openMenuId && menuPosition && (
+        <>
+          <div className="fixed inset-0 z-20" onClick={() => { setOpenMenuId(null); setMenuPosition(null); }} />
+          <div
+            className="fixed z-30 w-52 bg-white rounded-md shadow-lg border border-gray-200"
+            style={{ top: menuPosition.top, right: menuPosition.right }}
+          >
+            {(() => {
+              const t = filteredTransactions.find(tx => tx.id === openMenuId);
+              if (!t) return null;
+              return (
+                <>
+                  <button
+                    onClick={() => { handleToggleExcluded(t); setOpenMenuId(null); setMenuPosition(null); }}
+                    className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                  >
+                    {t.excluded ? 'Incluir nas análises' : 'Excluir das análises'}
+                  </button>
+                  <button
+                    onClick={() => { setDeleteTarget(t); setOpenMenuId(null); setMenuPosition(null); }}
+                    className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50"
+                  >
+                    Deletar
+                  </button>
+                </>
+              );
+            })()}
+          </div>
+        </>
+      )}
+
+      {/* Dialog de confirmação de delete */}
+      {deleteTarget && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <div className="flex items-center space-x-3 mb-4">
+              <AlertTriangle className="w-6 h-6 text-red-600" />
+              <h3 className="text-lg font-semibold text-gray-900">Confirmar Exclusão</h3>
+            </div>
+            <p className="text-gray-600 mb-4">
+              Tem certeza que deseja deletar esta transação? Esta ação não pode ser desfeita.
+            </p>
+            <div className="bg-gray-50 rounded-md p-3 mb-4">
+              <p className="text-sm text-gray-600 truncate" title={deleteTarget.description}>
+                {deleteTarget.description}
+              </p>
+            </div>
+            <div className="flex justify-end space-x-2">
+              <button
+                onClick={() => setDeleteTarget(null)}
+                className="px-4 py-2 text-gray-700 border border-gray-300 rounded-md hover:bg-gray-50"
+                disabled={isDeleting}
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleConfirmDelete}
+                disabled={isDeleting}
+                className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 disabled:opacity-50 flex items-center space-x-2"
+              >
+                {isDeleting ? (
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
+                ) : (
+                  <Trash2 className="w-4 h-4" />
+                )}
+                <span>{isDeleting ? 'Deletando...' : 'Deletar'}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modal de bulk category */}
       {showBulkCategoryModal && (

@@ -8,6 +8,7 @@ interface DeleteTransactionButtonProps {
   transactionDescription: string;
   className?: string;
   onSuccess?: () => void;
+  asMenuItem?: boolean;
 }
 
 export const DeleteTransactionButton: React.FC<DeleteTransactionButtonProps> = ({
@@ -15,7 +16,8 @@ export const DeleteTransactionButton: React.FC<DeleteTransactionButtonProps> = (
   transactionType,
   transactionDescription,
   className = '',
-  onSuccess
+  onSuccess,
+  asMenuItem = false,
 }) => {
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
 
@@ -41,14 +43,24 @@ export const DeleteTransactionButton: React.FC<DeleteTransactionButtonProps> = (
 
   return (
     <>
-      <button
-        onClick={() => setShowConfirmDialog(true)}
-        className={`text-red-600 hover:text-red-800 ${className}`}
-        title="Deletar transação"
-        disabled={isLoading}
-      >
-        <Trash2 className="w-4 h-4" />
-      </button>
+      {asMenuItem ? (
+        <button
+          onClick={() => setShowConfirmDialog(true)}
+          className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50"
+          disabled={isLoading}
+        >
+          Deletar
+        </button>
+      ) : (
+        <button
+          onClick={() => setShowConfirmDialog(true)}
+          className={`text-red-600 hover:text-red-800 ${className}`}
+          title="Deletar transação"
+          disabled={isLoading}
+        >
+          <Trash2 className="w-4 h-4" />
+        </button>
+      )}
 
       {/* Dialog de confirmação */}
       {showConfirmDialog && (

@@ -41,6 +41,7 @@ def get_bank_transactions():
                 "split_info": t.split_info,
                 "payment_data": t.payment_data,
                 "type": t.type_,
+                "excluded": t.excluded,
             }
             for t in transactions
         ]
@@ -67,6 +68,7 @@ def get_credit_transactions():
                 "category": _get_category_name(t.category_id),
                 "status": t.status,
                 "split_info": t.split_info,
+                "excluded": t.excluded,
             }
             for t in transactions
         ]
@@ -283,6 +285,19 @@ def delete_credit_transaction(transaction_id: str):
         return jsonify({"error": str(e)}), 400
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+
+@bp.route("/<transaction_type>/<transaction_id>/excluded", methods=["PUT"])
+def set_transaction_excluded(transaction_type, transaction_id):
+    """Marca ou desmarca uma transação como excluída das análises."""
+    if transaction_type not in ("bank", "credit"):
+        return jsonify({"error": "transaction_type deve ser 'bank' ou 'credit'"}), 400
+    data = request.get_json()
+    excluded = bool(data.get("excluded", False))
+    success = transaction_service.set_excluded(transaction_type, transaction_id, excluded)
+    if success:
+        return jsonify({"success": True, "excluded": excluded})
+    return jsonify({"error": "Transação não encontrada"}), 404
 
 
 @bp.route("/operation-types", methods=["GET"])

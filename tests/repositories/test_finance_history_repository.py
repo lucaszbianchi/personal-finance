@@ -58,6 +58,28 @@ class TestFinanceHistoryRepository(unittest.TestCase):
         history = self.repo.get_by_month(self.month)
         self.assertIsNotNone(history.risk_management)
 
+    def test_save_credit_card_bills_updates_existing(self):
+        """save_credit_card_bills faz UPDATE quando o mês já existe."""
+        self.repo.save_credit_card_bills(self.month, 1000.0, 1200.0)
+        history = self.repo.get_by_month(self.month)
+        self.assertEqual(history.credit_card_bill, 1000.0)
+        self.assertEqual(history.credit_card_future_bill, 1200.0)
+
+        # Atualiza
+        self.repo.save_credit_card_bills(self.month, 1500.0, 1800.0)
+        history = self.repo.get_by_month(self.month)
+        self.assertEqual(history.credit_card_bill, 1500.0)
+        self.assertEqual(history.credit_card_future_bill, 1800.0)
+
+    def test_save_credit_card_bills_inserts_new_month(self):
+        """save_credit_card_bills faz INSERT quando o mês ainda não existe."""
+        new_month = "2099-02"
+        self.repo.save_credit_card_bills(new_month, 500.0, 600.0)
+        history = self.repo.get_by_month(new_month)
+        self.assertIsNotNone(history)
+        self.assertEqual(history.credit_card_bill, 500.0)
+        self.assertEqual(history.credit_card_future_bill, 600.0)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -162,6 +162,21 @@ export const useUpdateCreditTransaction = () => {
   });
 };
 
+export const useToggleExcluded = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ type, id, excluded }: { type: 'bank' | 'credit'; id: string; excluded: boolean }) =>
+      transactionService.setExcluded(type, id, excluded),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['bank-transactions'] });
+      queryClient.invalidateQueries({ queryKey: ['credit-transactions'] });
+      queryClient.invalidateQueries({ queryKey: ['transactions'] });
+      queryClient.invalidateQueries({ queryKey: ['summary'] });
+    },
+  });
+};
+
 export const useOperationTypes = () => {
   return useQuery({
     queryKey: ['operation-types'],

@@ -3,12 +3,18 @@ from repositories.transaction_repository import TransactionRepository
 from repositories.person_repository import PersonRepository
 from repositories.category_repository import CategoryRepository
 from repositories.splitwise_repository import SplitwiseRepository
+from repositories.finance_history_repository import FinanceHistoryRepository
 from services.transaction_service import TransactionService
 
 
 class FinanceSummaryService:
     """
     Serviço para cálculo de resumo financeiro, considerando regras de negócio do projeto.
+
+    Regras de classificação:
+    - Receita: bank_transactions com amount > 0 e excluded = 0
+    - Gasto:   bank_transactions com amount < 0 e excluded = 0
+             + credit_transactions com amount > 0 e excluded = 0
     """
 
     def __init__(self):
@@ -18,49 +24,34 @@ class FinanceSummaryService:
         self.category_repository = CategoryRepository()
         self.splitwise_repository = SplitwiseRepository()
 
+    @staticmethod
+    def _is_income(t) -> bool:
+        return t.transaction_type == "bank" and t.amount > 0 and not t.excluded
+
+    @staticmethod
+    def _is_expense(t) -> bool:
+        if t.transaction_type == "bank":
+            return t.amount < 0 and not t.excluded
+        if t.transaction_type == "credit":
+            return t.amount > 0 and not t.excluded
+        return False
+
     def get_income(self, start_date: str, end_date: str) -> float:
         """Calcula as receitas em um determinado período."""
         transactions = self.transaction_service.get_bank_transactions(
             start_date=start_date, end_date=end_date
         )
-        income_transactions = [
-            t for t in transactions if t.amount > 0 and not t.split_info
-        ]
-        income = sum(t.amount for t in income_transactions)
-        return income
+        return sum(t.amount for t in transactions if self._is_income(t))
 
     def get_expenses(self, start_date: str, end_date: str) -> float:
         """Calcula as despesas em um determinado período."""
-        bank_transactions = self.transaction_service.get_bank_transactions(
+        bank = self.transaction_service.get_bank_transactions(
             start_date=start_date, end_date=end_date
         )
-        credit_transactions = self.transaction_service.get_credit_transactions(
+        credit = self.transaction_service.get_credit_transactions(
             start_date=start_date, end_date=end_date
         )
-        transactions = bank_transactions + credit_transactions
-
-        expenses = 0
-        splited_expenses = 0
-
-        for t in transactions:
-            if t.split_info and t.split_info.get("partners", []):
-                splited_expenses += sum(
-                    partner["share"] for partner in t.split_info["partners"]
-                )
-            splitwise_reference = (
-                self.splitwise_repository.get_splitwise_by_transaction_id(
-                    t.transaction_id
-                )
-            )
-            if splitwise_reference:
-                splited_expenses += splitwise_reference.amount
-            if (t.transaction_type == "bank" and t.amount < 0) or (
-                t.transaction_type == "credit" and t.amount > 0
-            ):
-                expenses += abs(t.amount)
-
-        expense = expenses - splited_expenses
-        return expense
+        return sum(abs(t.amount) for t in bank + credit if self._is_expense(t))
 
     def get_investment_value(self) -> float:
         """Calcula o valor total investido."""
@@ -70,47 +61,25 @@ class FinanceSummaryService:
 
     def get_category_expenses(self, start_date: str, end_date: str) -> List[dict]:
         """Calcula as despesas por categoria em um determinado período."""
-        bank_transactions = self.transaction_service.get_bank_transactions(
+        bank = self.transaction_service.get_bank_transactions(
             start_date=start_date, end_date=end_date
         )
-        credit_transactions = self.transaction_service.get_credit_transactions(
+        credit = self.transaction_service.get_credit_transactions(
             start_date=start_date, end_date=end_date
         )
-        transactions = bank_transactions + credit_transactions
-        category_expenses = {}
-        for t in transactions:
-            # Pagamentos de despesas compartilhadas são descontadas no cálculo
-            if t.split_info and t.split_info.get("partners", []):
-                category_id = t.split_info.get("category")
-                if category_id:
-                    if category_id not in category_expenses:
-                        category_expenses[category_id] = 0
-                    category_expenses[category_id] -= sum(
-                        partner["share"] for partner in t.split_info["partners"]
-                    )
-            splitwise_reference = (
-                self.splitwise_repository.get_splitwise_by_transaction_id(
-                    t.transaction_id
-                )
-            )
-            if splitwise_reference:
-                category_id = splitwise_reference.category_id
-                if category_id:
-                    if category_id not in category_expenses:
-                        category_expenses[category_id] = 0
-                    category_expenses[category_id] -= splitwise_reference.amount
-            if (t.transaction_type == "bank" and t.amount < 0) or (
-                t.transaction_type == "credit" and t.amount > 0
-            ):
-                category_id = t.category_id
-                if category_id not in category_expenses:
-                    category_expenses[category_id] = 0
-                category_expenses[category_id] += abs(t.amount)
+        category_expenses: dict = {}
+        for t in bank + credit:
+            if not self._is_expense(t):
+                continue
+            cat_id = t.category_id
+            if cat_id not in category_expenses:
+                category_expenses[cat_id] = 0
+            category_expenses[cat_id] += abs(t.amount)
 
         categories_result = []
-        for cat, total in category_expenses.items():
-            category = self.category_repository.get_category_by_id(cat)
-            if category:  # Só adiciona se a categoria existe
+        for cat_id, total in category_expenses.items():
+            category = self.category_repository.get_category_by_id(cat_id)
+            if category:
                 categories_result.append(
                     {
                         "id": category.id,
@@ -119,7 +88,17 @@ class FinanceSummaryService:
                     }
                 )
 
-        return sorted(categories_result, key=lambda x: abs(x["total"]), reverse=True)
+        return sorted(categories_result, key=lambda x: x["total"], reverse=True)
+
+    def get_history_data(self, month: str, cutoff: str) -> tuple:
+        """Retorna (current_entry, all_history) do finance_history para o mês e cutoff dados."""
+        repo = FinanceHistoryRepository()
+        try:
+            current_entry = repo.get_by_month(month)
+            all_history = repo.get_all()
+        finally:
+            repo.close()
+        return current_entry, all_history
 
     def get_full_summary(self, start_date: str, end_date: str) -> dict:
         """Retorna um resumo financeiro completo do período."""
