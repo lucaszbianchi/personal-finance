@@ -2,6 +2,7 @@ import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import {
   Home,
+  LayoutDashboard,
   CreditCard,
   Tag,
   TrendingUp,
@@ -18,6 +19,7 @@ interface SidebarProps {
 
 const navigation = [
   { name: 'Dashboard', href: '/', icon: Home },
+  { name: 'Visão Geral', href: '/overview', icon: LayoutDashboard },
   { name: 'Transações', href: '/transactions', icon: CreditCard },
   { name: 'Categorias', href: '/categories', icon: Tag },
   { name: 'Investimentos', href: '/investments', icon: TrendingUp },

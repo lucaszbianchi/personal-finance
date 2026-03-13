@@ -12,6 +12,7 @@ import type {
   CreateCreditTransactionRequest,
   DashboardData,
   MonthlySummary,
+  SpendingPace,
 } from '@/types';
 
 const api = axios.create({
@@ -205,11 +206,18 @@ export const summaryService = {
       params: period ? { period } : {}
     }),
 
+  getMonthlySummary: (month?: string) =>
+    api.get<MonthlySummary>('/summary/monthly', {
+      params: month ? { month } : {},
+    }),
+};
+
+export const dashboardService = {
   getDashboardData: () =>
     api.get<DashboardData>('/dashboard/data'),
 
-  getMonthlySummary: (month?: string) =>
-    api.get<MonthlySummary>('/summary/monthly', {
+  getSpendingPace: (month?: string) =>
+    api.get<SpendingPace>('/dashboard/spending-pace', {
       params: month ? { month } : {},
     }),
 };
