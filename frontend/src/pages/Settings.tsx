@@ -40,11 +40,6 @@ type MealAllowanceSettings = {
   value: number
 }
 
-type CreditCardSettings = {
-  closing_day: number
-  due_day: number
-}
-
 export const Settings: React.FC = () => {
   const queryClient = useQueryClient()
   const { categoryLanguage, setCategoryLanguage } = useCategoryLanguage()
@@ -117,31 +112,6 @@ export const Settings: React.FC = () => {
     mutationFn: () =>
       api.post('/settings/meal-allowance', { value: parseFloat(mealValue) }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['settings-meal-allowance'] }),
-  })
-
-  // --- Credit card ---
-  const { data: creditData } = useQuery({
-    queryKey: ['settings-credit-card'],
-    queryFn: () => api.get<CreditCardSettings>('/settings/credit-card').then(r => r.data),
-  })
-
-  const [closingDay, setClosingDay] = useState('')
-  const [dueDay, setDueDay] = useState('')
-
-  useEffect(() => {
-    if (creditData) {
-      setClosingDay(String(creditData.closing_day))
-      setDueDay(String(creditData.due_day))
-    }
-  }, [creditData])
-
-  const saveCredit = useMutation({
-    mutationFn: () =>
-      api.post('/settings/credit-card', {
-        closing_day: parseInt(closingDay),
-        due_day: parseInt(dueDay),
-      }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['settings-credit-card'] }),
   })
 
   return (
@@ -303,43 +273,6 @@ export const Settings: React.FC = () => {
         <p className="text-xs text-gray-500">
           Altera o idioma exibido para os nomes de categorias em toda a aplicação.
         </p>
-      </section>
-
-      {/* Cartão de Crédito */}
-      <section className="bg-white rounded-lg shadow p-6 space-y-4">
-        <h2 className="text-lg font-semibold text-gray-700">Cartão de Crédito</h2>
-        <div className="flex items-center gap-3">
-          <label className="text-sm text-gray-700 w-32">Dia de fechamento</label>
-          <input
-            type="number"
-            min={1}
-            max={31}
-            value={closingDay}
-            onChange={e => setClosingDay(e.target.value)}
-            className="border border-gray-300 rounded px-3 py-1.5 text-sm w-20 focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
-        </div>
-        <div className="flex items-center gap-3">
-          <label className="text-sm text-gray-700 w-32">Dia de vencimento</label>
-          <input
-            type="number"
-            min={1}
-            max={31}
-            value={dueDay}
-            onChange={e => setDueDay(e.target.value)}
-            className="border border-gray-300 rounded px-3 py-1.5 text-sm w-20 focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
-        </div>
-        <button
-          onClick={() => saveCredit.mutate()}
-          disabled={saveCredit.isPending}
-          className="rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
-        >
-          {saveCredit.isPending ? 'Salvando...' : 'Salvar'}
-        </button>
-        {saveCredit.isSuccess && (
-          <p className="text-sm text-green-600">Configuração salva!</p>
-        )}
       </section>
 
       {/* Zona de Perigo */}

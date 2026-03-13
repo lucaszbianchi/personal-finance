@@ -10,6 +10,8 @@ import type {
   CreateTransactionRequest,
   CreateBankTransactionRequest,
   CreateCreditTransactionRequest,
+  DashboardData,
+  MonthlySummary,
 } from '@/types';
 
 const api = axios.create({
@@ -82,6 +84,11 @@ export const transactionService = {
 
   updateCreditTransaction: async (id: string, transaction: Partial<CreateCreditTransactionRequest>) => {
     const response = await api.put(`/transactions/credit/${id}`, transaction);
+    return response.data;
+  },
+
+  setExcluded: async (type: 'bank' | 'credit', id: string, excluded: boolean) => {
+    const response = await api.put(`/transactions/${type}/${id}/excluded`, { excluded });
     return response.data;
   },
 
@@ -199,7 +206,12 @@ export const summaryService = {
     }),
 
   getDashboardData: () =>
-    api.get<ApiResponse<any>>('/dashboard'),
+    api.get<DashboardData>('/dashboard/data'),
+
+  getMonthlySummary: (month?: string) =>
+    api.get<MonthlySummary>('/summary/monthly', {
+      params: month ? { month } : {},
+    }),
 };
 
 export type ImportType = 'recent' | 'non_recent';
@@ -232,7 +244,7 @@ export interface SyncResponse {
 
 export const importService = {
   syncData: async (importType: ImportType = 'recent'): Promise<SyncResponse> => {
-    const response = await api.post('/import/data', { import_type: importType });
+    const response = await api.post('/import/data', { import_type: importType }, { timeout: 120000 });
     return response.data;
   },
 

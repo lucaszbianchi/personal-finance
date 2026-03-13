@@ -37,6 +37,7 @@ TABLES_SQL = [
         operation_type TEXT,
         split_info TEXT,
         payment_data TEXT,
+        excluded INTEGER DEFAULT 0,
         FOREIGN KEY (category_id) REFERENCES categories(id)
     )
     """,
@@ -48,6 +49,7 @@ TABLES_SQL = [
         amount REAL,
         category_id TEXT,
         status TEXT,
+        excluded INTEGER DEFAULT 0,
         FOREIGN KEY (category_id) REFERENCES categories(id)
     )
     """,
@@ -130,14 +132,52 @@ TABLES_SQL = [
         UNIQUE(call_type, year_month)
     )
     """,
-]
-
-MIGRATIONS = [
-    "DROP TABLE IF EXISTS rate_limit_usage",
-    "ALTER TABLE investments ADD COLUMN amount REAL",
+    """
+    CREATE TABLE IF NOT EXISTS pluggy_book_summary (
+        item_id         TEXT NOT NULL,
+        month           TEXT NOT NULL,
+        bank_account    TEXT,
+        credit_card     TEXT,
+        fetched_at      TEXT NOT NULL,
+        PRIMARY KEY (item_id, month)
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS pluggy_book_categories (
+        item_id             TEXT NOT NULL,
+        month               TEXT NOT NULL,
+        category            TEXT NOT NULL,
+        transaction_type    TEXT NOT NULL,
+        account_subtype     TEXT NOT NULL,
+        m1_avg              REAL,
+        m1_total            REAL,
+        m1_min              REAL,
+        m1_max              REAL,
+        m2_avg              REAL,
+        m2_total            REAL,
+        m2_min              REAL,
+        m2_max              REAL,
+        m3_avg              REAL,
+        m3_total            REAL,
+        m3_min              REAL,
+        m3_max              REAL,
+        m6_avg              REAL,
+        m6_total            REAL,
+        m6_min              REAL,
+        m6_max              REAL,
+        m12_avg             REAL,
+        m12_total           REAL,
+        m12_min             REAL,
+        m12_max             REAL,
+        fetched_at          TEXT NOT NULL,
+        PRIMARY KEY (item_id, month, category, transaction_type, account_subtype)
+    )
+    """,
 ]
 
 RESET_SQL = [
+    "DROP TABLE IF EXISTS pluggy_book_categories",
+    "DROP TABLE IF EXISTS pluggy_book_summary",
     "DROP TABLE IF EXISTS rate_limit_usage",
     "DROP TABLE IF EXISTS bills",
     "DROP TABLE IF EXISTS pluggy_items",
@@ -167,8 +207,6 @@ def reset_db():
 def init_db():
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
-    for sql in MIGRATIONS:
-        cursor.execute(sql)
     for sql in TABLES_SQL:
         cursor.execute(sql)
     conn.commit()

@@ -1,7 +1,7 @@
 from flask import Blueprint, jsonify
-from services.finance_summary_service import FinanceSummaryService
 from datetime import date
 from dateutil.relativedelta import relativedelta
+from services.finance_summary_service import FinanceSummaryService
 
 bp = Blueprint("dashboard", __name__)
 finance_summary_service = FinanceSummaryService()
@@ -9,60 +9,49 @@ finance_summary_service = FinanceSummaryService()
 
 @bp.route("/data", methods=["GET"])
 def get_dashboard_data():
-    # Cria gráfico de pizza para despesas bancárias e de crédito
-    current_date = date.today()
-    start_date = current_date.replace(day=1).strftime("%Y-%m-%d")
-    end_date = (
-        (current_date + relativedelta(months=1)).replace(day=1).strftime("%Y-%m-%d")
-    )
+    """
+    Retorna dados consolidados para o Dashboard:
+    - current_month: métricas do mês atual (do finance_history)
+    - category_breakdown: gastos por categoria do mês atual
+    - history: últimos 12 meses do finance_history
+    """
+    current_date = date.today().replace(day=1)
+    month = current_date.strftime("%Y-%m")
+    start_date = current_date.strftime("%Y-%m-%d")
+    end_date = (current_date + relativedelta(months=1)).strftime("%Y-%m-%d")
 
-    # Usa o serviço de resumo financeiro para obter despesas por categoria
-    category_expenses = finance_summary_service.get_category_expenses(
-        start_date, end_date
-    )
+    # Gastos por categoria do mês atual
+    category_breakdown = finance_summary_service.get_category_expenses(start_date, end_date)
 
-    # Separa as categorias que não devem entrar no gráfico
-    excluded_categories = {
-        "Investments",
-        "Transfers",
-        "Same person transfer",
-        "Fixed income",
+    # Métricas do mês atual do finance_history
+    cutoff = (current_date - relativedelta(months=11)).strftime("%Y-%m")
+    current_entry, all_history = finance_summary_service.get_history_data(month, cutoff)
+
+    current_month = {
+        "income": current_entry.income if current_entry else None,
+        "expenses": current_entry.expenses if current_entry else None,
+        "balance": round(
+            (current_entry.income or 0) - (current_entry.expenses or 0), 2
+        ) if current_entry else None,
+        "credit_card_bill": current_entry.credit_card_bill if current_entry else None,
+        "total_cash": current_entry.total_cash if current_entry else None,
     }
 
-    # Organiza os dados para os gráficos de pizza
-    category_pie = []
-
-    for expense in category_expenses:
-        if expense["name"] not in excluded_categories:
-            category_pie.append(
-                {"category": expense["name"], "total": abs(expense["total"])}
-            )
-
-    # Para o gráfico de linhas, vamos coletar dados dos últimos 12 meses
-    line_data = []
-    for i in range(-11, 1):  # últimos 12 meses
-        start = (current_date + relativedelta(months=i)).replace(day=1)
-        end = (start + relativedelta(months=1)).replace(day=1)
-
-        # Formata as datas
-        start_str = start.strftime("%Y-%m-%d")
-        end_str = end.strftime("%Y-%m-%d")
-
-        # Obtém receitas e despesas do mês
-        income = finance_summary_service.get_income(start_str, end_str)
-        expenses = finance_summary_service.get_expenses(start_str, end_str)
-
-        line_data.append(
-            {
-                "month": start.strftime("%Y-%m"),
-                "expenses": round(abs(expenses), 2),
-                "income": round(income, 2),
-            }
-        )
-
-    return jsonify(
+    # Histórico dos últimos 12 meses
+    history = [
         {
-            "category_pie": category_pie,
-            "line_data": sorted(line_data, key=lambda x: x["month"]),
+            "month": e.month,
+            "income": e.income,
+            "expenses": e.expenses,
+            "investments": e.total_cash,
         }
-    )
+        for e in all_history
+        if e.month >= cutoff
+    ]
+    history.sort(key=lambda x: x["month"])
+
+    return jsonify({
+        "current_month": current_month,
+        "category_breakdown": category_breakdown,
+        "history": history,
+    })

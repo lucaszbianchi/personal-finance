@@ -214,5 +214,53 @@ class TestFinanceHistoryService(unittest.TestCase):
         self.mock_repo.save_net_worth.assert_called_once_with("2026-03", 800.0, {})
 
 
+    def _patch_finance_summary(self, get_income=5000.0, get_expenses=3000.0):
+        """Retorna (mock_inst, patcher) para FinanceSummaryService importado localmente."""
+        import services.finance_summary_service as fss_mod
+        mock_inst = MagicMock()
+        mock_inst.get_income.return_value = get_income
+        mock_inst.get_expenses.return_value = get_expenses
+        patcher = patch.object(fss_mod, "FinanceSummaryService", return_value=mock_inst)
+        return mock_inst, patcher
+
+    def test_update_finance_history_from_sync_calls_all_steps(self):
+        """update_finance_history_from_sync calcula income/expenses, bills e risk."""
+        mock_bill_repo = MagicMock()
+        mock_bill_repo.get_current_and_future_bill.return_value = (800.0, 950.0)
+        self.service.bill_repository = mock_bill_repo
+
+        mock_inst, patcher = self._patch_finance_summary(5000.0, 3000.0)
+        with patcher:
+            self.service.update_finance_history_from_sync("2026-03")
+
+        self.mock_repo.save_cash_flow.assert_called_once_with("2026-03", 5000.0, 3000.0)
+        mock_bill_repo.get_current_and_future_bill.assert_called_once_with("2026-03")
+        self.mock_repo.save_credit_card_bills.assert_called_once_with("2026-03", 800.0, 950.0)
+        self.mock_repo.calculate_and_save_risk_management.assert_called_once_with("2026-03")
+
+    def test_update_finance_history_from_sync_december(self):
+        """update_finance_history_from_sync trata dezembro corretamente (end_date = 2027-01-01)."""
+        mock_bill_repo = MagicMock()
+        mock_bill_repo.get_current_and_future_bill.return_value = (0.0, 0.0)
+        self.service.bill_repository = mock_bill_repo
+
+        mock_inst, patcher = self._patch_finance_summary(0.0, 0.0)
+        with patcher:
+            self.service.update_finance_history_from_sync("2026-12")
+
+        mock_inst.get_income.assert_called_once_with("2026-12-01", "2027-01-01")
+        mock_inst.get_expenses.assert_called_once_with("2026-12-01", "2027-01-01")
+
+
+class TestFirstDayOfNextMonth(unittest.TestCase):
+    def test_regular_month(self):
+        from services.finance_history_service import _first_day_of_next_month
+        self.assertEqual(_first_day_of_next_month("2026-03"), "2026-04-01")
+
+    def test_december_wraps(self):
+        from services.finance_history_service import _first_day_of_next_month
+        self.assertEqual(_first_day_of_next_month("2026-12"), "2027-01-01")
+
+
 if __name__ == "__main__":
     unittest.main()

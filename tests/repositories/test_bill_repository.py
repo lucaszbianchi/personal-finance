@@ -142,6 +142,52 @@ class TestBillRepository(unittest.TestCase):
         bills = self.repo.get_all_bills()
         self.assertIsNone(bills[0]["finance_charges"])
 
+    # ------------------------------------------------------------------
+    # get_current_and_future_bill
+    # ------------------------------------------------------------------
+
+    def test_get_current_and_future_bill_returns_sums(self):
+        """Retorna (soma do mês atual, soma do mês seguinte)."""
+        self.repo.upsert_bill(
+            {"id": "b-cur-1", "dueDate": "2026-03-05", "totalAmount": 500.0, "financeCharges": None},
+            "account-1",
+        )
+        self.repo.upsert_bill(
+            {"id": "b-cur-2", "dueDate": "2026-03-20", "totalAmount": 300.0, "financeCharges": None},
+            "account-1",
+        )
+        self.repo.upsert_bill(
+            {"id": "b-fut-1", "dueDate": "2026-04-10", "totalAmount": 700.0, "financeCharges": None},
+            "account-1",
+        )
+
+        current, future = self.repo.get_current_and_future_bill("2026-03")
+
+        self.assertAlmostEqual(current, 800.0)
+        self.assertAlmostEqual(future, 700.0)
+
+    def test_get_current_and_future_bill_december_wraps_to_january(self):
+        """Em dezembro o mês seguinte deve ser janeiro do ano seguinte."""
+        self.repo.upsert_bill(
+            {"id": "b-dec", "dueDate": "2026-12-15", "totalAmount": 400.0, "financeCharges": None},
+            "account-1",
+        )
+        self.repo.upsert_bill(
+            {"id": "b-jan", "dueDate": "2027-01-10", "totalAmount": 200.0, "financeCharges": None},
+            "account-1",
+        )
+
+        current, future = self.repo.get_current_and_future_bill("2026-12")
+
+        self.assertAlmostEqual(current, 400.0)
+        self.assertAlmostEqual(future, 200.0)
+
+    def test_get_current_and_future_bill_empty_returns_zeros(self):
+        """Sem faturas no período retorna (0.0, 0.0)."""
+        current, future = self.repo.get_current_and_future_bill("2026-03")
+        self.assertEqual(current, 0.0)
+        self.assertEqual(future, 0.0)
+
 
 if __name__ == "__main__":
     unittest.main()

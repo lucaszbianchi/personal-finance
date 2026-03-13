@@ -33,6 +33,7 @@ class TestTransactionRepository(unittest.TestCase):
                 operation_type TEXT,
                 split_info TEXT,
                 payment_data TEXT,
+                excluded INTEGER DEFAULT 0,
                 FOREIGN KEY (category_id) REFERENCES categories(id)
             )
         """
@@ -47,7 +48,8 @@ class TestTransactionRepository(unittest.TestCase):
                 description TEXT,
                 amount REAL,
                 category_id TEXT,
-                status TEXT
+                status TEXT,
+                excluded INTEGER DEFAULT 0
             )
         """
         )
@@ -377,6 +379,83 @@ class TestTransactionRepository(unittest.TestCase):
         unlinked_ids = [t.transaction_id for t in unlinked]
         self.assertIn("unlinked-123", unlinked_ids)
         self.assertNotIn("linked-123", unlinked_ids)
+
+    # Testes para linhas 334-341: set_excluded
+    def test_set_excluded_marks_bank_transaction(self):
+        """set_excluded=True marca transação bancária como excluída."""
+        self._create_test_category()
+        txn = BankTransaction(
+            transaction_id=self.test_bank_id,
+            amount=100.0,
+            date="2023-01-01",
+            description="Excluir Banco",
+            category_id="cat123",
+            type_="debit",
+            operation_type="PIX",
+        )
+        self.repo.add_bank_transaction(txn)
+
+        result = self.repo.set_excluded("bank", self.test_bank_id, True)
+        self.assertTrue(result)
+
+        row = self.repo.execute_query(
+            "SELECT excluded FROM bank_transactions WHERE id = ?", (self.test_bank_id,)
+        ).fetchone()
+        self.assertEqual(row["excluded"], 1)
+
+    def test_set_excluded_unmarks_bank_transaction(self):
+        """set_excluded=False desmarca transação bancária."""
+        self._create_test_category()
+        txn = BankTransaction(
+            transaction_id=self.test_bank_id,
+            amount=100.0,
+            date="2023-01-01",
+            description="Desmarcar Banco",
+            category_id="cat123",
+            type_="debit",
+            operation_type="PIX",
+        )
+        self.repo.add_bank_transaction(txn)
+        self.repo.set_excluded("bank", self.test_bank_id, True)
+
+        result = self.repo.set_excluded("bank", self.test_bank_id, False)
+        self.assertTrue(result)
+
+        row = self.repo.execute_query(
+            "SELECT excluded FROM bank_transactions WHERE id = ?", (self.test_bank_id,)
+        ).fetchone()
+        self.assertEqual(row["excluded"], 0)
+
+    def test_set_excluded_marks_credit_transaction(self):
+        """set_excluded funciona para tabela credit."""
+        self._create_test_category()
+        txn = CreditTransaction(
+            transaction_id=self.test_credit_id,
+            amount=50.0,
+            date="2023-01-02",
+            description="Excluir Crédito",
+            category_id="cat123",
+            status="POSTED",
+        )
+        self.repo.add_credit_transaction(txn)
+
+        result = self.repo.set_excluded("credit", self.test_credit_id, True)
+        self.assertTrue(result)
+
+        row = self.repo.execute_query(
+            "SELECT excluded FROM credit_transactions WHERE id = ?", (self.test_credit_id,)
+        ).fetchone()
+        self.assertEqual(row["excluded"], 1)
+
+    def test_set_excluded_raises_for_invalid_table(self):
+        """set_excluded levanta ValueError para tabela inválida."""
+        with self.assertRaises(ValueError):
+            self.repo.set_excluded("invalid_table", "any-id", True)
+
+    def test_set_excluded_returns_false_for_nonexistent_id(self):
+        """set_excluded retorna False quando o ID não existe."""
+        result = self.repo.set_excluded("bank", "nonexistent-id", True)
+        self.assertFalse(result)
 
     # Testes para linhas 360-379: upsert_bank_transaction
     @patch.object(TransactionRepository, "_process_pix_person_extraction")

@@ -460,6 +460,10 @@ class TransactionService:
         # Deleta no repositório (que fará as verificações de integridade)
         return self.transaction_repository.delete_credit_transaction(transaction_id)
 
+    def set_excluded(self, transaction_type: str, transaction_id: str, excluded: bool) -> bool:
+        """Marca ou desmarca uma transação como excluída das análises."""
+        return self.transaction_repository.set_excluded(transaction_type, transaction_id, excluded)
+
     def get_operation_types(self) -> List[str]:
         """
         Retorna lista de tipos de operação únicos das transações bancárias.

@@ -4,6 +4,7 @@ Rotas relacionadas à integração com a Pluggy API.
 
 import traceback
 from flask import Blueprint, jsonify, request
+from requests.exceptions import HTTPError
 from services.pluggy_auth_service import create_connect_token, get_item
 from repositories.pluggy_item_repository import PluggyItemRepository
 
@@ -32,6 +33,9 @@ def get_item_status(item_id):
     """Retorna o status atual de um item diretamente da Pluggy API."""
     try:
         return jsonify(get_item(item_id))
+    except HTTPError as e:
+        status_code = e.response.status_code if e.response is not None else 500
+        return jsonify({"status": "error", "message": str(e)}), status_code
     except Exception as e:
         traceback.print_exc()
         return jsonify({"status": "error", "message": str(e)}), 500

@@ -94,28 +94,6 @@ class PluggyAPI:
             transactions.extend(page_data.get("results", []))
         return transactions
 
-    def fetch_and_store_investments(self):
-        headers = {"accept": "application/json", "X-API-KEY": f"{self.api_key}"}
-        item_id = os.getenv("ITEM_ID")
-
-        url = f"{self.base_url}/investments?itemId={item_id}&pageSize=100"
-
-        response = requests.get(url, headers=headers, timeout=30)
-        investments = json.loads(response.content).get("results")
-        self._save_incremental_json("data/investments.json", investments)
-
-    def fetch_and_store_splitwise_data(self):
-        from_date, to_date = self._incremental_date_range()
-        accounts = self.list_accounts(self.splitwise_item_id).get("results", [])
-        for account in accounts:
-            if account.get("name") == os.getenv("SPLITWISE_ACCOUNT_NAME"):
-                transactions = self._fetch_all_pages(
-                    account.get("id"), from_date, to_date
-                )
-                self._save_incremental_json(
-                    "data/splitwise_transactions.json", transactions
-                )
-
     def _load_existing_json(self, filepath):
         if os.path.exists(filepath):
             with open(filepath, "r", encoding="utf-8") as f:
@@ -242,7 +220,10 @@ class PluggyAPI:
             print("[INFO] Verificando categorias...")
             repo = CategoryRepository()
             try:
-                has_categories = repo.execute_query("SELECT 1 FROM categories LIMIT 1").fetchone() is not None
+                has_categories = (
+                    repo.execute_query("SELECT 1 FROM categories LIMIT 1").fetchone()
+                    is not None
+                )
             finally:
                 repo.close()
 
@@ -348,7 +329,8 @@ class PluggyAPI:
 
                 # Snapshot mensal automático
                 month = today.strftime("%Y-%m")
-                FinanceHistoryService().update_finance_history_net_worth(month, bank_balance)
+                fh_service = FinanceHistoryService()
+                fh_service.update_finance_history_net_worth(month, bank_balance)
                 print(f"[OK] Snapshot mensal gravado para {month}")
 
             # 4. Splitwise
@@ -371,6 +353,14 @@ class PluggyAPI:
                     "data/splitwise_transactions.json", splitwise_transactions
                 )
                 print(f"Processadas {len(splitwise_transactions)} transações Splitwise")
+
+            # 6. Pluggy Insights (book) — apenas para itens de banco
+            try:
+                from services.pluggy_insights_service import PluggyInsightsService
+                insights_service = PluggyInsightsService(self.api_key)
+                insights_service.fetch_and_store(self._get_item_ids_to_sync(), month)
+            except Exception as e:
+                print(f"[WARN] Não foi possível sincronizar Pluggy Insights: {e}")
 
             summary["rate_limit_usage"] = rate_limit_repo.get_usage_summary()
             print("[OK] Coleta de dados concluída com sucesso!")

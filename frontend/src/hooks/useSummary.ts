@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { summaryService } from '@/services/api';
+import type { MonthlySummary } from '@/types';
 
 export const useFinanceSummary = (period?: string) => {
   return useQuery({
@@ -8,10 +9,14 @@ export const useFinanceSummary = (period?: string) => {
   });
 };
 
-export const useDashboardData = () => {
-  return useQuery({
-    queryKey: ['dashboard'],
-    queryFn: () => summaryService.getDashboardData(),
-    staleTime: 1000 * 60 * 2, // 2 minutes
+export const useMonthlySummary = (month?: string) => {
+  return useQuery<MonthlySummary>({
+    queryKey: ['summary', 'monthly', month],
+    queryFn: async () => {
+      const response = await summaryService.getMonthlySummary(month);
+      return response.data;
+    },
+    staleTime: 1000 * 60 * 2,
   });
 };
+

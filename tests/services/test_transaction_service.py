@@ -663,6 +663,23 @@ class TestTransactionService(unittest.TestCase):
         self.mock_repo.get_operation_types.assert_called_once()
         self.assertEqual(result, mock_types)
 
+    def test_set_excluded_delegates_to_repository(self):
+        """set_excluded delega para transaction_repository.set_excluded."""
+        self.mock_repo.set_excluded.return_value = True
+
+        result = self.service.set_excluded("bank", "txn-123", True)
+
+        self.mock_repo.set_excluded.assert_called_once_with("bank", "txn-123", True)
+        self.assertTrue(result)
+
+    def test_set_excluded_credit_returns_false_not_found(self):
+        """set_excluded repassa False quando o repositório não encontra a transação."""
+        self.mock_repo.set_excluded.return_value = False
+
+        result = self.service.set_excluded("credit", "nonexistent", False)
+
+        self.assertFalse(result)
+
 
 if __name__ == "__main__":
     unittest.main()
