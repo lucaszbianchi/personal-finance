@@ -5,6 +5,7 @@ import requests
 
 import dotenv
 
+from repositories.accounts_snapshot_repository import AccountsSnapshotRepository
 from repositories.bill_repository import BillRepository
 from repositories.category_repository import CategoryRepository
 from repositories.pluggy_item_repository import PluggyItemRepository
@@ -197,6 +198,7 @@ class PluggyAPI:
         investment_repo = InvestmentRepository()
         splitwise_repo = SplitwiseRepository()
         rate_limit_repo = RateLimitRepository()
+        accounts_snapshot_repo = AccountsSnapshotRepository()
         bank_balance = 0.0
 
         summary = {
@@ -210,6 +212,7 @@ class PluggyAPI:
             "splitwise_updated": 0,
             "categories_synced": 0,
             "bills_synced": 0,
+            "accounts_snapshots_saved": 0,
             "rate_limit_usage": [],
         }
 
@@ -245,14 +248,15 @@ class PluggyAPI:
             if import_type == "non_recent":
                 from_date = (today - timedelta(days=365)).strftime("%Y-%m-%d")
                 to_date = (today - timedelta(days=7)).strftime("%Y-%m-%d")
-                print(f"[INFO] Janela non_recent: {from_date} → {to_date}")
+                print(f"[INFO] Janela non_recent: {from_date} -> {to_date}")
             else:
                 from_date, to_date = self._incremental_date_range()
                 print(
-                    f"[INFO] Janela incremental: {from_date} → {to_date} ({INCREMENTAL_DAYS} dias)"
+                    f"[INFO] Janela incremental: {from_date} -> {to_date} ({INCREMENTAL_DAYS} dias)"
                 )
 
             call_type = import_type
+            snapshotted_at = today.strftime("%Y-%m-%d")
             item_ids = self._get_item_ids_to_sync()
             print(f"[INFO] Sincronizando {len(item_ids)} item(s): {item_ids}")
             for item_id in item_ids:
@@ -263,6 +267,10 @@ class PluggyAPI:
                         bank_balance += account.get("balance", 0) or 0
                     if account_type not in ["BANK", "CREDIT"]:
                         continue
+
+                    accounts_snapshot_repo.upsert_snapshot(account, item_id, snapshotted_at)
+                    summary["accounts_snapshots_saved"] += 1
+
                     account_id = account.get("id")
 
                     if not rate_limit_repo.can_call(call_type):
@@ -371,6 +379,7 @@ class PluggyAPI:
             investment_repo.close()
             splitwise_repo.close()
             rate_limit_repo.close()
+            accounts_snapshot_repo.close()
 
     def _get_item_ids_to_sync(self) -> list:
         """Retorna item_ids de role 'bank' para sincronizar. Fallback: ITEM_ID do .env."""
