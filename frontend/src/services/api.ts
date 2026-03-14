@@ -224,10 +224,10 @@ export const dashboardService = {
     }),
 
   getNetWorth: () =>
-    api.get<NetWorth>('/dashboard/net-worth'),
+    api.get<NetWorth>('/overview/net-worth'),
 
   getPartialResult: () =>
-    api.get<PartialResult>('/dashboard/partial-result'),
+    api.get<PartialResult>('/overview/partial-result'),
 };
 
 export type ImportType = 'recent' | 'non_recent';

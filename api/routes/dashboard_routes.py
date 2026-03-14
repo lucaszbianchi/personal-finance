@@ -3,12 +3,10 @@ from datetime import date
 from dateutil.relativedelta import relativedelta
 from services.finance_summary_service import FinanceSummaryService
 from services.spending_pace_service import SpendingPaceService
-from services.net_worth_service import NetWorthService
 
 bp = Blueprint("dashboard", __name__)
 finance_summary_service = FinanceSummaryService()
 spending_pace_service = SpendingPaceService()
-net_worth_service = NetWorthService()
 
 
 @bp.route("/data", methods=["GET"])
@@ -59,18 +57,6 @@ def get_dashboard_data():
         "category_breakdown": category_breakdown,
         "history": history,
     })
-
-
-@bp.route("/net-worth", methods=["GET"])
-def get_net_worth():
-    """Retorna patrimonio liquido atual e historico de 12 meses."""
-    return jsonify(net_worth_service.get_net_worth())
-
-
-@bp.route("/partial-result", methods=["GET"])
-def get_partial_result():
-    """Retorna resultado parcial do mes corrente e progresso vs meta de saldo."""
-    return jsonify(net_worth_service.get_partial_result())
 
 
 @bp.route("/spending-pace", methods=["GET"])
