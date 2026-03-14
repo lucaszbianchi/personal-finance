@@ -176,6 +176,26 @@ export interface MonthlySummary {
   };
 }
 
+export interface NetWorthHistoryEntry {
+  month: string;
+  net_worth: number;
+}
+
+export interface NetWorth {
+  checking_balance: number;
+  investments_total: number;
+  net_worth: number;
+  history: NetWorthHistoryEntry[];
+}
+
+export interface PartialResult {
+  income_so_far: number;
+  expenses_so_far: number;
+  partial_balance: number;
+  monthly_balance_goal: number | null;
+  goal_pct: number | null;
+}
+
 export interface SpendingPaceDayEntry {
   day: number;
   cumulative_amount: number;

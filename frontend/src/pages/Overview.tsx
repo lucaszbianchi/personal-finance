@@ -1,6 +1,9 @@
 import React, { useState } from 'react';
 import { useSpendingPace } from '@/hooks/useSpendingPace';
+import { useNetWorth, usePartialResult } from '@/hooks/useNetWorth';
 import { SpendingPaceChart } from '@/components/SpendingPaceChart';
+import { NetWorthCard } from '@/components/NetWorthCard';
+import { PartialResultCard } from '@/components/PartialResultCard';
 import { MonthNavigator } from '@/components/MonthNavigator';
 
 const MONTH_NAMES = [
@@ -29,6 +32,8 @@ export const Overview: React.FC = () => {
   const today = currentYearMonth();
 
   const { data: pace, isLoading } = useSpendingPace(paceMonth);
+  const { data: netWorthData, isLoading: isNetWorthLoading } = useNetWorth();
+  const { data: partialResultData, isLoading: isPartialLoading } = usePartialResult();
 
   const paceDelta: number | null = (() => {
     const series = pace?.daily_series;
@@ -47,6 +52,24 @@ export const Overview: React.FC = () => {
       <div>
         <h2 className="text-2xl font-bold text-gray-900">Visão Geral</h2>
         <p className="text-gray-600">Acompanhamento consolidado das suas finanças</p>
+      </div>
+
+      {/* Patrimônio e Resultado Parcial */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        {isNetWorthLoading ? (
+          <div className="bg-white rounded-lg shadow p-6 flex items-center justify-center h-40">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600" />
+          </div>
+        ) : netWorthData ? (
+          <NetWorthCard data={netWorthData} />
+        ) : null}
+        {isPartialLoading ? (
+          <div className="bg-white rounded-lg shadow p-6 flex items-center justify-center h-40">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600" />
+          </div>
+        ) : partialResultData ? (
+          <PartialResultCard data={partialResultData} />
+        ) : null}
       </div>
 
       {/* Spending Pace */}

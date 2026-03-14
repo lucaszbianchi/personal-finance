@@ -13,6 +13,8 @@ import type {
   DashboardData,
   MonthlySummary,
   SpendingPace,
+  NetWorth,
+  PartialResult,
 } from '@/types';
 
 const api = axios.create({
@@ -220,6 +222,12 @@ export const dashboardService = {
     api.get<SpendingPace>('/dashboard/spending-pace', {
       params: month ? { month } : {},
     }),
+
+  getNetWorth: () =>
+    api.get<NetWorth>('/dashboard/net-worth'),
+
+  getPartialResult: () =>
+    api.get<PartialResult>('/dashboard/partial-result'),
 };
 
 export type ImportType = 'recent' | 'non_recent';
