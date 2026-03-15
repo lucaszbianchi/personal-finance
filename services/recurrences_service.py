@@ -4,6 +4,7 @@ from datetime import datetime, date as _date
 from repositories.bill_repository import BillRepository
 from repositories.recurrent_expenses_repository import RecurrentExpensesRepository
 from repositories.transaction_repository import TransactionRepository
+from utils.date_helper import DateHelper as _DateHelper
 from utils.installment_helper import INSTALLMENT_RE as _INSTALLMENT_RE
 
 
@@ -52,17 +53,22 @@ class RecurrencesService:
         self.repo.update(id, {"is_unavoidable": new_value})
         return self.repo.get_by_id(id)
 
-    def count_matching(self, merchant_name: str, amount_min=None, amount_max=None) -> dict:
-        """Return count of bank_transactions matching the given rules."""
-        return {"count": self.repo.count_matching_transactions(merchant_name, amount_min, amount_max)}
+    def count_matching(
+        self, merchant_name: str, amount_min=None, amount_max=None,
+        next_occurrence=None, frequency=None,
+    ) -> dict:
+        """Return count of transactions matching the given rules."""
+        day = _DateHelper.day_of_month(next_occurrence) if frequency == "monthly" else None
+        return {"count": self.repo.count_matching_transactions(merchant_name, amount_min, amount_max, day)}
 
     def get_detail(self, id: str) -> dict:
         """Return full detail for a recurrence: rules, linked transactions, timeline, metrics."""
         record = self.repo.get_by_id(id)
         merchant = record.get("merchant_name") or ""
+        day = _DateHelper.day_of_month(record.get("next_occurrence")) if record.get("frequency") == "monthly" else None
         txns = (
             self.repo.get_matching_transactions(
-                merchant, record.get("amount_min"), record.get("amount_max")
+                merchant, record.get("amount_min"), record.get("amount_max"), day
             )
             if merchant
             else []
@@ -76,31 +82,11 @@ class RecurrencesService:
 
     @staticmethod
     def _build_match_timeline(txns: list[dict]) -> list[dict]:
-        """12 monthly entries (oldest to newest), matched=True if any txn falls in that month."""
-        matched_months = {t["date"][:7] for t in txns}
-        today = _date.today()
-        result = []
-        for delta in range(11, -1, -1):
-            m = today.month - delta
-            y = today.year
-            while m <= 0:
-                m += 12
-                y -= 1
-            month_str = f"{y}-{m:02d}"
-            result.append({"month": month_str, "matched": month_str in matched_months})
-        return result
+        return _DateHelper.build_match_timeline(txns)
 
     @staticmethod
     def _compute_metrics(txns: list[dict], record: dict) -> dict:
-        amounts = [t["amount"] for t in txns]
-        year = _date.today().year
-        year_amounts = [t["amount"] for t in txns if t["date"].startswith(str(year))]
-        return {
-            "last_amount": round(amounts[0], 2) if amounts else None,
-            "avg_amount": round(sum(amounts) / len(amounts), 2) if amounts else None,
-            "total_this_year": round(sum(year_amounts), 2),
-            "last_payment_date": txns[0]["date"] if txns else None,
-        }
+        return _DateHelper.compute_transaction_metrics(txns, "last_payment_date")
 
     def get_monthly_view(self, month: str) -> dict:
         """Return installments, fixed expenses, and 12-month history for a given month."""

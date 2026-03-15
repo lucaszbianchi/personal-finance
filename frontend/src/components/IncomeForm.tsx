@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { useCreateRecurrence, useUpdateRecurrence, useMatchCount } from '@/hooks/useRecurrences';
+import { useCreateIncomeSource, useUpdateIncomeSource, useIncomeMatchCount } from '@/hooks/useIncome';
 import { useCategories } from '@/hooks/useCategories';
 import { FREQUENCY_LABELS } from '@/constants/recurrences';
-import type { Recurrence } from '@/types';
+import type { IncomeSource } from '@/types';
 
 interface Props {
-  initial?: Recurrence;
+  initial?: IncomeSource;
   onClose: () => void;
 }
 
@@ -15,10 +15,11 @@ const FREQUENCY_OPTIONS = [
   { value: 'weekly', label: 'Semanal' },
 ];
 
-export const RecurrenceForm: React.FC<Props> = ({ initial, onClose }) => {
+
+export const IncomeForm: React.FC<Props> = ({ initial, onClose }) => {
   const { data: categories } = useCategories();
-  const create = useCreateRecurrence();
-  const update = useUpdateRecurrence();
+  const create = useCreateIncomeSource();
+  const update = useUpdateIncomeSource();
 
   const [form, setForm] = useState({
     description: initial?.description ?? '',
@@ -51,7 +52,7 @@ export const RecurrenceForm: React.FC<Props> = ({ initial, onClose }) => {
     next_occurrence: form.next_occurrence || undefined,
     frequency: form.frequency || undefined,
   };
-  const { data: matchCountData } = useMatchCount(matchCountParams, Boolean(debouncedMerchant));
+  const { data: matchCountData } = useIncomeMatchCount(matchCountParams, Boolean(debouncedMerchant));
 
   const isEditing = Boolean(initial);
   const isPending = create.isPending || update.isPending;
@@ -91,11 +92,9 @@ export const RecurrenceForm: React.FC<Props> = ({ initial, onClose }) => {
         <div className="flex items-start justify-between p-6 pb-2">
           <div>
             <h2 className="text-lg font-semibold text-gray-900">
-              {isEditing ? 'Editar Recorrencia' : 'Nova Recorrencia'}
+              {isEditing ? 'Editar Receita Recorrente' : 'Nova Receita Recorrente'}
             </h2>
-            <p className="text-sm text-gray-500 mt-0.5">
-              Adicione uma despesa ou receita recorrente
-            </p>
+            <p className="text-sm text-gray-500 mt-0.5">Adicione uma receita recorrente</p>
           </div>
           <button
             type="button"
@@ -109,8 +108,15 @@ export const RecurrenceForm: React.FC<Props> = ({ initial, onClose }) => {
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 pt-4 space-y-4">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-medium text-gray-600">Tipo de Transação:</span>
+            <span className="text-xs font-semibold bg-green-100 text-green-700 px-2 py-0.5 rounded-full">
+              Receitas
+            </span>
+          </div>
+
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Descricao</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Descrição</label>
             <input
               name="description"
               value={form.description}
@@ -121,9 +127,7 @@ export const RecurrenceForm: React.FC<Props> = ({ initial, onClose }) => {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Valor Esperado
-            </label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Valor Esperado</label>
             <div className="relative">
               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-500">R$</span>
               <input
@@ -140,7 +144,7 @@ export const RecurrenceForm: React.FC<Props> = ({ initial, onClose }) => {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Frequencia</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Frequência</label>
             <select
               name="frequency"
               value={form.frequency}
@@ -154,9 +158,7 @@ export const RecurrenceForm: React.FC<Props> = ({ initial, onClose }) => {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Proxima data esperada
-            </label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Próxima data esperada</label>
             <input
               name="next_occurrence"
               type="date"
@@ -164,7 +166,7 @@ export const RecurrenceForm: React.FC<Props> = ({ initial, onClose }) => {
               onChange={handleChange}
               className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
-            <p className="text-xs text-gray-400 mt-1">Quando e o proximo pagamento?</p>
+            <p className="text-xs text-gray-400 mt-1">Quando é o próximo recebimento?</p>
           </div>
 
           {/* Matching rules */}
@@ -172,19 +174,17 @@ export const RecurrenceForm: React.FC<Props> = ({ initial, onClose }) => {
             <div>
               <p className="text-sm font-medium text-gray-700">Regras de correspondencia</p>
               <p className="text-xs text-gray-400 mt-0.5">
-                Como o sistema identifica esta conta nas suas transacoes
+                Como o sistema identifica esta receita nas suas transações
               </p>
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">
-                Transacoes com nome
-              </label>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Transações com nome</label>
               <input
                 name="merchant_name"
                 value={form.merchant_name}
                 onChange={handleChange}
-                placeholder="ex: netflix, aluguel"
+                placeholder="ex: salario, freelance"
                 className="w-full border border-gray-300 rounded px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
@@ -239,8 +239,8 @@ export const RecurrenceForm: React.FC<Props> = ({ initial, onClose }) => {
           </div>
 
           <div className="flex items-center justify-between py-1">
-            <span className="text-sm text-gray-700">Transacoes encontradas</span>
-            <span className="text-sm font-semibold bg-blue-100 text-blue-700 px-2 py-0.5 rounded">
+            <span className="text-sm text-gray-700">Transações encontradas</span>
+            <span className="text-sm font-semibold bg-green-100 text-green-700 px-2 py-0.5 rounded">
               {debouncedMerchant ? (matchCountData?.count ?? '-') : 0}
             </span>
           </div>
@@ -251,7 +251,7 @@ export const RecurrenceForm: React.FC<Props> = ({ initial, onClose }) => {
               disabled={isPending}
               className="w-full px-4 py-2 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors disabled:opacity-50"
             >
-              {isPending ? 'Salvando...' : isEditing ? 'Salvar' : 'Criar Recorrente'}
+              {isPending ? 'Salvando...' : isEditing ? 'Salvar' : 'Nova Receita Recorrente'}
             </button>
             <button
               type="button"

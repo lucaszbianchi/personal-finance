@@ -15,6 +15,7 @@ from api.routes.pluggy_routes import bp as pluggy_bp
 from api.routes.database_routes import bp as database_bp
 from api.routes.investments_routes import bp as investments_bp
 from api.routes.recurrences_routes import bp as recurrences_bp
+from api.routes.income_routes import bp as income_bp
 
 app = Flask(__name__)
 
@@ -33,6 +34,7 @@ app.register_blueprint(pluggy_bp, url_prefix="/api/pluggy")
 app.register_blueprint(database_bp, url_prefix="/api/database")
 app.register_blueprint(investments_bp, url_prefix="/api/investments")
 app.register_blueprint(recurrences_bp, url_prefix="/api/recurrences")
+app.register_blueprint(income_bp, url_prefix="/api/income")
 
 
 @app.route("/")

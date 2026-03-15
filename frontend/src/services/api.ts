@@ -283,10 +283,22 @@ export const recurrencesService = {
   getMonthly: (month: string) => api.get('/recurrences/monthly', { params: { month } }),
   getInstallments: (month: string) => api.get('/recurrences/installments', { params: { month } }),
   getYearly: (year: number) => api.get('/recurrences/yearly', { params: { year } }),
-  countMatching: (p: { merchant_name?: string; amount_min?: number; amount_max?: number }) =>
+  countMatching: (p: { merchant_name?: string; amount_min?: number; amount_max?: number; next_occurrence?: string; frequency?: string }) =>
     api.get<{ count: number }>('/recurrences/match-count', { params: p }),
   getDetail: (id: string) =>
     api.get(`/recurrences/${id}/detail`),
+};
+
+export const incomeService = {
+  getAll: () => api.get('/income/sources'),
+  create: (data: Record<string, unknown>) => api.post('/income/sources', data),
+  update: (id: string, data: Record<string, unknown>) => api.put(`/income/sources/${id}`, data),
+  remove: (id: string) => api.delete(`/income/sources/${id}`),
+  getDetail: (id: string) => api.get(`/income/sources/${id}/detail`),
+  countMatching: (p: { merchant_name?: string; amount_min?: number; amount_max?: number; next_occurrence?: string; frequency?: string }) =>
+    api.get<{ count: number }>('/income/match-count', { params: p }),
+  getMonthly: (month: string) => api.get('/income/monthly', { params: { month } }),
+  getYearly: (year: number) => api.get('/income/yearly', { params: { year } }),
 };
 
 export default api;

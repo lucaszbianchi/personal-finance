@@ -10,6 +10,7 @@ import {
   Settings,
   RefreshCw,
   Repeat,
+  DollarSign,
 } from 'lucide-react';
 import clsx from 'clsx';
 
@@ -26,6 +27,7 @@ const navigation = [
   { name: 'Investimentos', href: '/investments', icon: TrendingUp },
   { name: 'Resumo', href: '/summary', icon: PieChart },
   { name: 'Recorrencias', href: '/recurrences', icon: Repeat },
+  { name: 'Receitas', href: '/income', icon: DollarSign },
 ];
 
 const actions = [

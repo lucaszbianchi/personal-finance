@@ -1,13 +1,14 @@
 import React, { useState } from 'react';
-import { useRecurrenceDetail, useDeleteRecurrence } from '@/hooks/useRecurrences';
+import { useIncomeDetail, useDeleteIncomeSource } from '@/hooks/useIncome';
 import { FREQUENCY_LABELS, MONTH_SHORT } from '@/constants/recurrences';
-import type { Recurrence } from '@/types';
+import type { IncomeSource } from '@/types';
 
 interface Props {
   id: string;
   onClose: () => void;
-  onEdit: (r: Recurrence) => void;
+  onEdit: (s: IncomeSource) => void;
 }
+
 
 function formatHeaderDate(dateStr: string | null): string {
   if (!dateStr) return '-';
@@ -25,22 +26,19 @@ function formatCurrency(value: number | null): string {
   return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }
 
-export const RecurrenceDetail: React.FC<Props> = ({ id, onClose, onEdit }) => {
-  const { data, isLoading } = useRecurrenceDetail(id);
-  const deleteRecurrence = useDeleteRecurrence();
+export const IncomeDetail: React.FC<Props> = ({ id, onClose, onEdit }) => {
+  const { data, isLoading } = useIncomeDetail(id);
+  const deleteSource = useDeleteIncomeSource();
   const [confirmDelete, setConfirmDelete] = useState(false);
 
   const handleDelete = async () => {
-    await deleteRecurrence.mutateAsync(id);
+    await deleteSource.mutateAsync(id);
     onClose();
   };
 
   return (
     <>
-      <div
-        className="fixed inset-0 z-40 bg-black bg-opacity-30"
-        onClick={onClose}
-      />
+      <div className="fixed inset-0 z-40 bg-black bg-opacity-30" onClick={onClose} />
       <div className="fixed right-0 top-0 z-50 h-full w-96 bg-white shadow-xl overflow-y-auto flex flex-col">
         {isLoading || !data ? (
           <div className="flex-1 flex items-center justify-center text-gray-400 text-sm">
@@ -53,15 +51,15 @@ export const RecurrenceDetail: React.FC<Props> = ({ id, onClose, onEdit }) => {
               <div className="flex items-start justify-between">
                 <div className="flex-1 min-w-0">
                   <p className="font-semibold text-gray-900 truncate">
-                    {data.recurrence.description}
+                    {data.source.description}
                   </p>
                   <p className="text-xs text-gray-400 mt-0.5">
-                    {formatHeaderDate(data.metrics.last_payment_date)}
+                    {formatHeaderDate(data.metrics.last_received_date)}
                   </p>
                 </div>
                 <div className="flex items-center gap-2 ml-3 shrink-0">
                   <button
-                    onClick={() => onEdit(data.recurrence)}
+                    onClick={() => onEdit(data.source)}
                     title="Editar"
                     className="text-gray-400 hover:text-blue-600 transition-colors"
                   >
@@ -94,7 +92,7 @@ export const RecurrenceDetail: React.FC<Props> = ({ id, onClose, onEdit }) => {
 
               {confirmDelete && (
                 <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg flex items-center justify-between gap-3">
-                  <p className="text-sm text-red-700">Apagar esta recorrencia?</p>
+                  <p className="text-sm text-red-700">Apagar esta receita recorrente?</p>
                   <div className="flex gap-2 shrink-0">
                     <button
                       onClick={() => setConfirmDelete(false)}
@@ -104,7 +102,7 @@ export const RecurrenceDetail: React.FC<Props> = ({ id, onClose, onEdit }) => {
                     </button>
                     <button
                       onClick={handleDelete}
-                      disabled={deleteRecurrence.isPending}
+                      disabled={deleteSource.isPending}
                       className="text-xs bg-red-600 text-white px-2 py-1 rounded hover:bg-red-700 transition-colors disabled:opacity-50"
                     >
                       Apagar
@@ -118,26 +116,26 @@ export const RecurrenceDetail: React.FC<Props> = ({ id, onClose, onEdit }) => {
             <div className="p-5 border-b border-gray-100">
               <div className="border border-gray-200 rounded-lg p-4 bg-gray-50 space-y-2 text-sm">
                 <p className="font-medium text-gray-700 mb-1">Regras</p>
-                {data.recurrence.merchant_name && (
+                {data.source.merchant_name && (
                   <div className="flex justify-between">
                     <span className="text-gray-500">Nome contém</span>
-                    <span className="text-gray-800 font-medium">{data.recurrence.merchant_name}</span>
+                    <span className="text-gray-800 font-medium">{data.source.merchant_name}</span>
                   </div>
                 )}
-                {(data.recurrence.amount_min != null || data.recurrence.amount_max != null) && (
+                {(data.source.amount_min != null || data.source.amount_max != null) && (
                   <div className="flex justify-between">
                     <span className="text-gray-500">Valor</span>
                     <span className="text-gray-800 font-medium">
-                      {data.recurrence.amount_min != null ? formatCurrency(data.recurrence.amount_min) : 'qualquer'}
+                      {data.source.amount_min != null ? formatCurrency(data.source.amount_min) : 'qualquer'}
                       {' - '}
-                      {data.recurrence.amount_max != null ? formatCurrency(data.recurrence.amount_max) : 'qualquer'}
+                      {data.source.amount_max != null ? formatCurrency(data.source.amount_max) : 'qualquer'}
                     </span>
                   </div>
                 )}
                 <div className="flex justify-between">
                   <span className="text-gray-500">Frequencia</span>
                   <span className="text-gray-800 font-medium">
-                    {FREQUENCY_LABELS[data.recurrence.frequency ?? ''] ?? data.recurrence.frequency ?? '-'}
+                    {FREQUENCY_LABELS[data.source.frequency ?? ''] ?? data.source.frequency ?? '-'}
                   </span>
                 </div>
               </div>
@@ -176,14 +174,12 @@ export const RecurrenceDetail: React.FC<Props> = ({ id, onClose, onEdit }) => {
                 </div>
                 <div className="border border-gray-100 rounded-lg p-3">
                   <p className="text-xs text-gray-400">Total no ano</p>
-                  <p className="font-semibold text-gray-800 mt-0.5">{formatCurrency(data.metrics.total_this_year)}</p>
+                  <p className="font-semibold text-green-600 mt-0.5">{formatCurrency(data.metrics.total_this_year)}</p>
                 </div>
                 <div className="border border-gray-100 rounded-lg p-3">
                   <p className="text-xs text-gray-400">Proximo esperado</p>
                   <p className="font-semibold text-gray-800 mt-0.5">
-                    {data.recurrence.next_occurrence
-                      ? formatShortDate(data.recurrence.next_occurrence)
-                      : '-'}
+                    {data.source.next_occurrence ? formatShortDate(data.source.next_occurrence) : '-'}
                   </p>
                 </div>
               </div>
@@ -207,7 +203,7 @@ export const RecurrenceDetail: React.FC<Props> = ({ id, onClose, onEdit }) => {
                         <span className="text-xs text-gray-400 block">{formatShortDate(txn.date)}</span>
                         <span className="text-gray-700 truncate block">{txn.description}</span>
                       </div>
-                      <span className="text-gray-800 font-medium ml-3 shrink-0">
+                      <span className="text-green-600 font-medium ml-3 shrink-0">
                         {formatCurrency(txn.amount)}
                       </span>
                     </div>
