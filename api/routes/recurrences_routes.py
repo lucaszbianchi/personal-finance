@@ -33,8 +33,12 @@ def match_count():
         return jsonify({"count": 0})
     amount_min = request.args.get("amount_min", type=float)
     amount_max = request.args.get("amount_max", type=float)
+    next_occurrence = request.args.get("next_occurrence") or None
+    frequency = request.args.get("frequency") or None
     try:
-        return jsonify(recurrences_service.count_matching(merchant_name, amount_min, amount_max))
+        return jsonify(recurrences_service.count_matching(
+            merchant_name, amount_min, amount_max, next_occurrence, frequency
+        ))
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 

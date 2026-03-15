@@ -260,3 +260,40 @@ export interface YearlyEntry {
   fixed: number;
   projected: boolean;
 }
+
+export interface IncomeSource {
+  id: string;
+  description: string | null;
+  amount: number | null;
+  frequency: string | null;
+  next_occurrence: string | null;
+  category_id: string | null;
+  merchant_name: string | null;
+  amount_min: number | null;
+  amount_max: number | null;
+  confidence: number | null;
+  source: string;
+  synced_at: string | null;
+}
+
+export interface IncomeMonthly {
+  sources: { total: number; items: IncomeSource[] };
+  history: { month: string; total: number }[];
+}
+
+export interface IncomeYearlyEntry {
+  month: string;
+  total: number;
+}
+
+export interface IncomeDetail {
+  source: IncomeSource;
+  linked_transactions: Array<{ id: string; date: string; description: string; amount: number }>;
+  timeline: Array<{ month: string; matched: boolean }>;
+  metrics: {
+    last_amount: number | null;
+    avg_amount: number | null;
+    total_this_year: number;
+    last_received_date: string | null;
+  };
+}

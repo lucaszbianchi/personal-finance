@@ -14,13 +14,13 @@ import { FixedExpensesCard } from '@/components/FixedExpensesCard';
 import { RecurrenceForm } from '@/components/RecurrenceForm';
 import { RecurrenceDetail } from '@/components/RecurrenceDetail';
 import { useRecurrenceYearly } from '@/hooks/useRecurrences';
+import { MONTH_SHORT } from '@/constants/recurrences';
 import type { Recurrence } from '@/types';
 
 function currentYear(): number {
   return new Date().getFullYear();
 }
 
-const MONTH_SHORT = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
 
 const formatCurrency = (value: number) =>
   value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -80,7 +80,7 @@ export const Recurrences: React.FC = () => {
       {/* Yearly chart */}
       <div className="bg-white rounded-lg shadow p-4">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-sm font-semibold text-gray-700">Este ano / {year}</h2>
+          <h2 className="text-sm font-semibold text-gray-700">{year}</h2>
           <div className="flex items-center gap-4 text-xs text-gray-500">
             <span className="flex items-center gap-1.5">
               <span className="w-2.5 h-2.5 rounded-full bg-amber-400 inline-block" />

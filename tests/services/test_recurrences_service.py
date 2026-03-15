@@ -173,7 +173,7 @@ class TestRecurrencesService(unittest.TestCase):
         svc = _make_service()
         svc.repo.count_matching_transactions.return_value = 5
         result = svc.count_matching("netflix", amount_min=10.0)
-        svc.repo.count_matching_transactions.assert_called_once_with("netflix", 10.0, None)
+        svc.repo.count_matching_transactions.assert_called_once_with("netflix", 10.0, None, None)
         self.assertEqual(result, {"count": 5})
 
     # ── get_detail ──

@@ -80,7 +80,7 @@ export const useToggleUnavoidable = () => {
 };
 
 export const useMatchCount = (
-  params: { merchant_name?: string; amount_min?: number; amount_max?: number },
+  params: { merchant_name?: string; amount_min?: number; amount_max?: number; next_occurrence?: string; frequency?: string },
   enabled: boolean
 ) =>
   useQuery({

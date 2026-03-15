@@ -9,6 +9,7 @@ import { Summary } from '@/pages/Summary';
 import { SyncPage } from '@/pages/SyncPage';
 import { Settings } from '@/pages/Settings';
 import { Recurrences } from '@/pages/Recurrences';
+import { Income } from '@/pages/Income';
 
 const NotFoundPage = () => (
   <div className="text-center py-12">
@@ -30,6 +31,7 @@ function App() {
         <Route path="sync" element={<SyncPage />} />
         <Route path="settings" element={<Settings />} />
         <Route path="recurrences" element={<Recurrences />} />
+        <Route path="income" element={<Income />} />
         <Route path="404" element={<NotFoundPage />} />
         <Route path="*" element={<Navigate to="/404" replace />} />
       </Route>
