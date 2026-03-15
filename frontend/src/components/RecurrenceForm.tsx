@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useCreateRecurrence, useUpdateRecurrence, useMatchCount } from '@/hooks/useRecurrences';
 import { useCategories } from '@/hooks/useCategories';
+import { useCategoryLabel } from '@/hooks/useCategoryLabel';
 import { FREQUENCY_LABELS } from '@/constants/recurrences';
 import type { Recurrence } from '@/types';
 
@@ -17,6 +18,7 @@ const FREQUENCY_OPTIONS = [
 
 export const RecurrenceForm: React.FC<Props> = ({ initial, onClose }) => {
   const { data: categories } = useCategories();
+  const { getCategoryLabel } = useCategoryLabel();
   const create = useCreateRecurrence();
   const update = useUpdateRecurrence();
 
@@ -232,7 +234,7 @@ export const RecurrenceForm: React.FC<Props> = ({ initial, onClose }) => {
               <option value="">Sem categoria</option>
               {(categories ?? []).map((cat) => (
                 <option key={cat.id} value={cat.id}>
-                  {cat.description_translated ?? cat.description}
+                  {getCategoryLabel(cat)}
                 </option>
               ))}
             </select>

@@ -90,6 +90,40 @@ class FinanceSummaryService:
 
         return sorted(categories_result, key=lambda x: x["total"], reverse=True)
 
+    def _resolve_root_category(self, category_id: str):
+        """Walks up the parent chain to find the root (parentless) category."""
+        cat = self.category_repository.get_category_by_id(category_id)
+        if cat is None:
+            return None
+        visited = set()
+        while cat.parent_id and cat.parent_id != cat.id:
+            if cat.id in visited:
+                break  # guard against cycles
+            visited.add(cat.id)
+            parent = self.category_repository.get_category_by_id(cat.parent_id)
+            if parent is None:
+                break
+            cat = parent
+        return cat
+
+    def get_category_expenses_by_parent(self, start_date: str, end_date: str) -> List[dict]:
+        """Calcula despesas agregadas por categoria pai (root), somando os filhos."""
+        raw = self.get_category_expenses(start_date, end_date)
+        parent_totals: dict = {}
+        for item in raw:
+            root = self._resolve_root_category(item["id"])
+            if root is None:
+                continue
+            if root.id not in parent_totals:
+                parent_totals[root.id] = {"id": root.id, "description": root.description, "total": 0.0}
+            parent_totals[root.id]["total"] += item["total"]
+
+        result = [
+            {"id": v["id"], "description": v["description"], "total": round(v["total"], 2)}
+            for v in parent_totals.values()
+        ]
+        return sorted(result, key=lambda x: x["total"], reverse=True)
+
     def get_history_data(self, month: str, cutoff: str) -> tuple:
         """Retorna (current_entry, all_history) do finance_history para o mês e cutoff dados."""
         repo = FinanceHistoryRepository()

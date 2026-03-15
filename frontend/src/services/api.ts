@@ -301,4 +301,9 @@ export const incomeService = {
   getYearly: (year: number) => api.get('/income/yearly', { params: { year } }),
 };
 
+export const cashFlowService = {
+  getCashFlow: (window: 3 | 6, endMonth?: string) =>
+    api.get('/cash-flow', { params: { window, ...(endMonth ? { end_month: endMonth } : {}) } }),
+};
+
 export default api;

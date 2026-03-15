@@ -210,6 +210,103 @@ class TestFinanceSummaryService(unittest.TestCase):
 
             mock_repo_inst.close.assert_called_once()
 
+    # ── _resolve_root_category ────────────────────────────────────────────────
+
+    def _make_cat(self, id_, parent_id=None):
+        cat = MagicMock()
+        cat.id = id_
+        cat.description = f"Cat-{id_}"
+        cat.parent_id = parent_id
+        return cat
+
+    def test_resolve_root_returns_self_when_no_parent(self):
+        root = self._make_cat("01000000", parent_id=None)
+        self.mock_category_repo.get_category_by_id.return_value = root
+        result = self.service._resolve_root_category("01000000")
+        self.assertEqual(result.id, "01000000")
+
+    def test_resolve_root_walks_up_one_level(self):
+        child = self._make_cat("01010000", parent_id="01000000")
+        root = self._make_cat("01000000", parent_id=None)
+        self.mock_category_repo.get_category_by_id.side_effect = (
+            lambda cid: child if cid == "01010000" else root
+        )
+        result = self.service._resolve_root_category("01010000")
+        self.assertEqual(result.id, "01000000")
+
+    def test_resolve_root_walks_up_two_levels(self):
+        leaf = self._make_cat("01010001", parent_id="01010000")
+        mid = self._make_cat("01010000", parent_id="01000000")
+        root = self._make_cat("01000000", parent_id=None)
+        mapping = {"01010001": leaf, "01010000": mid, "01000000": root}
+        self.mock_category_repo.get_category_by_id.side_effect = mapping.get
+        result = self.service._resolve_root_category("01010001")
+        self.assertEqual(result.id, "01000000")
+
+    def test_resolve_root_returns_none_when_category_missing(self):
+        self.mock_category_repo.get_category_by_id.return_value = None
+        result = self.service._resolve_root_category("99999999")
+        self.assertIsNone(result)
+
+    def test_resolve_root_handles_self_parent(self):
+        root = self._make_cat("01000000", parent_id="01000000")
+        self.mock_category_repo.get_category_by_id.return_value = root
+        result = self.service._resolve_root_category("01000000")
+        self.assertEqual(result.id, "01000000")
+
+    # ── get_category_expenses_by_parent ───────────────────────────────────────
+
+    def test_get_category_expenses_by_parent_aggregates_children(self):
+        """Gastos de categorias filhas são somados na categoria pai."""
+        root = self._make_cat("01000000", parent_id=None)
+        child1 = self._make_cat("01010000", parent_id="01000000")
+        child2 = self._make_cat("01020000", parent_id="01000000")
+        mapping = {"01000000": root, "01010000": child1, "01020000": child2}
+        self.mock_category_repo.get_category_by_id.side_effect = mapping.get
+
+        self.service.get_category_expenses = MagicMock(return_value=[
+            {"id": "01010000", "description": "Cat-01010000", "total": 300.0},
+            {"id": "01020000", "description": "Cat-01020000", "total": 200.0},
+        ])
+
+        result = self.service.get_category_expenses_by_parent("2026-01-01", "2026-02-01")
+        self.assertEqual(len(result), 1)
+        self.assertEqual(result[0]["id"], "01000000")
+        self.assertEqual(result[0]["total"], 500.0)
+
+    def test_get_category_expenses_by_parent_keeps_root_if_already_root(self):
+        """Categorias raiz já são retornadas como estão."""
+        root = self._make_cat("01000000", parent_id=None)
+        self.mock_category_repo.get_category_by_id.return_value = root
+        self.service.get_category_expenses = MagicMock(return_value=[
+            {"id": "01000000", "description": "Cat-01000000", "total": 400.0},
+        ])
+        result = self.service.get_category_expenses_by_parent("2026-01-01", "2026-02-01")
+        self.assertEqual(len(result), 1)
+        self.assertEqual(result[0]["total"], 400.0)
+
+    def test_get_category_expenses_by_parent_skips_missing_categories(self):
+        """Categorias não encontradas no banco são ignoradas."""
+        self.mock_category_repo.get_category_by_id.return_value = None
+        self.service.get_category_expenses = MagicMock(return_value=[
+            {"id": "ghost", "description": "Ghost", "total": 100.0},
+        ])
+        result = self.service.get_category_expenses_by_parent("2026-01-01", "2026-02-01")
+        self.assertEqual(result, [])
+
+    def test_get_category_expenses_by_parent_sorted_descending(self):
+        root_a = self._make_cat("01000000", parent_id=None)
+        root_b = self._make_cat("02000000", parent_id=None)
+        mapping = {"01000000": root_a, "02000000": root_b}
+        self.mock_category_repo.get_category_by_id.side_effect = mapping.get
+        self.service.get_category_expenses = MagicMock(return_value=[
+            {"id": "01000000", "description": "Pequena", "total": 100.0},
+            {"id": "02000000", "description": "Grande", "total": 500.0},
+        ])
+        result = self.service.get_category_expenses_by_parent("2026-01-01", "2026-02-01")
+        self.assertEqual(result[0]["id"], "02000000")
+        self.assertEqual(result[1]["id"], "01000000")
+
     # ── get_full_summary ──────────────────────────────────────────────────────
 
     def test_get_full_summary(self):
