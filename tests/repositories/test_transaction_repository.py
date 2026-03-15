@@ -512,6 +512,43 @@ class TestTransactionRepository(unittest.TestCase):
             call_args = mock_upsert.call_args[0][2]  # mapped_data
             self.assertEqual(call_args["amount"], 80.0)
 
+    @patch.object(TransactionRepository, "_process_category_creation")
+    def test_upsert_credit_transaction_parses_installment_from_description(self, mock_category):
+        """When creditCardMetadata is absent, installment info is parsed from description."""
+        transaction_data = {
+            "id": "inst-credit-123",
+            "date": "2026-03-05",
+            "description": "Andreia Antoniazzi Joi 2/10",
+            "amount": 150.0,
+            "categoryId": "cat123",
+            "status": "POSTED",
+        }
+        with patch.object(self.repo, "upsert") as mock_upsert:
+            mock_upsert.return_value = {"action": "inserted"}
+            self.repo.upsert_credit_transaction(transaction_data)
+            call_args = mock_upsert.call_args[0][2]
+            self.assertEqual(call_args["installment_number"], 2)
+            self.assertEqual(call_args["total_installments"], 10)
+
+    @patch.object(TransactionRepository, "_process_category_creation")
+    def test_upsert_credit_transaction_api_metadata_takes_precedence(self, mock_category):
+        """When creditCardMetadata is present, it takes precedence over description parsing."""
+        transaction_data = {
+            "id": "inst-credit-456",
+            "date": "2026-03-05",
+            "description": "Compra 2/10",
+            "amount": 100.0,
+            "categoryId": "cat123",
+            "status": "POSTED",
+            "creditCardMetadata": {"installmentNumber": 3, "installmentTotalCount": 12},
+        }
+        with patch.object(self.repo, "upsert") as mock_upsert:
+            mock_upsert.return_value = {"action": "inserted"}
+            self.repo.upsert_credit_transaction(transaction_data)
+            call_args = mock_upsert.call_args[0][2]
+            self.assertEqual(call_args["installment_number"], 3)
+            self.assertEqual(call_args["total_installments"], 12)
+
     # Testes para linhas 424-442: _process_pix_person_extraction
     def test_process_pix_person_extraction(self):
         """Testa _process_pix_person_extraction - linhas 424-442"""

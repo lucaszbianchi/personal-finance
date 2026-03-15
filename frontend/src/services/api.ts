@@ -274,4 +274,19 @@ export const databaseService = {
   reset: () => api.post('/database/reset'),
 };
 
+export const recurrencesService = {
+  getAll: () => api.get('/recurrences'),
+  create: (data: Record<string, unknown>) => api.post('/recurrences', data),
+  update: (id: string, data: Record<string, unknown>) => api.put(`/recurrences/${id}`, data),
+  remove: (id: string) => api.delete(`/recurrences/${id}`),
+  toggleUnavoidable: (id: string) => api.patch(`/recurrences/${id}/toggle-unavoidable`),
+  getMonthly: (month: string) => api.get('/recurrences/monthly', { params: { month } }),
+  getInstallments: (month: string) => api.get('/recurrences/installments', { params: { month } }),
+  getYearly: (year: number) => api.get('/recurrences/yearly', { params: { year } }),
+  countMatching: (p: { merchant_name?: string; amount_min?: number; amount_max?: number }) =>
+    api.get<{ count: number }>('/recurrences/match-count', { params: p }),
+  getDetail: (id: string) =>
+    api.get(`/recurrences/${id}/detail`),
+};
+
 export default api;

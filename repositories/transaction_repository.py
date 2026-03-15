@@ -1,6 +1,7 @@
 from typing import List
 import json
 from utils.date_helper import DateHelper
+from utils.installment_helper import INSTALLMENT_RE as _INSTALLMENT_RE
 from repositories.base_repository import BaseRepository
 from models.transaction import BankTransaction, CreditTransaction
 from models.investment import Investment
@@ -395,6 +396,18 @@ class TransactionRepository(BaseRepository):
             else transaction_data.get("amount", 0)
         )
 
+        credit_metadata = transaction_data.get("creditCardMetadata") or {}
+        installment_number = credit_metadata.get("installmentNumber")
+        total_installments = credit_metadata.get("installmentTotalCount")
+
+        # Fallback: extract from description when API doesn't populate creditCardMetadata
+        if total_installments is None:
+            description = transaction_data.get("description", "") or ""
+            match = _INSTALLMENT_RE.search(description)
+            if match:
+                installment_number = installment_number or int(match.group(1))
+                total_installments = int(match.group(2))
+
         mapped_data = {
             "id": transaction_data["id"],
             "date": transaction_data["date"],
@@ -403,12 +416,16 @@ class TransactionRepository(BaseRepository):
             "category_id": transaction_data.get("categoryId"),
             "status": transaction_data.get("status"),
             "excluded": 1 if (amount or 0) < 0 else 0,
+            "installment_number": installment_number,
+            "total_installments": total_installments,
+            "total_amount": credit_metadata.get("totalAmount"),
         }
 
         result = self.upsert(
             "credit_transactions",
             "id",
             mapped_data,
+            strategy="smart_merge",
         )
 
         self._process_category_creation(transaction_data)

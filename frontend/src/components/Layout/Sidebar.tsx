@@ -8,7 +8,8 @@ import {
   TrendingUp,
   PieChart,
   Settings,
-  RefreshCw
+  RefreshCw,
+  Repeat,
 } from 'lucide-react';
 import clsx from 'clsx';
 
@@ -24,6 +25,7 @@ const navigation = [
   { name: 'Categorias', href: '/categories', icon: Tag },
   { name: 'Investimentos', href: '/investments', icon: TrendingUp },
   { name: 'Resumo', href: '/summary', icon: PieChart },
+  { name: 'Recorrencias', href: '/recurrences', icon: Repeat },
 ];
 
 const actions = [

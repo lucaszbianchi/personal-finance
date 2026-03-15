@@ -15,6 +15,7 @@ from repositories.investment_repository import InvestmentRepository
 from repositories.splitwise_repository import SplitwiseRepository
 from services.finance_history_service import FinanceHistoryService
 from services.pluggy_auth_service import get_api_key as _get_api_key
+from services.recurrence_detector_service import RecurrenceDetectorService
 
 INCREMENTAL_DAYS = 6
 
@@ -199,6 +200,7 @@ class PluggyAPI:
         splitwise_repo = SplitwiseRepository()
         rate_limit_repo = RateLimitRepository()
         accounts_snapshot_repo = AccountsSnapshotRepository()
+        bill_repo = BillRepository()
         bank_balance = 0.0
 
         summary = {
@@ -370,6 +372,22 @@ class PluggyAPI:
             except Exception as e:
                 print(f"[WARN] Não foi possível sincronizar Pluggy Insights: {e}")
 
+            # 6b. Recalculate bill close/open dates from installment transactions
+            try:
+                bill_repo.recalculate_all_close_dates()
+                print("[OK] Bill close/open dates recalculated")
+            except Exception as e:
+                print(f"[WARN] Bill date recalculation failed: {e}")
+
+            # 7. Recurrence detection
+            svc = RecurrenceDetectorService()
+            try:
+                summary["recurrences_synced"] = svc.detect_and_store()
+            except Exception as e:
+                print(f"[WARN] Recurrence detection failed: {e}")
+            finally:
+                svc.close()
+
             summary["rate_limit_usage"] = rate_limit_repo.get_usage_summary()
             print("[OK] Coleta de dados concluída com sucesso!")
             return summary
@@ -380,6 +398,7 @@ class PluggyAPI:
             splitwise_repo.close()
             rate_limit_repo.close()
             accounts_snapshot_repo.close()
+            bill_repo.close()
 
     def _get_item_ids_to_sync(self) -> list:
         """Retorna item_ids de role 'bank' para sincronizar. Fallback: ITEM_ID do .env."""
@@ -520,6 +539,8 @@ class PluggyAPI:
                 id TEXT PRIMARY KEY,
                 account_id TEXT NOT NULL,
                 due_date TEXT,
+                open_date TEXT,
+                close_date TEXT,
                 total_amount REAL,
                 total_amount_currency_code TEXT,
                 minimum_payment_amount REAL,
