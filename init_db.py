@@ -226,6 +226,8 @@ TABLES_SQL = [
         next_occurrence TEXT,
         category_id     TEXT REFERENCES categories(id),
         merchant_name   TEXT,
+        amount_min      REAL,
+        amount_max      REAL,
         confidence      REAL,
         source          TEXT DEFAULT 'pluggy',
         is_unavoidable  INTEGER DEFAULT 0,

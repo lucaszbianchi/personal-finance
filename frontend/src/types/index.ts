@@ -208,3 +208,55 @@ export interface SpendingPace {
   monthly_avg: number | null;
   unavoidable_avg: number | null;
 }
+
+export interface Recurrence {
+  id: string;
+  description: string | null;
+  amount: number | null;
+  frequency: string | null;
+  next_occurrence: string | null;
+  category_id: string | null;
+  merchant_name: string | null;
+  amount_min: number | null;
+  amount_max: number | null;
+  confidence: number | null;
+  source: string;
+  is_unavoidable: number;
+  synced_at: string | null;
+}
+
+export interface RecurrenceDetail {
+  recurrence: Recurrence;
+  linked_transactions: Array<{ id: string; date: string; description: string; amount: number }>;
+  timeline: Array<{ month: string; matched: boolean }>;
+  metrics: {
+    last_amount: number | null;
+    avg_amount: number | null;
+    total_this_year: number | null;
+    last_payment_date: string | null;
+  };
+}
+
+export interface InstallmentItem {
+  id: string;
+  description: string | null;
+  category_id: string | null;
+  amount: number;
+  installment_number: number | null;
+  total_installments: number | null;
+  pct_paid: number;
+  date: string;
+}
+
+export interface RecurrenceMonthly {
+  installments: { total: number; items: InstallmentItem[] };
+  fixed_expenses: { total: number; items: Recurrence[] };
+  history: { month: string; installments: number; fixed: number }[];
+}
+
+export interface YearlyEntry {
+  month: string;
+  installments: number;
+  fixed: number;
+  projected: boolean;
+}
