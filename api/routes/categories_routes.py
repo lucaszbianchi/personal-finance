@@ -2,11 +2,35 @@
 Módulo de rotas relacionadas a categorias.
 """
 
+from datetime import date
+
 from flask import Blueprint, jsonify, request
 from services.category_service import CategoryService
+from services.category_visualization_service import CategoryVisualizationService
 
 bp = Blueprint("categories", __name__)
 category_service = CategoryService()
+category_viz_service = CategoryVisualizationService()
+
+
+@bp.route("/expense-history", methods=["GET"])
+def expense_history():
+    """Retorna histórico de gastos por categoria para gráfico de linhas."""
+    try:
+        months = int(request.args.get("months", 6))
+        return jsonify(category_viz_service.get_expense_history(months))
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@bp.route("/distribution", methods=["GET"])
+def expense_distribution():
+    """Retorna distribuição hierárquica de gastos para gráfico Sankey."""
+    try:
+        month = request.args.get("month", date.today().strftime("%Y-%m"))
+        return jsonify(category_viz_service.get_expense_distribution(month))
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 
 @bp.route("/", methods=["GET"])
