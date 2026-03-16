@@ -167,6 +167,71 @@ class TestAnalyze(unittest.TestCase):
         self.assertIsNone(result)
 
 
+class TestAnalyzeAccountType(unittest.TestCase):
+
+    # ── _analyze account_type ──
+
+    def _entries(self, dates, source_type, amount=50.0):
+        return [
+            {"date": d, "amount": amount, "category_id": None,
+             "description": "Test", "source_type": source_type}
+            for d in dates
+        ]
+
+    def test_credit_only_entries_set_account_type_credit(self):
+        svc = _make_service()
+        entries = self._entries([_D1, _D2, _D3], "credit")
+        result = svc._analyze("test", entries)
+        self.assertEqual(result["account_type"], "credit")
+
+    def test_bank_only_entries_set_account_type_bank(self):
+        svc = _make_service()
+        entries = self._entries([_D1, _D2, _D3], "bank")
+        result = svc._analyze("test", entries)
+        self.assertEqual(result["account_type"], "bank")
+
+    def test_mixed_entries_set_account_type_both(self):
+        svc = _make_service()
+        entries = (
+            self._entries([_D1, _D2], "credit") +
+            self._entries([_D3], "bank")
+        )
+        result = svc._analyze("test", entries)
+        self.assertEqual(result["account_type"], "both")
+
+    def test_no_source_type_sets_account_type_none(self):
+        svc = _make_service()
+        entries = [
+            {"date": d, "amount": 50.0, "category_id": None, "description": "Test"}
+            for d in [_D1, _D2, _D3]
+        ]
+        result = svc._analyze("test", entries)
+        self.assertIsNone(result["account_type"])
+
+
+class TestGroupTransactionsSourceType(unittest.TestCase):
+
+    # ── source_type tagging ──
+
+    def test_bank_entries_tagged_bank(self):
+        svc = _make_service()
+        svc.transaction_repo.get_bank_transactions.return_value = [
+            _make_bank("Netflix", -50.0, _D1)
+        ]
+        svc.transaction_repo.get_credit_transactions.return_value = []
+        groups = svc._group_transactions()
+        self.assertEqual(groups["netflix"][0]["source_type"], "bank")
+
+    def test_credit_entries_tagged_credit(self):
+        svc = _make_service()
+        svc.transaction_repo.get_bank_transactions.return_value = []
+        svc.transaction_repo.get_credit_transactions.return_value = [
+            _make_credit("Spotify", 25.0, _D1)
+        ]
+        groups = svc._group_transactions()
+        self.assertEqual(groups["spotify"][0]["source_type"], "credit")
+
+
 class TestDetectAndStore(unittest.TestCase):
 
     # ── detect_and_store ──
@@ -179,6 +244,7 @@ class TestDetectAndStore(unittest.TestCase):
 
     def test_detect_and_store_returns_count(self):
         svc = _make_service()
+        svc.recurrence_repo.has_any.return_value = False
         svc.transaction_repo.get_bank_transactions.return_value = []
         svc.transaction_repo.get_credit_transactions.return_value = []
 
@@ -194,7 +260,7 @@ class TestDetectAndStore(unittest.TestCase):
 
     def test_detect_and_store_skips_invalid(self):
         svc = _make_service()
-        # one valid group, one with only 2 months (invalid)
+        svc.recurrence_repo.has_any.return_value = False
         groups = {
             "netflix": self._monthly_entries("Netflix"),
             "rare": [
@@ -207,6 +273,15 @@ class TestDetectAndStore(unittest.TestCase):
 
         self.assertEqual(count, 1)
         self.assertEqual(svc.recurrence_repo.upsert_recurrence.call_count, 1)
+
+    def test_detect_and_store_skips_when_table_not_empty(self):
+        svc = _make_service()
+        svc.recurrence_repo.has_any.return_value = True
+
+        count = svc.detect_and_store()
+
+        self.assertEqual(count, 0)
+        svc.recurrence_repo.upsert_recurrence.assert_not_called()
 
 
 if __name__ == "__main__":

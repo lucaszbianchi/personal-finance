@@ -77,6 +77,30 @@ class TestRecurrencesService(unittest.TestCase):
         self.assertAlmostEqual(call_data["amount_min"], 10.0)
         self.assertAlmostEqual(call_data["amount_max"], 100.0)
 
+    def test_create_sets_account_type_credit_when_credit_match(self):
+        svc = _make_service()
+        svc.repo.has_matching_credit_transaction.return_value = True
+        svc.repo.get_by_id.return_value = _MANUAL
+        svc.create({"description": "Netflix", "merchant_name": "Netflix"})
+        call_data = svc.repo.upsert_recurrence.call_args[0][0]
+        self.assertEqual(call_data["account_type"], "credit")
+
+    def test_create_sets_account_type_none_when_no_credit_match(self):
+        svc = _make_service()
+        svc.repo.has_matching_credit_transaction.return_value = False
+        svc.repo.get_by_id.return_value = _MANUAL
+        svc.create({"description": "Aluguel", "merchant_name": "Aluguel"})
+        call_data = svc.repo.upsert_recurrence.call_args[0][0]
+        self.assertIsNone(call_data["account_type"])
+
+    def test_create_sets_account_type_none_when_no_merchant(self):
+        svc = _make_service()
+        svc.repo.get_by_id.return_value = _MANUAL
+        svc.create({"description": "Academia"})
+        call_data = svc.repo.upsert_recurrence.call_args[0][0]
+        self.assertIsNone(call_data["account_type"])
+        svc.repo.has_matching_credit_transaction.assert_not_called()
+
     # ── update ──
 
     def test_update_calls_repo_update_and_returns_record(self):
@@ -86,6 +110,22 @@ class TestRecurrencesService(unittest.TestCase):
         result = svc.update("manual-1", {"amount": 200.0})
         svc.repo.update.assert_called_once_with("manual-1", {"amount": 200.0})
         self.assertEqual(result["amount"], 200.0)
+
+    def test_update_recomputes_account_type_when_merchant_name_changes(self):
+        svc = _make_service()
+        svc.repo.has_matching_credit_transaction.return_value = True
+        svc.repo.get_by_id.return_value = _MANUAL
+        svc.update("manual-1", {"merchant_name": "Netflix"})
+        call_data = svc.repo.update.call_args[0][1]
+        self.assertEqual(call_data["account_type"], "credit")
+
+    def test_update_does_not_touch_account_type_without_merchant_name(self):
+        svc = _make_service()
+        svc.repo.get_by_id.return_value = _MANUAL
+        svc.update("manual-1", {"amount": 200.0})
+        call_data = svc.repo.update.call_args[0][1]
+        self.assertNotIn("account_type", call_data)
+        svc.repo.has_matching_credit_transaction.assert_not_called()
 
     def test_update_not_found_raises(self):
         svc = _make_service()

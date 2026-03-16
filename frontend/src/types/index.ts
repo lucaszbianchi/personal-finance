@@ -286,6 +286,34 @@ export interface IncomeYearlyEntry {
   total: number;
 }
 
+export type BillClassification = 'installment' | 'recurrent' | 'one_off';
+
+export interface BillTransaction {
+  id: string;
+  description: string | null;
+  amount: number;
+  date: string | null;
+  category_id: string | null;
+  classification: BillClassification;
+}
+
+export interface BillsMonthly {
+  month: string;
+  total: number;
+  installments: number;
+  recurrent: number;
+  one_off: number;
+  is_open: boolean | null;
+  payment_date: string | null;
+  transactions: BillTransaction[];
+  is_projected: boolean;
+}
+
+export interface BillsHistoryEntry {
+  month: string;
+  total: number;
+}
+
 export interface IncomeDetail {
   source: IncomeSource;
   linked_transactions: Array<{ id: string; date: string; description: string; amount: number }>;

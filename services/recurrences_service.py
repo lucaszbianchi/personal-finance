@@ -19,6 +19,7 @@ class RecurrencesService:
 
     def create(self, data: dict) -> dict:
         """Create a manual recurrence. Generates uuid and sets source='manual'."""
+        merchant = data.get("merchant_name")
         record = {
             "id": str(uuid.uuid4()),
             "description": data.get("description"),
@@ -26,21 +27,30 @@ class RecurrencesService:
             "frequency": data.get("frequency"),
             "next_occurrence": data.get("next_occurrence"),
             "category_id": data.get("category_id"),
-            "merchant_name": data.get("merchant_name"),
+            "merchant_name": merchant,
             "amount_min": data.get("amount_min"),
             "amount_max": data.get("amount_max"),
             "confidence": None,
             "source": "manual",
             "is_unavoidable": 1 if data.get("is_unavoidable") else 0,
             "synced_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "account_type": self._resolve_account_type(merchant),
         }
         self.repo.upsert_recurrence(record)
         return self.repo.get_by_id(record["id"])
 
     def update(self, id: str, data: dict) -> dict:
         """Update a recurrence. Raises ValueError if not found."""
+        if "merchant_name" in data:
+            data = {**data, "account_type": self._resolve_account_type(data["merchant_name"])}
         self.repo.update(id, data)
         return self.repo.get_by_id(id)
+
+    def _resolve_account_type(self, merchant_name: str | None) -> str | None:
+        """Return 'credit' if merchant_name matches a credit transaction, else None."""
+        if not merchant_name:
+            return None
+        return "credit" if self.repo.has_matching_credit_transaction(merchant_name) else None
 
     def delete(self, id: str) -> None:
         """Delete a recurrence. Raises ValueError if not found."""

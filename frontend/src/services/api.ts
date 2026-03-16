@@ -306,4 +306,9 @@ export const cashFlowService = {
     api.get('/cash-flow', { params: { window, ...(endMonth ? { end_month: endMonth } : {}) } }),
 };
 
+export const billsService = {
+  getMonthly: (month: string) => api.get('/bills/monthly', { params: { month } }),
+  getHistory: () => api.get('/bills/history'),
+};
+
 export default api;

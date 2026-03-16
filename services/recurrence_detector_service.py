@@ -27,7 +27,13 @@ class RecurrenceDetectorService:
         self.recurrence_repo.close()
 
     def detect_and_store(self) -> int:
-        """Run detection algorithm and upsert results. Returns count of upserted records."""
+        """Run detection algorithm and upsert results. Returns count of upserted records.
+
+        Skips detection entirely if the table already has entries — preserves any
+        edits or deletions the user made after the first auto-detection run.
+        """
+        if self.recurrence_repo.has_any():
+            return 0
         grouped = self._group_transactions()
         count = 0
         for description, entries in grouped.items():
@@ -62,6 +68,7 @@ class RecurrenceDetectorService:
                 "amount": abs(t.amount),
                 "category_id": getattr(t, "category_id", None),
                 "description": t.description,
+                "source_type": "bank",
             })
 
         for t in credit_rows:
@@ -78,6 +85,7 @@ class RecurrenceDetectorService:
                 "amount": t.amount,
                 "category_id": getattr(t, "category_id", None),
                 "description": t.description,
+                "source_type": "credit",
             })
 
         return groups
@@ -127,6 +135,17 @@ class RecurrenceDetectorService:
         stable_id = hashlib.sha1(normalized_description.encode()).hexdigest()[:16]
         synced_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
+        has_credit = any(e.get("source_type") == "credit" for e in entries)
+        has_bank = any(e.get("source_type") == "bank" for e in entries)
+        if has_credit and has_bank:
+            account_type = "both"
+        elif has_credit:
+            account_type = "credit"
+        elif has_bank:
+            account_type = "bank"
+        else:
+            account_type = None
+
         return {
             "id": stable_id,
             "description": original_description,
@@ -139,4 +158,5 @@ class RecurrenceDetectorService:
             "source": "detected",
             "is_unavoidable": 0,
             "synced_at": synced_at,
+            "account_type": account_type,
         }

@@ -154,6 +154,15 @@ class TestRecurrentExpensesRepository(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.repo.delete("ghost")
 
+    # ── has_any ──
+
+    def test_has_any_returns_false_when_empty(self):
+        self.assertFalse(self.repo.has_any())
+
+    def test_has_any_returns_true_when_has_rows(self):
+        self.repo.upsert_recurrence(_SAMPLE)
+        self.assertTrue(self.repo.has_any())
+
 
 class TestMatchingTransactions(unittest.TestCase):
 
@@ -270,6 +279,29 @@ class TestMatchingTransactions(unittest.TestCase):
     def test_get_empty_merchant_raises(self):
         with self.assertRaises(ValueError):
             self.repo.get_matching_transactions("")
+
+    # ── has_matching_credit_transaction ──
+
+    def test_has_matching_credit_returns_true_when_match(self):
+        # c1: "Netflix credito", amount=55.90, excluded=0
+        self.assertTrue(self.repo.has_matching_credit_transaction("netflix"))
+
+    def test_has_matching_credit_returns_false_when_no_match(self):
+        self.assertFalse(self.repo.has_matching_credit_transaction("spotify"))
+
+    def test_has_matching_credit_excludes_excluded_rows(self):
+        # c2: "Netflix excluido credito", excluded=1 — must not match
+        self.repo.execute_query(
+            "DELETE FROM credit_transactions WHERE id != 'c2'"
+        )
+        self.assertFalse(self.repo.has_matching_credit_transaction("netflix"))
+
+    def test_has_matching_credit_excludes_negative_amounts(self):
+        # c3: "Netflix pagamento", amount=-55.90 — credit payment, must not match
+        self.repo.execute_query(
+            "DELETE FROM credit_transactions WHERE id != 'c3'"
+        )
+        self.assertFalse(self.repo.has_matching_credit_transaction("netflix"))
 
 
 if __name__ == "__main__":

@@ -18,6 +18,7 @@ class BillRepository(BaseRepository):
             (date.fromisoformat(due_date_raw) - timedelta(days=7)).isoformat()
             if due_date_raw else None
         )
+        payment_date_raw = (bill_data.get("paymentDate") or "")[:10]
         mapped_data = {
             "id": bill_data["id"],
             "account_id": account_id,
@@ -33,6 +34,9 @@ class BillRepository(BaseRepository):
                 if finance_charges is not None
                 else None
             ),
+            "is_open": 1 if bill_data.get("isOpen") else 0,
+            "payment_date": payment_date_raw or None,
+            "total_amount_paid": bill_data.get("totalAmountPaid"),
         }
         return self.upsert("bills", "id", mapped_data, strategy="smart_merge")
 
@@ -167,6 +171,59 @@ class BillRepository(BaseRepository):
             return (prev["close_date"], first_of_next)
 
         return None
+
+    def get_billing_periods_bulk(self, months: list[str]) -> dict[str, tuple[str, str] | None]:
+        """Return {month: (open_date, close_date) | None} for each requested month.
+
+        Applies the same primary/fallback logic as get_billing_period() but fetches
+        all bills in a single query, eliminating per-month round-trips.
+        """
+        if not months:
+            return {}
+        rows = self.execute_query(
+            "SELECT open_date, close_date FROM bills WHERE close_date IS NOT NULL ORDER BY close_date ASC"
+        ).fetchall()
+
+        result = {}
+        for month in months:
+            year, mon = int(month[:4]), int(month[5:7])
+            first_of_month = month + "-01"
+            first_of_next = f"{year + 1}-01-01" if mon == 12 else f"{year}-{mon + 1:02d}-01"
+
+            period = None
+            for row in rows:
+                if row["open_date"] and row["close_date"] > first_of_month and row["close_date"] <= first_of_next:
+                    period = (row["open_date"], row["close_date"])
+                    break
+
+            if period is None:
+                prev_close = None
+                for row in rows:
+                    if row["close_date"] < first_of_month:
+                        prev_close = row["close_date"]
+                if prev_close:
+                    period = (prev_close, first_of_next)
+
+            result[month] = period
+        return result
+
+    def get_bill_metadata(self, month: str) -> dict:
+        """Returns is_open and payment_date for the most recent bill in the given month."""
+        row = self.execute_query(
+            """
+            SELECT is_open, payment_date
+            FROM bills
+            WHERE strftime('%Y-%m', due_date) = ?
+            ORDER BY due_date DESC LIMIT 1
+            """,
+            (month,),
+        ).fetchone()
+        if not row:
+            return {}
+        return {
+            "is_open": bool(row["is_open"]) if row["is_open"] is not None else None,
+            "payment_date": row["payment_date"],
+        }
 
     def get_all_bills(self) -> list:
         """Retorna todas as faturas."""

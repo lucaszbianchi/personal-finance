@@ -8,6 +8,13 @@ class RecurrentExpensesRepository(BaseRepository):
         """INSERT OR REPLACE a recurrence record."""
         self.upsert("recurrent_expenses", "id", data, strategy="smart_merge")
 
+    def has_any(self) -> bool:
+        """Return True if the table contains at least one row."""
+        row = self.execute_query(
+            "SELECT 1 FROM recurrent_expenses LIMIT 1"
+        ).fetchone()
+        return row is not None
+
     def get_all(self) -> list[dict]:
         """Return all recurrences as dicts."""
         cursor = self.execute_query(
@@ -88,13 +95,22 @@ class RecurrentExpensesRepository(BaseRepository):
             params.extend([day_from, day_to])
         return clause, params
 
+    def has_matching_credit_transaction(self, merchant_name: str) -> bool:
+        """Return True if at least one credit transaction description matches merchant_name."""
+        where, params = self._match_where_and_params(merchant_name, None, None)
+        query = (
+            f"SELECT 1 FROM credit_transactions"
+            f" WHERE excluded = 0 AND amount > 0{where} LIMIT 1"
+        )
+        return self.execute_query(query, tuple(params)).fetchone() is not None
+
     def update(self, id: str, data: dict) -> None:
         """Update mutable fields of a recurrence. Raises ValueError if not found."""
         self.get_by_id(id)
         allowed = {
             "description", "amount", "frequency", "next_occurrence",
             "category_id", "merchant_name", "is_unavoidable",
-            "amount_min", "amount_max",
+            "amount_min", "amount_max", "account_type",
         }
         updates = {k: v for k, v in data.items() if k in allowed}
         if not updates:

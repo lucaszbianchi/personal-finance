@@ -118,6 +118,8 @@ TABLES_SQL = [
         id TEXT PRIMARY KEY,
         account_id TEXT NOT NULL,
         due_date TEXT,
+        open_date TEXT,
+        close_date TEXT,
         total_amount REAL,
         total_amount_currency_code TEXT,
         minimum_payment_amount REAL,
@@ -231,7 +233,8 @@ TABLES_SQL = [
         confidence      REAL,
         source          TEXT DEFAULT 'pluggy',
         is_unavoidable  INTEGER DEFAULT 0,
-        synced_at       TEXT
+        synced_at       TEXT,
+        account_type    TEXT
     )
     """,
     """

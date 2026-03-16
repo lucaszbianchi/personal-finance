@@ -20,7 +20,10 @@ class TestBillRepository(unittest.TestCase):
                 total_amount_currency_code TEXT,
                 minimum_payment_amount REAL,
                 allows_installments INTEGER DEFAULT 0,
-                finance_charges TEXT
+                finance_charges TEXT,
+                is_open INTEGER DEFAULT 1,
+                payment_date TEXT,
+                total_amount_paid REAL
             )
             """
         )
@@ -299,6 +302,78 @@ class TestBillRepository(unittest.TestCase):
         # Only a future bill exists (its close_date is after March starts)
         self._insert_due("b1", "2026-05-09")  # close_date = 2026-05-02, after 2026-03-01
         self.assertIsNone(self.repo.get_billing_period("2026-03"))
+
+    # ------------------------------------------------------------------
+    # get_billing_periods_bulk
+    # ------------------------------------------------------------------
+
+    def _insert_bill_with_period(self, bill_id, due_date, open_date, close_date):
+        self.repo.execute_query(
+            """INSERT INTO bills (id, account_id, due_date, open_date, close_date, total_amount)
+               VALUES (?, ?, ?, ?, ?, ?)""",
+            (bill_id, "account-1", due_date, open_date, close_date, 100.0),
+        )
+
+    def test_bulk_returns_empty_dict_for_empty_input(self):
+        self.assertEqual(self.repo.get_billing_periods_bulk([]), {})
+
+    def test_bulk_returns_none_for_month_with_no_data(self):
+        result = self.repo.get_billing_periods_bulk(["2026-03"])
+        self.assertIsNone(result["2026-03"])
+
+    def test_bulk_primary_path_matches_get_billing_period(self):
+        """bulk result must match get_billing_period for the same month."""
+        self._insert_bill_with_period("b1", "2026-04-08", "2026-02-28", "2026-04-01")
+        bulk = self.repo.get_billing_periods_bulk(["2026-03"])
+        single = self.repo.get_billing_period("2026-03")
+        self.assertEqual(bulk["2026-03"], single)
+
+    def test_bulk_fallback_path_matches_get_billing_period(self):
+        """bulk fallback result must match get_billing_period."""
+        self._insert_bill_with_period("b1", "2026-03-09", None, "2026-02-28")
+        bulk = self.repo.get_billing_periods_bulk(["2026-03"])
+        single = self.repo.get_billing_period("2026-03")
+        self.assertEqual(bulk["2026-03"], single)
+
+    def test_bulk_handles_multiple_months_in_one_query(self):
+        """All requested months are resolved from a single DB fetch."""
+        self._insert_bill_with_period("b1", "2026-04-08", "2026-02-28", "2026-04-01")
+        self._insert_bill_with_period("b2", "2026-05-08", "2026-04-01", "2026-05-01")
+        result = self.repo.get_billing_periods_bulk(["2026-03", "2026-04"])
+        self.assertEqual(result["2026-03"], ("2026-02-28", "2026-04-01"))
+        self.assertEqual(result["2026-04"], ("2026-04-01", "2026-05-01"))
+
+    def test_bulk_december_wraps_correctly(self):
+        """first_of_next for December must be January of the following year."""
+        self._insert_bill_with_period("b1", "2027-01-08", "2026-11-28", "2027-01-01")
+        result = self.repo.get_billing_periods_bulk(["2026-12"])
+        self.assertEqual(result["2026-12"], ("2026-11-28", "2027-01-01"))
+
+    # ------------------------------------------------------------------
+    # get_bill_metadata
+    # ------------------------------------------------------------------
+
+    def test_get_bill_metadata_empty_when_no_bills(self):
+        self.assertEqual(self.repo.get_bill_metadata("2026-03"), {})
+
+    def test_get_bill_metadata_returns_is_open_and_payment_date(self):
+        self.repo.execute_query(
+            """INSERT INTO bills (id, account_id, due_date, is_open, payment_date, total_amount)
+               VALUES (?, ?, ?, ?, ?, ?)""",
+            ("b1", "account-1", "2026-03-10", 0, "2026-03-05", 500.0),
+        )
+        meta = self.repo.get_bill_metadata("2026-03")
+        self.assertFalse(meta["is_open"])
+        self.assertEqual(meta["payment_date"], "2026-03-05")
+
+    def test_get_bill_metadata_is_open_none_when_null(self):
+        self.repo.execute_query(
+            """INSERT INTO bills (id, account_id, due_date, is_open, total_amount)
+               VALUES (?, ?, ?, ?, ?)""",
+            ("b1", "account-1", "2026-03-10", None, 500.0),
+        )
+        meta = self.repo.get_bill_metadata("2026-03")
+        self.assertIsNone(meta["is_open"])
 
     # ------------------------------------------------------------------
     # recalculate_close_dates

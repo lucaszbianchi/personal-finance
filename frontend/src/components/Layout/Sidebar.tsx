@@ -12,6 +12,7 @@ import {
   Repeat,
   DollarSign,
   BarChart2,
+  Receipt,
 } from 'lucide-react';
 import clsx from 'clsx';
 
@@ -30,6 +31,7 @@ const navigation = [
   { name: 'Recorrencias', href: '/recurrences', icon: Repeat },
   { name: 'Receitas', href: '/income', icon: DollarSign },
   { name: 'Fluxo de Caixa', href: '/cash-flow', icon: BarChart2 },
+  { name: 'Faturas', href: '/bills', icon: Receipt },
 ];
 
 const actions = [

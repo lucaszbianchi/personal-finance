@@ -11,6 +11,7 @@ import { Settings } from '@/pages/Settings';
 import { Recurrences } from '@/pages/Recurrences';
 import { Income } from '@/pages/Income';
 import { CashFlow } from '@/pages/CashFlow';
+import { Bills } from '@/pages/Bills';
 
 const NotFoundPage = () => (
   <div className="text-center py-12">
@@ -34,6 +35,7 @@ function App() {
         <Route path="recurrences" element={<Recurrences />} />
         <Route path="income" element={<Income />} />
         <Route path="cash-flow" element={<CashFlow />} />
+        <Route path="bills" element={<Bills />} />
         <Route path="404" element={<NotFoundPage />} />
         <Route path="*" element={<Navigate to="/404" replace />} />
       </Route>
