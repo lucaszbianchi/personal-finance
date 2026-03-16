@@ -4,6 +4,31 @@ import { useCategoryLabel } from '@/hooks/useCategoryLabel';
 import { useCategoryFilter } from '@/hooks/useCategoryFilter';
 import { Plus, Tag, X, Edit, GitMerge, Trash2 } from 'lucide-react';
 import type { Category } from '@/types';
+import { CategoryPieChart } from '@/components/CategoryPieChart';
+import { CategoryExpenseLineChart } from '@/components/CategoryExpenseLineChart';
+import { CategorySankeyChart } from '@/components/CategorySankeyChart';
+import { AutomationsTab } from '@/components/AutomationsTab';
+import { useDashboardData } from '@/hooks/useDashboardData';
+
+type ActiveTab = 'categories' | 'visualizations' | 'automations';
+
+const VisualizationsSection: React.FC = () => {
+  const { data: dashboardData } = useDashboardData();
+  return (
+    <div className="space-y-6">
+      <div className="bg-white rounded-lg shadow p-6">
+        <h3 className="text-lg font-medium text-gray-900 mb-4">Gastos por Categoria (mês atual)</h3>
+        {dashboardData?.category_breakdown && dashboardData.category_breakdown.length > 0 ? (
+          <CategoryPieChart data={dashboardData.category_breakdown} />
+        ) : (
+          <p className="text-gray-500 text-center py-12">Sem dados de categorias disponíveis.</p>
+        )}
+      </div>
+      <CategoryExpenseLineChart />
+      <CategorySankeyChart />
+    </div>
+  );
+};
 
 export const Categories: React.FC = () => {
   const { data: categories, isLoading, error } = useCategories();
@@ -12,6 +37,8 @@ export const Categories: React.FC = () => {
   const updateCategoryFields = useUpdateCategoryFields();
   const deleteCategory = useDeleteCategory();
   const unifyCategories = useUnifyCategories();
+
+  const [activeTab, setActiveTab] = useState<ActiveTab>('categories');
 
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState('');
@@ -44,22 +71,6 @@ export const Categories: React.FC = () => {
     filteredCategories: displayedCategories,
     ungroupedCount,
   } = useCategoryFilter(categoriesList);
-
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="bg-danger-50 border border-danger-200 rounded-md p-4">
-        <p className="text-danger-600">Erro ao carregar categorias</p>
-      </div>
-    );
-  }
 
   // --- Helpers for parent select ---
   const parentSelectValue = (parentId: string, parentDescription: string) => {
@@ -233,6 +244,12 @@ export const Categories: React.FC = () => {
     }
   };
 
+  const TAB_LABELS: Record<ActiveTab, string> = {
+    categories: 'Categorias',
+    visualizations: 'Visualizações',
+    automations: 'Automações',
+  };
+
   return (
     <div className="space-y-6">
       {/* Sticky header + filtro — bg-gray-50 deve coincidir com o fundo do <main> em Layout.tsx */}
@@ -244,7 +261,7 @@ export const Categories: React.FC = () => {
             <p className="text-gray-600">Organize suas transações por categorias</p>
           </div>
           <div className="flex items-center space-x-3">
-            {selectedCategories.length >= 1 && (
+            {activeTab === 'categories' && selectedCategories.length >= 1 && (
               <button
                 onClick={() => { setBulkDeleteError(''); setIsDeleteBulkModalOpen(true); }}
                 className="bg-danger-600 text-white px-4 py-2 rounded-md hover:bg-danger-700 flex items-center space-x-2"
@@ -253,7 +270,7 @@ export const Categories: React.FC = () => {
                 <span>Deletar ({selectedCategories.length})</span>
               </button>
             )}
-            {selectedCategories.length >= 2 && (
+            {activeTab === 'categories' && selectedCategories.length >= 2 && (
               <button
                 onClick={handleOpenUnifyModal}
                 className="bg-secondary-600 text-white px-4 py-2 rounded-md hover:bg-secondary-700 flex items-center space-x-2"
@@ -262,18 +279,39 @@ export const Categories: React.FC = () => {
                 <span>Unificar Categorias ({selectedCategories.length})</span>
               </button>
             )}
-            <button
-              onClick={() => setIsCreateModalOpen(true)}
-              className="bg-primary-600 text-white px-4 py-2 rounded-md hover:bg-primary-700 flex items-center space-x-2"
-            >
-              <Plus className="w-4 h-4" />
-              <span>Nova Categoria</span>
-            </button>
+            {activeTab === 'categories' && (
+              <button
+                onClick={() => setIsCreateModalOpen(true)}
+                className="bg-primary-600 text-white px-4 py-2 rounded-md hover:bg-primary-700 flex items-center space-x-2"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Nova Categoria</span>
+              </button>
+            )}
           </div>
         </div>
 
-        {/* Filtro por grupo */}
-        {uniqueParents.length > 0 && (
+        {/* Tab navigation */}
+        <div className="border-b border-gray-200">
+          <nav className="-mb-px flex space-x-6">
+            {(Object.keys(TAB_LABELS) as ActiveTab[]).map(tab => (
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                className={`pb-3 px-1 text-sm font-medium border-b-2 transition-colors ${
+                  activeTab === tab
+                    ? 'border-primary-600 text-primary-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                {TAB_LABELS[tab]}
+              </button>
+            ))}
+          </nav>
+        </div>
+
+        {/* Filtro por grupo (only in categories tab) */}
+        {activeTab === 'categories' && uniqueParents.length > 0 && (
           <div className="bg-white rounded-lg shadow p-4">
             <div className="flex items-center gap-3">
               <label className="text-sm font-medium text-gray-700 whitespace-nowrap">Grupo:</label>
@@ -303,7 +341,18 @@ export const Categories: React.FC = () => {
         )}
       </div>
 
-      {/* Lista de categorias */}
+      {/* Categories tab content */}
+      {activeTab === 'categories' && isLoading && (
+        <div className="flex items-center justify-center h-64">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
+        </div>
+      )}
+      {activeTab === 'categories' && error && (
+        <div className="bg-danger-50 border border-danger-200 rounded-md p-4">
+          <p className="text-danger-600">Erro ao carregar categorias</p>
+        </div>
+      )}
+      {activeTab === 'categories' && !isLoading && !error && (
       <div className="bg-white rounded-lg shadow overflow-hidden">
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
@@ -378,6 +427,13 @@ export const Categories: React.FC = () => {
           </table>
         </div>
       </div>
+      )}
+
+      {/* Visualizations tab */}
+      {activeTab === 'visualizations' && <VisualizationsSection />}
+
+      {/* Automations tab */}
+      {activeTab === 'automations' && <AutomationsTab />}
 
       {/* Create Category Modal */}
       {isCreateModalOpen && (

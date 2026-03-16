@@ -325,3 +325,77 @@ export interface IncomeDetail {
     last_received_date: string | null;
   };
 }
+
+export type AutomationConditionField = 'description' | 'category' | 'amount';
+export type AutomationConditionOperator = 'equals' | 'contains' | 'starts_with' | 'ends_with' | 'gt' | 'lt';
+export type AutomationActionType = 'set_category' | 'exclude' | 'set_description';
+
+export interface AutomationCondition {
+  field: AutomationConditionField;
+  operator: AutomationConditionOperator;
+  value: string;
+}
+
+export interface AutomationAction {
+  type: AutomationActionType;
+  value?: string;
+}
+
+export interface AutomationRule {
+  id: number;
+  name: string | null;
+  conditions: AutomationCondition[];
+  actions: AutomationAction[];
+  priority: number;
+  enabled: boolean;
+  created_at: string;
+}
+
+export interface CreateAutomationRuleRequest {
+  name?: string;
+  conditions: AutomationCondition[];
+  actions: AutomationAction[];
+  priority?: number;
+  enabled?: boolean;
+}
+
+// Category visualization
+export interface CategoryExpenseSeries {
+  id: string;
+  name: string;
+  data: number[];
+  total: number;
+}
+
+export interface CategoryExpenseHistory {
+  months: string[];
+  series: CategoryExpenseSeries[];
+}
+
+export interface CategoryDistributionItem {
+  id: string;
+  name: string;
+  total: number;
+}
+
+export interface CategoryDistributionGroup {
+  id: string;
+  name: string;
+  total: number;
+  categories: CategoryDistributionItem[];
+}
+
+export interface CategoryDistribution {
+  month: string;
+  total: number;
+  groups: CategoryDistributionGroup[];
+}
+
+export interface AutomationPreviewTransaction {
+  id: string;
+  date: string | null;
+  description: string | null;
+  amount: number;
+  category_id: string | null;
+  type: 'bank' | 'credit';
+}

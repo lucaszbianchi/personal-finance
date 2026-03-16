@@ -15,6 +15,10 @@ import type {
   SpendingPace,
   NetWorth,
   PartialResult,
+  AutomationRule,
+  CreateAutomationRuleRequest,
+  AutomationCondition,
+  AutomationPreviewTransaction,
 } from '@/types';
 
 const api = axios.create({
@@ -309,6 +313,28 @@ export const cashFlowService = {
 export const billsService = {
   getMonthly: (month: string) => api.get('/bills/monthly', { params: { month } }),
   getHistory: () => api.get('/bills/history'),
+};
+
+export const categoryVizService = {
+  getExpenseHistory: (months = 6) =>
+    api.get('/categories/expense-history', { params: { months } }),
+  getDistribution: (month: string) =>
+    api.get('/categories/distribution', { params: { month } }),
+};
+
+export const automationService = {
+  getAll: () => api.get<AutomationRule[]>('/automations/'),
+  create: (data: CreateAutomationRuleRequest) =>
+    api.post<AutomationRule>('/automations/', data),
+  update: (id: number, data: Partial<CreateAutomationRuleRequest>) =>
+    api.put<AutomationRule>(`/automations/${id}`, data),
+  delete: (id: number) => api.delete(`/automations/${id}`),
+  toggle: (id: number, enabled: boolean) =>
+    api.patch<AutomationRule>(`/automations/${id}/toggle`, { enabled }),
+  preview: (conditions: AutomationCondition[]) =>
+    api.post<AutomationPreviewTransaction[]>('/automations/preview', { conditions }),
+  apply: (id: number) =>
+    api.post<{ applied: number; matches_found: number }>(`/automations/${id}/apply`),
 };
 
 export default api;

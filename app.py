@@ -18,6 +18,7 @@ from api.routes.recurrences_routes import bp as recurrences_bp
 from api.routes.income_routes import bp as income_bp
 from api.routes.cash_flow_routes import bp as cash_flow_bp
 from api.routes.bills_routes import bp as bills_bp
+from api.routes.automation_routes import bp as automations_bp
 
 app = Flask(__name__)
 
@@ -39,6 +40,7 @@ app.register_blueprint(recurrences_bp, url_prefix="/api/recurrences")
 app.register_blueprint(income_bp, url_prefix="/api/income")
 app.register_blueprint(cash_flow_bp, url_prefix="/api/cash-flow")
 app.register_blueprint(bills_bp, url_prefix="/api/bills")
+app.register_blueprint(automations_bp, url_prefix="/api/automations")
 
 
 @app.route("/")
