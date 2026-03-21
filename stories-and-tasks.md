@@ -10,19 +10,19 @@
 
 | Campo | Valor |
 |-------|-------|
-| **Proxima historia a implementar** | **S10 — Otimizacao de Schema e Indices** |
-| **Proxima task a implementar** | **T10.1 — Adicionar indices nas tabelas principais** |
-| **Historias concluidas** | S0, S1, S2, S3, S4, S5, S6, S7, S8, S9 |
-| **Historias pendentes** | S10, S11, S12, S13, S14, S15, S16 |
-| **Branch ativa** | `main` (nenhuma feature branch aberta) |
-| **Mudancas nao commitadas em main** | projection, finance_history improvements |
+| **Proxima historia a implementar** | **S11 — Docker e Containerizacao** |
+| **Proxima task a implementar** | **T11.1** |
+| **Historias concluidas** | S0, S1, S2, S3, S4, S5, S6, S7, S8, S9, S10 |
+| **Historias pendentes** | S11, S12, S13, S14, S15, S16 |
+| **Branch ativa** | `feat/schema-optimization` (pronta para merge) |
+| **Mudancas nao commitadas em main** | Nenhuma |
 | **Bloqueios conhecidos** | Nenhum |
 
 ### O que fazer agora
 
-1. Ler a secao da proxima historia (S10) e suas tasks
-2. Criar a branch `feat/schema-optimization`
-3. Implementar as tasks na ordem indicada (T10.1 primeiro, depois T10.2-T10.5 em paralelo)
+1. Ler a secao da proxima historia (S11) e suas tasks
+2. Criar a branch `feat/docker`
+3. Implementar as tasks na ordem indicada
 4. Rodar `pytest tests/` e verificar coverage >= 80% antes de considerar completa
 5. Ao finalizar, atualizar este documento (ver lembrete no final)
 
@@ -51,8 +51,8 @@
 7. ~~S7 — Faturas~~ [CONCLUIDA]
 8. ~~S8 — Categorias e Automacoes~~ [CONCLUIDA]
 9. ~~S9 — Projecao Patrimonial~~ [CONCLUIDA]
-10. [S10 — Otimizacao de Schema e Indices](#s10--otimizacao-de-schema-e-indices) **<-- PROXIMA**
-11. [S11 — Docker e Containerizacao](#s11--docker-e-containerizacao)
+10. ~~S10 — Otimizacao de Schema e Indices~~ [CONCLUIDA]
+11. [S11 — Docker e Containerizacao](#s11--docker-e-containerizacao) **<-- PROXIMA**
 12. [S12 — Onboarding de Primeiro Uso](#s12--onboarding-de-primeiro-uso)
 13. [S13 — Integridade de Dados e Gaps](#s13--integridade-de-dados-e-gaps)
 14. [S14 — Backfill Refinado](#s14--backfill-refinado)
@@ -861,11 +861,12 @@ T10.5 [BE] -- Auditar uso de bank_transactions.type
 **Arquivos:** nenhuma mudanca esperada — apenas auditoria e documentacao
 
 **Criterios de aceite S10:**
-- [ ] `EXPLAIN QUERY PLAN` mostra uso de indice nas 5 queries mais frequentes
-- [ ] `_ensure_columns()` removido, testes passam
-- [ ] `pluggy_book_categories` removida do schema e codigo
-- [ ] `total_amount` nao e mais populada em novos upserts
-- [ ] `pytest tests/` passa, coverage >= 80%
+- [x] `EXPLAIN QUERY PLAN` mostra uso de indice nas 5 queries mais frequentes
+- [x] `_ensure_columns()` removido, testes passam
+- [x] `pluggy_book_categories` removida do schema e codigo
+- [x] `total_amount` nao e mais populada em novos upserts
+- [x] `pytest tests/` passa, coverage >= 80% (89.07%)
+- [x] `bank_transactions.type` auditado — coluna ativa, sem mudancas necessarias
 
 ---
 

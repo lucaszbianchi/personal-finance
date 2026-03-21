@@ -7,15 +7,6 @@ import json
 class FinanceHistoryRepository(BaseRepository):
     def __init__(self, db_path: str = "finance.db"):
         super().__init__(db_path=db_path)
-        self._ensure_columns()
-
-    def _ensure_columns(self) -> None:
-        """Add bank_expenses and credit_expenses columns if missing (backward-compatible migration)."""
-        for col in ("bank_expenses", "credit_expenses"):
-            try:
-                self.execute_query(f"ALTER TABLE finance_history ADD COLUMN {col} REAL")
-            except Exception:
-                pass  # Column already exists
 
     def dict_to_json(self, d: Dict) -> str:
         """Converte dicionário para JSON string"""

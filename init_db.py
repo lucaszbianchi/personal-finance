@@ -52,7 +52,7 @@ TABLES_SQL = [
         excluded INTEGER DEFAULT 0,
         installment_number INT,
         total_installments INT,
-        total_amount REAL,
+        total_amount REAL,  -- DEPRECATED: written by sync but never read; kept for backward compat
         FOREIGN KEY (category_id) REFERENCES categories(id)
     )
     """,
@@ -143,57 +143,6 @@ TABLES_SQL = [
     )
     """,
     """
-    CREATE TABLE IF NOT EXISTS pluggy_book_summary (
-        item_id         TEXT NOT NULL,
-        month           TEXT NOT NULL,
-        bank_account    TEXT,
-        credit_card     TEXT,
-        fetched_at      TEXT NOT NULL,
-        PRIMARY KEY (item_id, month)
-    )
-    """,
-    """
-    CREATE TABLE IF NOT EXISTS pluggy_book_categories (
-        item_id             TEXT NOT NULL,
-        month               TEXT NOT NULL,
-        category            TEXT NOT NULL,
-        transaction_type    TEXT NOT NULL,
-        account_subtype     TEXT NOT NULL,
-        m1_avg              REAL,
-        m1_total            REAL,
-        m1_min              REAL,
-        m1_max              REAL,
-        m2_avg              REAL,
-        m2_total            REAL,
-        m2_min              REAL,
-        m2_max              REAL,
-        m3_avg              REAL,
-        m3_total            REAL,
-        m3_min              REAL,
-        m3_max              REAL,
-        m6_avg              REAL,
-        m6_total            REAL,
-        m6_min              REAL,
-        m6_max              REAL,
-        m12_avg             REAL,
-        m12_total           REAL,
-        m12_min             REAL,
-        m12_max             REAL,
-        fetched_at          TEXT NOT NULL,
-        PRIMARY KEY (item_id, month, category, transaction_type, account_subtype)
-    )
-    """,
-    """
-    CREATE TABLE IF NOT EXISTS pluggy_insights (
-        item_id    TEXT NOT NULL,
-        month      TEXT NOT NULL,
-        type       TEXT NOT NULL,
-        data       TEXT,
-        fetched_at TEXT,
-        PRIMARY KEY (item_id, month, type)
-    )
-    """,
-    """
     CREATE TABLE IF NOT EXISTS user_goals (
         id          INTEGER PRIMARY KEY AUTOINCREMENT,
         category_id TEXT,
@@ -269,6 +218,25 @@ TABLES_SQL = [
     """,
 ]
 
+INDEXES_SQL = [
+    "CREATE INDEX IF NOT EXISTS idx_bank_transactions_date ON bank_transactions(date)",
+    "CREATE INDEX IF NOT EXISTS idx_bank_transactions_category_id ON bank_transactions(category_id)",
+    "CREATE INDEX IF NOT EXISTS idx_bank_transactions_excluded_date ON bank_transactions(excluded, date)",
+    "CREATE INDEX IF NOT EXISTS idx_credit_transactions_date ON credit_transactions(date)",
+    "CREATE INDEX IF NOT EXISTS idx_credit_transactions_category_id ON credit_transactions(category_id)",
+    "CREATE INDEX IF NOT EXISTS idx_credit_transactions_status ON credit_transactions(status)",
+    "CREATE INDEX IF NOT EXISTS idx_credit_transactions_excluded_date ON credit_transactions(excluded, date)",
+    "CREATE INDEX IF NOT EXISTS idx_splitwise_date ON splitwise(date)",
+    "CREATE INDEX IF NOT EXISTS idx_splitwise_transaction_id ON splitwise(transaction_id)",
+    "CREATE INDEX IF NOT EXISTS idx_investments_date ON investments(date)",
+    "CREATE INDEX IF NOT EXISTS idx_investments_type ON investments(type)",
+    "CREATE INDEX IF NOT EXISTS idx_accounts_snapshot_snapshotted_at ON accounts_snapshot(snapshotted_at)",
+    "CREATE INDEX IF NOT EXISTS idx_bills_due_date ON bills(due_date)",
+    "CREATE INDEX IF NOT EXISTS idx_bills_account_id ON bills(account_id)",
+    "CREATE INDEX IF NOT EXISTS idx_recurrent_expenses_category_id ON recurrent_expenses(category_id)",
+    "CREATE INDEX IF NOT EXISTS idx_income_sources_last_occurrence ON income_sources(last_occurrence)",
+]
+
 # Tabelas de configuração do usuário (settings, persons, user_goals, automation_rules)
 # são preservadas no reset — o usuário pode apagá-las manualmente pela UI se desejar.
 RESET_SQL = [
@@ -298,6 +266,8 @@ def reset_db():
         cursor.execute(sql)
     for sql in TABLES_SQL:
         cursor.execute(sql)
+    for sql in INDEXES_SQL:
+        cursor.execute(sql)
     conn.commit()
     conn.close()
 
@@ -306,6 +276,8 @@ def init_db():
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     for sql in TABLES_SQL:
+        cursor.execute(sql)
+    for sql in INDEXES_SQL:
         cursor.execute(sql)
     conn.commit()
     conn.close()

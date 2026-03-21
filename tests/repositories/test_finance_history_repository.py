@@ -6,25 +6,14 @@ class TestFinanceHistoryRepository(unittest.TestCase):
     def setUp(self):
         self.repo = FinanceHistoryRepository(db_path=":memory:")
         self.month = "2099-01"
-        # Cria tabela
-        self.repo.execute_query(
-            """
-            CREATE TABLE finance_history (
-                month TEXT PRIMARY KEY,
-                meal_allowance REAL,
-                credit_card_bill REAL,
-                credit_card_future_bill REAL,
-                total_cash REAL,
-                investments TEXT,
-                income REAL,
-                expenses REAL,
-                risk_management TEXT,
-                bank_expenses REAL,
-                credit_expenses REAL
-            )
-            """
-        )
-        self.repo.save_meal_allowance(self.month, 0)  # Limpa mês de teste
+        # Use canonical schema from init_db
+        from init_db import TABLES_SQL
+        for sql in TABLES_SQL:
+            try:
+                self.repo.execute_query(sql)
+            except Exception:
+                pass  # Table may already exist
+        self.repo.save_meal_allowance(self.month, 0)  # Limpa mes de teste
 
     def test_save_and_get_meal_allowance(self):
         self.repo.save_meal_allowance(self.month, 123.45)

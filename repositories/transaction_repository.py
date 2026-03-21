@@ -432,7 +432,7 @@ class TransactionRepository(BaseRepository):
             "excluded": 1 if (amount or 0) < 0 else 0,
             "installment_number": installment_number,
             "total_installments": total_installments,
-            "total_amount": credit_metadata.get("totalAmount"),
+            "total_amount": None,
         }
 
         result = self.upsert(

@@ -365,15 +365,7 @@ class PluggyAPI:
                 )
                 print(f"Processadas {len(splitwise_transactions)} transações Splitwise")
 
-            # 6. Pluggy Insights (book) — apenas para itens de banco
-            try:
-                from services.pluggy_insights_service import PluggyInsightsService
-                insights_service = PluggyInsightsService(self.api_key)
-                insights_service.fetch_and_store(self._get_item_ids_to_sync(), month)
-            except Exception as e:
-                print(f"[WARN] Não foi possível sincronizar Pluggy Insights: {e}")
-
-            # 6b. Recalculate bill close/open dates from installment transactions
+            # 6. Recalculate bill close/open dates from installment transactions
             try:
                 bill_repo.recalculate_all_close_dates()
                 print("[OK] Bill close/open dates recalculated")

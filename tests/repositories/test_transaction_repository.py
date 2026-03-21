@@ -973,6 +973,17 @@ class TestTransactionRepository(unittest.TestCase):
         result = self.repo.get_distinct_months()
         self.assertEqual(result, [])
 
+    def test_total_amount_not_selected(self):
+        """Ensure no repository SELECT query reads the deprecated total_amount column."""
+        import inspect
+        import repositories.transaction_repository as mod
+
+        source = inspect.getsource(mod)
+        # Remove comment lines to avoid false positives
+        lines = [line for line in source.splitlines() if not line.strip().startswith("#")]
+        selects = [line for line in lines if "SELECT" in line.upper() and "total_amount" in line.lower()]
+        self.assertEqual(selects, [], f"SELECT queries still reference total_amount: {selects}")
+
     def tearDown(self):
         """Limpeza após os testes"""
         # Com :memory:, o banco é automaticamente destruído quando a conexão é fechada
