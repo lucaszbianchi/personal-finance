@@ -143,26 +143,6 @@ TABLES_SQL = [
     )
     """,
     """
-    CREATE TABLE IF NOT EXISTS pluggy_book_summary (
-        item_id         TEXT NOT NULL,
-        month           TEXT NOT NULL,
-        bank_account    TEXT,
-        credit_card     TEXT,
-        fetched_at      TEXT NOT NULL,
-        PRIMARY KEY (item_id, month)
-    )
-    """,
-    """
-    CREATE TABLE IF NOT EXISTS pluggy_insights (
-        item_id    TEXT NOT NULL,
-        month      TEXT NOT NULL,
-        type       TEXT NOT NULL,
-        data       TEXT,
-        fetched_at TEXT,
-        PRIMARY KEY (item_id, month, type)
-    )
-    """,
-    """
     CREATE TABLE IF NOT EXISTS user_goals (
         id          INTEGER PRIMARY KEY AUTOINCREMENT,
         category_id TEXT,
