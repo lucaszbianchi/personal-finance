@@ -22,22 +22,9 @@ class PluggyInsightsService:
         book = data.get("book", {})
         bank_account = book.get("bankAccount", {})
         credit_card = book.get("creditCard", {})
-        categories = book.get("categories", [])
         fetched_at = datetime.now(timezone.utc).isoformat()
 
         self.repo.upsert_book_summary(item_id, month, bank_account, credit_card, fetched_at)
-
-        for entry in categories:
-            periods = {k: v for k, v in entry.items() if k in ("M1", "M2", "M3", "M6", "M12")}
-            self.repo.upsert_book_category(
-                item_id=item_id,
-                month=month,
-                category=entry.get("category", ""),
-                transaction_type=entry.get("transactionType", ""),
-                account_subtype=entry.get("accountSubtype", ""),
-                periods=periods,
-                fetched_at=fetched_at,
-            )
 
     def fetch_and_store(self, item_ids: list, month: str) -> None:
         for item_id in item_ids:

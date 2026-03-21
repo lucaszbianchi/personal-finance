@@ -153,37 +153,6 @@ TABLES_SQL = [
     )
     """,
     """
-    CREATE TABLE IF NOT EXISTS pluggy_book_categories (
-        item_id             TEXT NOT NULL,
-        month               TEXT NOT NULL,
-        category            TEXT NOT NULL,
-        transaction_type    TEXT NOT NULL,
-        account_subtype     TEXT NOT NULL,
-        m1_avg              REAL,
-        m1_total            REAL,
-        m1_min              REAL,
-        m1_max              REAL,
-        m2_avg              REAL,
-        m2_total            REAL,
-        m2_min              REAL,
-        m2_max              REAL,
-        m3_avg              REAL,
-        m3_total            REAL,
-        m3_min              REAL,
-        m3_max              REAL,
-        m6_avg              REAL,
-        m6_total            REAL,
-        m6_min              REAL,
-        m6_max              REAL,
-        m12_avg             REAL,
-        m12_total           REAL,
-        m12_min             REAL,
-        m12_max             REAL,
-        fetched_at          TEXT NOT NULL,
-        PRIMARY KEY (item_id, month, category, transaction_type, account_subtype)
-    )
-    """,
-    """
     CREATE TABLE IF NOT EXISTS pluggy_insights (
         item_id    TEXT NOT NULL,
         month      TEXT NOT NULL,
