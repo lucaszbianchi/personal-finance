@@ -52,7 +52,7 @@ TABLES_SQL = [
         excluded INTEGER DEFAULT 0,
         installment_number INT,
         total_installments INT,
-        total_amount REAL,
+        total_amount REAL,  -- DEPRECATED: written by sync but never read; kept for backward compat
         FOREIGN KEY (category_id) REFERENCES categories(id)
     )
     """,
