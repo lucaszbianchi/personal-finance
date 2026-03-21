@@ -1,7 +1,7 @@
 # Stories & Tasks — Personal Finance Roadmap
 
 > **Tech Lead:** Documento de planejamento para as features solicitadas.
-> **Data:** 2026-03-13 · **Ultima revisao:** 2026-03-21
+> **Data:** 2026-03-13 · **Ultima revisao:** 2026-03-22
 
 > **Convencao de branches:** `feat/<slug-da-historia>`
 
@@ -11,18 +11,18 @@
 
 | Campo | Valor |
 |-------|-------|
-| **Proxima historia a implementar** | **S12 — Onboarding de Primeiro Uso** |
-| **Proxima task a implementar** | **T12.1** |
-| **Historias concluidas** | S0, S1, S2, S3, S4, S5, S6, S7, S8, S9, S10, S11 |
-| **Historias pendentes** | S12, S13, S14, S15, S16 |
-| **Branch ativa** | `feat/docker` (pronta para merge) |
+| **Proxima historia a implementar** | **S13 — Integridade de Dados e Gaps** |
+| **Proxima task a implementar** | **T13.1** |
+| **Historias concluidas** | S0, S1, S2, S3, S4, S5, S6, S7, S8, S9, S10, S11, S12 |
+| **Historias pendentes** | S13, S14, S15, S16 |
+| **Branch ativa** | `feat/onboarding` (pronta para merge) |
 | **Mudancas nao commitadas em main** | Nenhuma |
 | **Bloqueios conhecidos** | Nenhum |
 
 ### O que fazer agora
 
-1. Ler a secao da proxima historia (S12) e suas tasks
-2. Criar a branch `feat/onboarding`
+1. Ler a secao da proxima historia (S13) e suas tasks
+2. Criar a branch `feat/data-integrity`
 3. Implementar as tasks na ordem indicada
 4. Rodar `pytest tests/` e verificar coverage >= 80% antes de considerar completa
 5. Ao finalizar, atualizar este documento (ver lembrete no final)
@@ -54,8 +54,8 @@
 9. ~~S9 — Projecao Patrimonial~~ [CONCLUIDA]
 10. ~~S10 — Otimizacao de Schema e Indices~~ [CONCLUIDA]
 11. ~~S11 — Docker e Containerizacao~~ [CONCLUIDA]
-12. [S12 — Onboarding de Primeiro Uso](#s12--onboarding-de-primeiro-uso) **<-- PROXIMA**
-13. [S13 — Integridade de Dados e Gaps](#s13--integridade-de-dados-e-gaps)
+12. ~~S12 — Onboarding de Primeiro Uso~~ [CONCLUIDA]
+13. [S13 — Integridade de Dados e Gaps](#s13--integridade-de-dados-e-gaps) **<-- PROXIMA**
 14. [S14 — Backfill Refinado](#s14--backfill-refinado)
 15. [S15 — Metas de Consumo](#s15--metas-de-consumo)
 16. [S16 — Transicao Mes/Ciclo Fatura](#s16--transicao-mesciclo-fatura)
@@ -1056,10 +1056,10 @@ Adicionar rota `/onboarding` no router.
 **Arquivos:** `frontend/src/App.tsx`
 
 **Criterios de aceite S12:**
-- [ ] Banco vazio redireciona para onboarding
-- [ ] Full-sync via onboarding popula todas as tabelas
-- [ ] Apos onboarding, Dashboard mostra dados
-- [ ] Re-visitar /onboarding apos setup mostra "ja configurado"
+- [x] Banco vazio redireciona para onboarding
+- [x] Full-sync via onboarding popula todas as tabelas
+- [x] Apos onboarding, Dashboard mostra dados
+- [x] Re-visitar /onboarding apos setup mostra "ja configurado"
 
 ---
 
