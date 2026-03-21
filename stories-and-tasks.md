@@ -2,6 +2,7 @@
 
 > **Tech Lead:** Documento de planejamento para as features solicitadas.
 > **Data:** 2026-03-13 · **Ultima revisao:** 2026-03-21
+
 > **Convencao de branches:** `feat/<slug-da-historia>`
 
 ---
@@ -10,18 +11,18 @@
 
 | Campo | Valor |
 |-------|-------|
-| **Proxima historia a implementar** | **S11 — Docker e Containerizacao** |
-| **Proxima task a implementar** | **T11.1** |
-| **Historias concluidas** | S0, S1, S2, S3, S4, S5, S6, S7, S8, S9, S10 |
-| **Historias pendentes** | S11, S12, S13, S14, S15, S16 |
-| **Branch ativa** | `feat/schema-optimization` (pronta para merge) |
+| **Proxima historia a implementar** | **S12 — Onboarding de Primeiro Uso** |
+| **Proxima task a implementar** | **T12.1** |
+| **Historias concluidas** | S0, S1, S2, S3, S4, S5, S6, S7, S8, S9, S10, S11 |
+| **Historias pendentes** | S12, S13, S14, S15, S16 |
+| **Branch ativa** | `feat/docker` (pronta para merge) |
 | **Mudancas nao commitadas em main** | Nenhuma |
 | **Bloqueios conhecidos** | Nenhum |
 
 ### O que fazer agora
 
-1. Ler a secao da proxima historia (S11) e suas tasks
-2. Criar a branch `feat/docker`
+1. Ler a secao da proxima historia (S12) e suas tasks
+2. Criar a branch `feat/onboarding`
 3. Implementar as tasks na ordem indicada
 4. Rodar `pytest tests/` e verificar coverage >= 80% antes de considerar completa
 5. Ao finalizar, atualizar este documento (ver lembrete no final)
@@ -52,8 +53,8 @@
 8. ~~S8 — Categorias e Automacoes~~ [CONCLUIDA]
 9. ~~S9 — Projecao Patrimonial~~ [CONCLUIDA]
 10. ~~S10 — Otimizacao de Schema e Indices~~ [CONCLUIDA]
-11. [S11 — Docker e Containerizacao](#s11--docker-e-containerizacao) **<-- PROXIMA**
-12. [S12 — Onboarding de Primeiro Uso](#s12--onboarding-de-primeiro-uso)
+11. ~~S11 — Docker e Containerizacao~~ [CONCLUIDA]
+12. [S12 — Onboarding de Primeiro Uso](#s12--onboarding-de-primeiro-uso) **<-- PROXIMA**
 13. [S13 — Integridade de Dados e Gaps](#s13--integridade-de-dados-e-gaps)
 14. [S14 — Backfill Refinado](#s14--backfill-refinado)
 15. [S15 — Metas de Consumo](#s15--metas-de-consumo)
