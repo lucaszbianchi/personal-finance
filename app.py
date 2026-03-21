@@ -1,3 +1,5 @@
+import os
+
 from flask import Flask, send_from_directory
 
 # Importação dos blueprints
@@ -56,4 +58,4 @@ def serve_static(path):
 
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(host=os.getenv("FLASK_HOST", "127.0.0.1"), debug=True)

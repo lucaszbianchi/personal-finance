@@ -1,13 +1,16 @@
+import os
 import sqlite3
 import threading
 import json
 from typing import Dict, Any, List
 
+DEFAULT_DB_PATH = os.getenv("DB_PATH", "finance.db")
+
 
 class BaseRepository:
     """Classe base para todos os repositórios, fornecendo funcionalidades comuns de banco de dados."""
 
-    def __init__(self, db_path: str = "finance.db"):
+    def __init__(self, db_path: str = DEFAULT_DB_PATH):
         self.db_path = db_path
         self._local = threading.local()
 
