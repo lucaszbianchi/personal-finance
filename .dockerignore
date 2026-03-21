@@ -1,0 +1,10 @@
+node_modules/
+frontend/node_modules/
+__pycache__/
+*.pyc
+.env
+finance.db
+.git/
+tests/
+test_scripts/
+.playwright-mcp/

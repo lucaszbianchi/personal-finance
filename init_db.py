@@ -7,7 +7,7 @@ import dotenv
 
 dotenv.load_dotenv()
 
-DB_PATH = "finance.db"
+DB_PATH = os.getenv("DB_PATH", "finance.db")
 
 TABLES_SQL = [
     """
