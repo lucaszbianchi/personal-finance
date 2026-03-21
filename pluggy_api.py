@@ -3,8 +3,6 @@ import json
 import os
 import requests
 
-import dotenv
-
 from repositories.accounts_snapshot_repository import AccountsSnapshotRepository
 from repositories.bill_repository import BillRepository
 from repositories.category_repository import CategoryRepository
@@ -15,6 +13,7 @@ from repositories.investment_repository import InvestmentRepository
 from repositories.splitwise_repository import SplitwiseRepository
 from services.finance_history_service import FinanceHistoryService
 from services.pluggy_auth_service import get_api_key as _get_api_key
+from repositories.settings_repository import SettingsRepository
 from services.recurrence_detector_service import RecurrenceDetectorService
 
 INCREMENTAL_DAYS = 6
@@ -26,17 +25,14 @@ class PluggyAPI:
     """
 
     def __init__(self):
-        dotenv.load_dotenv()
         self.base_url = "https://api.pluggy.ai"
-        self.item_id = os.getenv("ITEM_ID")
-        self.splitwise_item_id = os.getenv("ITEM_ID_SPLITWISE")
         self.api_key = self._create_api_key()
 
     def _create_api_key(self):
         return _get_api_key()
 
-    def list_consents(self):
-        url = f"{self.base_url}/consents?itemId={self.item_id}"
+    def list_consents(self, item_id):
+        url = f"{self.base_url}/consents?itemId={item_id}"
         headers = {"accept": "application/json", "X-API-KEY": f"{self.api_key}"}
         response = requests.get(url, headers=headers, timeout=30)
         return json.loads(response.content)
@@ -394,34 +390,22 @@ class PluggyAPI:
             bill_repo.close()
 
     def _get_item_ids_to_sync(self) -> list:
-        """Retorna item_ids de role 'bank' para sincronizar. Fallback: ITEM_ID do .env."""
+        """Retorna item_ids de role 'bank' para sincronizar."""
         repo = PluggyItemRepository()
         try:
             items = repo.get_items_by_role("bank")
-            if items:
-                return [item["item_id"] for item in items]
-        except Exception as e:
-            print(
-                f"[WARN] Não foi possível consultar pluggy_items, usando fallback do .env: {e}"
-            )
+            return [item["item_id"] for item in items]
         finally:
             repo.close()
-        return [self.item_id] if self.item_id else []
 
     def _get_splitwise_item_id(self) -> str | None:
-        """Retorna o item_id de role 'splitwise' do banco. Fallback: ITEM_ID_SPLITWISE do .env."""
+        """Retorna o item_id de role 'splitwise' do banco."""
         repo = PluggyItemRepository()
         try:
             items = repo.get_items_by_role("splitwise")
-            if items:
-                return items[0]["item_id"]
-        except Exception as e:
-            print(
-                f"[WARN] Não foi possível consultar pluggy_items, usando fallback do .env: {e}"
-            )
+            return items[0]["item_id"] if items else None
         finally:
             repo.close()
-        return self.splitwise_item_id
 
     def fetch_investments_data(self) -> list:
         """Busca investimentos de todos os items de role 'bank'."""
@@ -438,10 +422,19 @@ class PluggyAPI:
         splitwise_item_id = self._get_splitwise_item_id()
         if not splitwise_item_id:
             return []
+
+        repo = SettingsRepository()
+        try:
+            account_name = repo.get_value("splitwise_account_name")
+        finally:
+            repo.close()
+        if not account_name:
+            return []
+
         from_date, to_date = self._incremental_date_range()
         accounts = self.list_accounts(splitwise_item_id).get("results", [])
         for account in accounts:
-            if account.get("name") == os.getenv("SPLITWISE_ACCOUNT_NAME"):
+            if account.get("name") == account_name:
                 return self._fetch_all_pages(account.get("id"), from_date, to_date)
         return []
 

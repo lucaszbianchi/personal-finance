@@ -348,4 +348,39 @@ export const automationService = {
     api.post<{ applied: number; matches_found: number }>(`/automations/${id}/apply`),
 };
 
+export interface OnboardingStatus {
+  has_credentials: boolean;
+  has_pluggy_items: boolean;
+  has_transactions: boolean;
+  has_history: boolean;
+  is_complete: boolean;
+}
+
+export interface FullSyncResponse {
+  status: 'success' | 'error';
+  message?: string;
+  non_recent?: Record<string, unknown>;
+  recent?: Record<string, unknown>;
+  rebuild?: { months_processed: number; months: string[] };
+}
+
+export const onboardingService = {
+  getStatus: async (): Promise<OnboardingStatus> => {
+    const response = await api.get('/onboarding/status');
+    return response.data;
+  },
+  saveCredentials: async (data: {
+    client_id: string;
+    client_secret: string;
+    splitwise_account_name?: string;
+  }) => {
+    const response = await api.post('/onboarding/credentials', data);
+    return response.data;
+  },
+  fullSync: async (): Promise<FullSyncResponse> => {
+    const response = await api.post('/onboarding/full-sync', {}, { timeout: 180000 });
+    return response.data;
+  },
+};
+
 export default api;

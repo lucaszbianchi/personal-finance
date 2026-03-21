@@ -1,28 +1,37 @@
 """
-Serviço de autenticação com a Pluggy API.
-Responsável por gerar o apiKey e o connect token.
+Servico de autenticacao com a Pluggy API.
+Responsavel por gerar o apiKey e o connect token.
 """
 
-import json
-import os
-
-import dotenv
 import requests
 
-dotenv.load_dotenv()
+from repositories.settings_repository import SettingsRepository
 
 PLUGGY_BASE_URL = "https://api.pluggy.ai"
 
 
+def _load_credentials() -> tuple:
+    """Carrega CLIENT_ID e CLIENT_SECRET do banco de dados (tabela settings)."""
+    repo = SettingsRepository()
+    try:
+        client_id = repo.get_value("pluggy_client_id")
+        client_secret = repo.get_value("pluggy_client_secret")
+    finally:
+        repo.close()
+    if not client_id or not client_secret:
+        raise ValueError(
+            "Credenciais Pluggy nao configuradas. Complete o onboarding primeiro."
+        )
+    return client_id, client_secret
+
+
 def get_api_key() -> str:
     """
-    Autentica na Pluggy API e retorna um apiKey válido por 2 horas.
-    Usado pelo backend para chamadas server-side à API.
+    Autentica na Pluggy API e retorna um apiKey valido por 2 horas.
+    Usado pelo backend para chamadas server-side a API.
     """
-    payload = {
-        "clientId": os.getenv("CLIENT_ID"),
-        "clientSecret": os.getenv("CLIENT_SECRET"),
-    }
+    client_id, client_secret = _load_credentials()
+    payload = {"clientId": client_id, "clientSecret": client_secret}
     headers = {"accept": "application/json", "content-type": "application/json"}
     response = requests.post(
         f"{PLUGGY_BASE_URL}/auth", json=payload, headers=headers, timeout=30
@@ -44,7 +53,7 @@ def get_item(item_id: str) -> dict:
 
 def create_connect_token() -> dict:
     """
-    Gera um connect token de curta duração para uso no widget Pluggy Connect.
+    Gera um connect token de curta duracao para uso no widget Pluggy Connect.
     Retorna { accessToken, expiresAt }.
     """
     api_key = get_api_key()
