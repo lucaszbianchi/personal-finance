@@ -51,10 +51,6 @@ app.register_blueprint(projection_bp, url_prefix="/api/projection")
 
 def _migrate_credentials_from_env():
     """Migra credenciais do .env para o banco na primeira execucao."""
-    from init_db import init_db
-
-    init_db()
-
     client_id = os.getenv("CLIENT_ID")
     client_secret = os.getenv("CLIENT_SECRET")
     if not client_id or not client_secret:
