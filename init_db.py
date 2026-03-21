@@ -269,6 +269,25 @@ TABLES_SQL = [
     """,
 ]
 
+INDEXES_SQL = [
+    "CREATE INDEX IF NOT EXISTS idx_bank_transactions_date ON bank_transactions(date)",
+    "CREATE INDEX IF NOT EXISTS idx_bank_transactions_category_id ON bank_transactions(category_id)",
+    "CREATE INDEX IF NOT EXISTS idx_bank_transactions_excluded_date ON bank_transactions(excluded, date)",
+    "CREATE INDEX IF NOT EXISTS idx_credit_transactions_date ON credit_transactions(date)",
+    "CREATE INDEX IF NOT EXISTS idx_credit_transactions_category_id ON credit_transactions(category_id)",
+    "CREATE INDEX IF NOT EXISTS idx_credit_transactions_status ON credit_transactions(status)",
+    "CREATE INDEX IF NOT EXISTS idx_credit_transactions_excluded_date ON credit_transactions(excluded, date)",
+    "CREATE INDEX IF NOT EXISTS idx_splitwise_date ON splitwise(date)",
+    "CREATE INDEX IF NOT EXISTS idx_splitwise_transaction_id ON splitwise(transaction_id)",
+    "CREATE INDEX IF NOT EXISTS idx_investments_date ON investments(date)",
+    "CREATE INDEX IF NOT EXISTS idx_investments_type ON investments(type)",
+    "CREATE INDEX IF NOT EXISTS idx_accounts_snapshot_snapshotted_at ON accounts_snapshot(snapshotted_at)",
+    "CREATE INDEX IF NOT EXISTS idx_bills_due_date ON bills(due_date)",
+    "CREATE INDEX IF NOT EXISTS idx_bills_account_id ON bills(account_id)",
+    "CREATE INDEX IF NOT EXISTS idx_recurrent_expenses_category_id ON recurrent_expenses(category_id)",
+    "CREATE INDEX IF NOT EXISTS idx_income_sources_last_occurrence ON income_sources(last_occurrence)",
+]
+
 # Tabelas de configuração do usuário (settings, persons, user_goals, automation_rules)
 # são preservadas no reset — o usuário pode apagá-las manualmente pela UI se desejar.
 RESET_SQL = [
@@ -298,6 +317,8 @@ def reset_db():
         cursor.execute(sql)
     for sql in TABLES_SQL:
         cursor.execute(sql)
+    for sql in INDEXES_SQL:
+        cursor.execute(sql)
     conn.commit()
     conn.close()
 
@@ -306,6 +327,8 @@ def init_db():
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     for sql in TABLES_SQL:
+        cursor.execute(sql)
+    for sql in INDEXES_SQL:
         cursor.execute(sql)
     conn.commit()
     conn.close()
