@@ -13,6 +13,8 @@ class FinanceHistory:
         expenses: Optional[float],
         income: Optional[float],
         risk_management: Optional[float],
+        bank_expenses: Optional[float] = None,
+        credit_expenses: Optional[float] = None,
     ):
         self.month = month
         self.meal_allowance = meal_allowance
@@ -23,3 +25,5 @@ class FinanceHistory:
         self.expenses = expenses
         self.income = income
         self.risk_management = risk_management
+        self.bank_expenses = bank_expenses
+        self.credit_expenses = credit_expenses

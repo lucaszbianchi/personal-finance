@@ -18,7 +18,9 @@ class TestFinanceHistoryRepository(unittest.TestCase):
                 investments TEXT,
                 income REAL,
                 expenses REAL,
-                risk_management TEXT
+                risk_management TEXT,
+                bank_expenses REAL,
+                credit_expenses REAL
             )
             """
         )

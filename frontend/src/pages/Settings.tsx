@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react'
 import { formatDistanceToNow } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { useQuery, useQueries, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Trash2 } from 'lucide-react'
+import { Trash2, ShieldCheck } from 'lucide-react'
 import api, { databaseService } from '@/services/api'
 import { PluggyConnectButton } from '@/components/PluggyConnectButton'
 import { useCategoryLanguage } from '@/contexts/CategoryLanguageContext'
@@ -45,6 +45,7 @@ export const Settings: React.FC = () => {
   const { categoryLanguage, setCategoryLanguage } = useCategoryLanguage()
 
   const [updateModalOpen, setUpdateModalOpen] = useState(false)
+  const [securityModalOpen, setSecurityModalOpen] = useState(false)
   const [resetModalOpen, setResetModalOpen] = useState(false)
   const [resetLoading, setResetLoading] = useState(false)
   const [resetMessage, setResetMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
@@ -120,7 +121,16 @@ export const Settings: React.FC = () => {
 
       {/* Contas Bancárias */}
       <section className="bg-white rounded-lg shadow p-6 space-y-4">
-        <h2 className="text-lg font-semibold text-gray-700">Contas Bancárias Conectadas</h2>
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold text-gray-700">Contas Bancárias Conectadas</h2>
+          <button
+            onClick={() => setSecurityModalOpen(true)}
+            className="inline-flex items-center gap-1.5 text-sm text-green-700 hover:text-green-800 hover:underline"
+          >
+            <ShieldCheck size={15} />
+            Seus dados estão seguros
+          </button>
+        </div>
 
         {itemsLoading ? (
           <p className="text-sm text-gray-500">Carregando...</p>
@@ -219,6 +229,84 @@ export const Settings: React.FC = () => {
         </div>
       )}
 
+      {/* Modal: Segurança dos dados */}
+      {securityModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="bg-white rounded-lg shadow-xl p-6 max-w-md w-full mx-4 space-y-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center gap-2">
+              <ShieldCheck size={20} className="text-green-600 flex-shrink-0" />
+              <h3 className="text-lg font-semibold text-gray-800">Segurança dos seus dados</h3>
+            </div>
+
+            <div className="space-y-3 text-sm text-gray-600">
+              <div className="rounded-md bg-green-50 border border-green-200 px-4 py-3">
+                <p className="font-medium text-green-800">Autorizada pelo Banco Central do Brasil</p>
+                <p className="text-green-700 mt-0.5">
+                  A Pluggy (CNPJ 37.943.755/0001-30) é uma instituição de pagamento regulada,
+                  autorizada pelo BACEN conforme Resolução BCB n° 80/2021.
+                </p>
+              </div>
+
+              <div>
+                <p className="font-medium text-gray-700">Criptografia ponta a ponta (AES-256)</p>
+                <p>Todas as informações trafegam com criptografia de nível bancário, o mesmo padrão usado por grandes instituições financeiras.</p>
+              </div>
+
+              <div>
+                <p className="font-medium text-gray-700">Conexão via Open Finance — sem expor sua senha</p>
+                <p>Para os principais bancos (Itaú, Bradesco, Nubank e outros), a conexão usa as APIs reguladas do Open Finance Brasil. Sua senha bancária não é transmitida ao aplicativo.</p>
+              </div>
+
+              <div>
+                <p className="font-medium text-gray-700">Acesso somente leitura</p>
+                <p>O aplicativo apenas visualiza seus dados. Nenhuma operação financeira (transferências, pagamentos) é realizada.</p>
+              </div>
+
+              <div>
+                <p className="font-medium text-gray-700">Conformidade com a LGPD</p>
+                <p>Você pode solicitar a exclusão completa dos seus dados a qualquer momento pelo e-mail <span className="font-mono text-gray-800">dpo@pluggy.ai</span>. O prazo de exclusão é de aproximadamente 15 dias.</p>
+              </div>
+
+              <div>
+                <p className="font-medium text-gray-700">Uso exclusivo neste aplicativo</p>
+                <p>Os dados coletados são usados apenas para exibição neste app. Nunca são compartilhados com terceiros para fins de marketing.</p>
+              </div>
+            </div>
+
+            <div className="pt-2 flex flex-col gap-2">
+              <p className="text-xs text-gray-500 font-medium uppercase tracking-wide">Leitura completa</p>
+              <div className="flex flex-wrap gap-2">
+                <a
+                  href="https://pluggy.ai/legal"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 rounded border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50"
+                >
+                  Política de Privacidade ↗
+                </a>
+                <a
+                  href="https://pluggy.ai"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 rounded border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50"
+                >
+                  Site oficial da Pluggy ↗
+                </a>
+              </div>
+            </div>
+
+            <div className="flex justify-end pt-1">
+              <button
+                onClick={() => setSecurityModalOpen(false)}
+                className="rounded border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              >
+                Fechar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Vale Refeição */}
       <section className="bg-white rounded-lg shadow p-6 space-y-4">
         <h2 className="text-lg font-semibold text-gray-700">Vale Refeição</h2>
@@ -283,7 +371,7 @@ export const Settings: React.FC = () => {
           <div>
             <p className="text-sm font-medium text-gray-800">Resetar banco de dados</p>
             <p className="text-xs text-gray-500 mt-1">
-              Apaga todos os dados e recria as tabelas do zero. Use o import histórico após o reset para repopular.
+              Apaga transações, histórico e dados sincronizados. Suas configurações (parceiros, metas, regras de automação e ajustes) são preservadas.
             </p>
           </div>
           <button
@@ -306,8 +394,23 @@ export const Settings: React.FC = () => {
           <div className="bg-white rounded-lg shadow-xl p-6 max-w-sm w-full mx-4 space-y-4">
             <h3 className="text-lg font-semibold text-gray-800">⚠ Confirmar reset</h3>
             <p className="text-sm text-gray-600">
-              Esta ação é <strong>irreversível</strong>. Todos os dados serão apagados e as tabelas recriadas vazias.
-              Você precisará rodar o import histórico manualmente para repopular.
+              Esta ação é <strong>irreversível</strong>. Os seguintes dados serão apagados:
+            </p>
+            <ul className="text-sm text-gray-600 list-disc list-inside space-y-0.5">
+              <li>Transações bancárias e de cartão</li>
+              <li>Histórico financeiro e snapshots</li>
+              <li>Investimentos, faturas e dados sincronizados</li>
+            </ul>
+            <p className="text-sm text-gray-600">
+              Os seguintes dados <strong>serão mantidos</strong>:
+            </p>
+            <ul className="text-sm text-gray-600 list-disc list-inside space-y-0.5">
+              <li>Parceiros e configurações de divisão de despesas</li>
+              <li>Metas e regras de automação</li>
+              <li>Ajustes gerais do aplicativo</li>
+            </ul>
+            <p className="text-sm text-gray-600 mt-1">
+              Rode o import histórico após o reset para repopular os dados.
             </p>
             <div className="flex justify-end gap-3 pt-2">
               <button

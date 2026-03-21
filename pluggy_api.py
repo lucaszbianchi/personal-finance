@@ -341,6 +341,7 @@ class PluggyAPI:
                 month = today.strftime("%Y-%m")
                 fh_service = FinanceHistoryService()
                 fh_service.update_finance_history_net_worth(month, bank_balance)
+                fh_service.update_finance_history_from_sync(month)
                 print(f"[OK] Snapshot mensal gravado para {month}")
 
             # 4. Splitwise

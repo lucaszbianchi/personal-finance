@@ -391,6 +391,50 @@ export interface CategoryDistribution {
   groups: CategoryDistributionGroup[];
 }
 
+export interface ProjectionMonth {
+  month: string;
+  net_worth: number;
+  income: number;
+  expenses: number;
+  fixed: number;
+  installments: number;
+  variable: number;
+}
+
+export interface ProjectionHistoryMonth {
+  month: string;
+  income: number;
+  expenses: number;
+  fixed: number;
+  installments: number;
+  variable: number;
+  net_worth: number | null;
+}
+
+export interface ProjectionData {
+  current_net_worth: number;
+  avg_variable_expenses: number;
+  history: ProjectionHistoryMonth[];
+  projection: ProjectionMonth[];
+}
+
+export interface ProjectionAssumptionItem {
+  description: string | null;
+  amount: number;
+}
+
+export interface ProjectionInstallmentItem {
+  month: string;
+  total: number;
+}
+
+export interface ProjectionAssumptions {
+  income_sources: ProjectionAssumptionItem[];
+  fixed_expenses: ProjectionAssumptionItem[];
+  installments_by_month: ProjectionInstallmentItem[];
+  avg_variable_expenses: number;
+}
+
 export interface AutomationPreviewTransaction {
   id: string;
   date: string | null;

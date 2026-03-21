@@ -53,6 +53,20 @@ class FinanceSummaryService:
         )
         return sum(abs(t.amount) for t in bank + credit if self._is_expense(t))
 
+    def get_bank_expenses(self, start_date: str, end_date: str) -> float:
+        """Calcula apenas as despesas bancárias (bank_transactions negativas) no período."""
+        bank = self.transaction_service.get_bank_transactions(
+            start_date=start_date, end_date=end_date
+        )
+        return sum(abs(t.amount) for t in bank if self._is_expense(t))
+
+    def get_credit_expenses(self, start_date: str, end_date: str) -> float:
+        """Calcula apenas as despesas de crédito (credit_transactions positivas) no período."""
+        credit = self.transaction_service.get_credit_transactions(
+            start_date=start_date, end_date=end_date
+        )
+        return sum(abs(t.amount) for t in credit if self._is_expense(t))
+
     def get_investment_value(self) -> float:
         """Calcula o valor total investido."""
         investments = self.transaction_repository.get_investments()

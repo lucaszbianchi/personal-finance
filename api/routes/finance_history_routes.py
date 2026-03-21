@@ -58,3 +58,10 @@ def update_all():
 def get_history():
     result = finance_history_service.get_net_worth_history()
     return jsonify(result)
+
+
+# Backfill income/expenses para todos os meses com transacoes
+@bp.route("/rebuild", methods=["POST"])
+def rebuild_history():
+    result = finance_history_service.rebuild_all_months()
+    return jsonify(result)
