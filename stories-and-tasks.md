@@ -1,38 +1,63 @@
 # Stories & Tasks — Personal Finance Roadmap
 
 > **Tech Lead:** Documento de planejamento para as features solicitadas.
-> **Data:** 2026-03-13 · **Última revisão:** 2026-03-13
-> **Convenção de branches:** `feat/<slug-da-história>`
+> **Data:** 2026-03-13 · **Ultima revisao:** 2026-03-21
+> **Convencao de branches:** `feat/<slug-da-historia>`
+
+---
+
+## STATUS ATUAL — Leia isto primeiro
+
+| Campo | Valor |
+|-------|-------|
+| **Proxima historia a implementar** | **S10 — Otimizacao de Schema e Indices** |
+| **Proxima task a implementar** | **T10.1 — Adicionar indices nas tabelas principais** |
+| **Historias concluidas** | S0, S1, S2, S3, S4, S5, S6, S7, S8, S9 |
+| **Historias pendentes** | S10, S11, S12, S13, S14, S15, S16 |
+| **Branch ativa** | `main` (nenhuma feature branch aberta) |
+| **Mudancas nao commitadas em main** | projection, finance_history improvements |
+| **Bloqueios conhecidos** | Nenhum |
+
+### O que fazer agora
+
+1. Ler a secao da proxima historia (S10) e suas tasks
+2. Criar a branch `feat/schema-optimization`
+3. Implementar as tasks na ordem indicada (T10.1 primeiro, depois T10.2-T10.5 em paralelo)
+4. Rodar `pytest tests/` e verificar coverage >= 80% antes de considerar completa
+5. Ao finalizar, atualizar este documento (ver lembrete no final)
 
 ---
 
 ## Legenda
 
-| Símbolo | Significado                                                 |
-| ------- | ----------------------------------------------------------- |
-| 🔴      | Bloqueante — deve ser concluída antes de tasks dependentes  |
-| 🟡      | Pode ser feita em paralelo com tasks sem dependência        |
-| 🟢      | Independente, pode ser feita a qualquer momento na história |
-| `[BE]`  | Tarefa de backend (Python/Flask/SQLite)                     |
-| `[FE]`  | Tarefa de frontend (React/TypeScript)                       |
-| `[DB]`  | Migração / schema de banco de dados                         |
+| Simbolo  | Significado                                                 |
+| -------- | ----------------------------------------------------------- |
+| `[BE]`   | Tarefa de backend (Python/Flask/SQLite)                     |
+| `[FE]`   | Tarefa de frontend (React/TypeScript)                       |
+| `[DB]`   | Migracao / schema de banco de dados                         |
+| `[INFRA]`| Infraestrutura (Docker, CI/CD, deploy)                      |
 
 ---
 
-## Índice de Histórias
+## Indice de Historias
 
-0. [S0 — Migrações de Banco de Dados ⚠️ pré-requisito global](#s0--migrações-de-banco-de-dados)
-1. [S1 — Ritmo de Gastos (Visão Geral)](#s1--ritmo-de-gastos)
-2. [S2 — Patrimônio e Resultado Parcial (Visão Geral)](#s2--patrimônio-e-resultado-parcial)
-3. [S3 — Próximas Despesas (Visão Geral)](#s3--próximas-despesas)
-4. [S4 — Recorrências: Visualização e Cadastro](#s4--recorrências-visualização-e-cadastro)
-5. [S5 — Receitas: Visualização e Cadastro](#s5--receitas-visualização-e-cadastro)
-6. [S6 — Fluxo de Caixa](#s6--fluxo-de-caixa)
-7. [S7 — Faturas (Cartão de Crédito)](#s7--faturas)
-8. [S8 — Categorias: Análises Avançadas e Automações](#s8--categorias-análises-avançadas-e-automações)
-9. [S9 — Projeção Patrimonial](#s9--projeção-patrimonial)
-10. [S10 — Metas de Consumo](#s10--metas-de-consumo)
-11. [S11 — Backfill de Histórico Financeiro](#s11--backfill-de-histórico-financeiro)
+0. ~~S0 — Migracoes de Banco de Dados~~ [CONCLUIDA]
+1. ~~S1 — Ritmo de Gastos~~ [CONCLUIDA]
+2. ~~S2 — Patrimonio e Resultado Parcial~~ [CONCLUIDA]
+3. ~~S3 — Proximas Despesas~~ [CONCLUIDA]
+4. ~~S4 — Recorrencias~~ [CONCLUIDA]
+5. ~~S5 — Receitas~~ [CONCLUIDA]
+6. ~~S6 — Fluxo de Caixa~~ [CONCLUIDA]
+7. ~~S7 — Faturas~~ [CONCLUIDA]
+8. ~~S8 — Categorias e Automacoes~~ [CONCLUIDA]
+9. ~~S9 — Projecao Patrimonial~~ [CONCLUIDA]
+10. [S10 — Otimizacao de Schema e Indices](#s10--otimizacao-de-schema-e-indices) **<-- PROXIMA**
+11. [S11 — Docker e Containerizacao](#s11--docker-e-containerizacao)
+12. [S12 — Onboarding de Primeiro Uso](#s12--onboarding-de-primeiro-uso)
+13. [S13 — Integridade de Dados e Gaps](#s13--integridade-de-dados-e-gaps)
+14. [S14 — Backfill Refinado](#s14--backfill-refinado)
+15. [S15 — Metas de Consumo](#s15--metas-de-consumo)
+16. [S16 — Transicao Mes/Ciclo Fatura](#s16--transicao-mesciclo-fatura)
 
 ---
 
@@ -750,33 +775,494 @@ T9.5 [FE] 🟢 — Registrar rota /projection no router e no menu
 
 ---
 
-## S10 — Metas de Consumo
+## S10 — Otimizacao de Schema e Indices
 
-**Branch:** `feat/spending-goals`
+**Branch:** `feat/schema-optimization`
 
-**Descrição:** Permite ao usuário definir sua meta mensal total de gastos (e opcionalmente por categoria) através da página de Configurações. As metas ficam persistidas em `user_goals` e alimentam as linhas de referência do gráfico de Ritmo de Gastos (S1) e a barra de progresso do Resultado Parcial (S2).
+**Descricao:** Adiciona indices nas tabelas principais (zero indices atualmente — full-table-scan em todas as queries), remove colunas mortas, consolida migrations runtime no `init_db.py`, e remove tabela denormalizada `pluggy_book_categories`. Objetivo: performance, integridade do schema e codigo mais limpo.
 
-**Dados necessários:** Tabela `user_goals` (já existe). Categorias em `categories` (já existe).
+**Problemas identificados:**
+- Zero indices em todas as tabelas — qualquer WHERE ou JOIN faz full-table-scan
+- `credit_transactions.total_amount` e populada pelo sync mas NUNCA lida por nenhum repositorio/servico
+- `bank_expenses`/`credit_expenses` em `finance_history` foram adicionadas via `_ensure_columns()` runtime (ALTER TABLE) em vez de estarem no CREATE TABLE do `init_db.py`
+- `pluggy_book_categories` tem 24 colunas denormalizadas (m1_avg...m12_max) e a logica de insights pode usar a tabela generica `pluggy_insights`
+- `bank_transactions.type` — verificar se e usado em algum calculo ou pode ser ignorado
 
 ---
 
 ### Tasks
 
 ```
-T10.1 [BE] 🔴 — API CRUD de metas de consumo
+T10.1 [DB] -- Adicionar indices nas tabelas principais
+```
+
+Criar `scripts/add_indexes.py` para bancos existentes e adicionar os CREATE INDEX ao `init_db.py`:
+
+Indices necessarios (~12):
+- `bank_transactions`: `(date)`, `(category_id)`, `(excluded, date)`
+- `credit_transactions`: `(date)`, `(category_id)`, `(status)`, `(excluded, date)`
+- `splitwise`: `(date)`, `(transaction_id)`
+- `finance_history`: `(month)` (ja e PK, ok)
+- `investments`: `(date)`, `(type)`
+- `accounts_snapshot`: `(snapshotted_at)`
+- `bills`: `(due_date)`, `(account_id)`
+- `recurrent_expenses`: `(category_id)`
+- `income_sources`: `(last_occurrence)`
+
+Script deve ser idempotente (`CREATE INDEX IF NOT EXISTS`).
+Validar com `EXPLAIN QUERY PLAN` nas queries mais usadas.
+
+**Arquivos:** `init_db.py`, `scripts/add_indexes.py` (novo)
+
+```
+T10.2 [DB] -- Remover/deprecar credit_transactions.total_amount
+```
+
+1. Verificar que nenhum repositorio/servico le `total_amount` (confirmado: so e escrito em `transaction_repository.py:435`).
+2. Nao remover a coluna do CREATE TABLE (SQLite nao suporta DROP COLUMN facilmente) — apenas:
+   - Adicionar comentario `-- DEPRECATED: never read, kept for backward compat` no CREATE TABLE.
+   - Parar de popular no upsert do `transaction_repository.py` (setar como NULL).
+3. Adicionar teste que confirma que nenhum SELECT le essa coluna.
+
+**Arquivos:** `init_db.py`, `repositories/transaction_repository.py`, `tests/repositories/test_transaction_repository.py`
+
+```
+T10.3 [DB] -- Consolidar bank_expenses/credit_expenses no CREATE TABLE
+```
+
+1. Verificar que `bank_expenses` e `credit_expenses` ja estao no CREATE TABLE de `finance_history` em `init_db.py` (confirmado: ja estao na linha 104-105).
+2. Remover `_ensure_columns()` do `finance_history_repository.py` — nao e mais necessario.
+3. Remover qualquer chamada a `_ensure_columns()` nos servicos.
+4. Testar que o repositorio funciona sem o fallback de ALTER TABLE.
+
+**Arquivos:** `repositories/finance_history_repository.py`, `services/finance_history_service.py`
+
+```
+T10.4 [DB] -- Remover tabela pluggy_book_categories e codigo associado
+```
+
+1. Remover CREATE TABLE de `pluggy_book_categories` do `init_db.py`.
+2. Adicionar `DROP TABLE IF EXISTS pluggy_book_categories` ao `RESET_SQL`.
+3. Remover `pluggy_insights_repository.py` (ou metodos que operam nessa tabela).
+4. Remover chamadas em `services/pluggy_insights_service.py` que usam essa tabela.
+5. Criar script `scripts/drop_book_categories.py` para bancos existentes.
+6. A tabela `pluggy_insights` (generica, com coluna `data` JSON) substitui essa funcionalidade.
+
+**Arquivos:** `init_db.py`, `repositories/pluggy_insights_repository.py`, `services/pluggy_insights_service.py`, `scripts/drop_book_categories.py` (novo)
+
+```
+T10.5 [BE] -- Auditar uso de bank_transactions.type
+```
+
+1. Grep por `\.type` e `["type"]` nos repositorios e servicos que tocam `bank_transactions`.
+2. Documentar se `type` e usado em algum calculo de negocio ou apenas informativo.
+3. Se apenas informativo: manter coluna, nenhuma acao. Se nao usado: marcar como deprecated.
+
+**Arquivos:** nenhuma mudanca esperada — apenas auditoria e documentacao
+
+**Criterios de aceite S10:**
+- [ ] `EXPLAIN QUERY PLAN` mostra uso de indice nas 5 queries mais frequentes
+- [ ] `_ensure_columns()` removido, testes passam
+- [ ] `pluggy_book_categories` removida do schema e codigo
+- [ ] `total_amount` nao e mais populada em novos upserts
+- [ ] `pytest tests/` passa, coverage >= 80%
+
+---
+
+## S11 — Docker e Containerizacao
+
+**Branch:** `feat/docker`
+
+**Descricao:** Containerizar a aplicacao para rodar em qualquer OS sem setup manual de Python/Node. Multi-stage build (Node para frontend, Python para runtime). Volume para persistencia do SQLite e `.env`.
+
+---
+
+### Tasks
+
+```
+T11.1 [INFRA] -- Dockerfile multi-stage
+```
+
+Criar `Dockerfile` com dois estagios:
+
+**Stage 1 — Frontend build:**
+- Base: `node:18-alpine`
+- `COPY frontend/ .` → `npm ci` → `npm run build`
+- Output: `static/` com assets compilados
+
+**Stage 2 — Python runtime:**
+- Base: `python:3.11-slim`
+- `COPY --from=stage1 static/ static/`
+- `COPY requirements.txt .` → `pip install --no-cache-dir`
+- `COPY . .`
+- `EXPOSE 5000`
+- `CMD ["python", "app.py"]`
+
+**Arquivos:** `Dockerfile` (novo)
+
+```
+T11.2 [INFRA] -- docker-compose.yml
+```
+
+```yaml
+services:
+  app:
+    build: .
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./data:/app/data      # finance.db persistido
+      - ./.env:/app/.env:ro   # credenciais
+    environment:
+      - DB_PATH=/app/data/finance.db
+```
+
+Ajustar `DB_PATH` no codigo para aceitar variavel de ambiente (fallback para `finance.db`).
+
+**Arquivos:** `docker-compose.yml` (novo), `init_db.py`, `repositories/base_repository.py`
+
+```
+T11.3 [INFRA] -- .dockerignore
+```
+
+```
+node_modules/
+frontend/node_modules/
+__pycache__/
+*.pyc
+.env
+finance.db
+.git/
+tests/
+test_scripts/
+.playwright-mcp/
+```
+
+**Arquivos:** `.dockerignore` (novo)
+
+```
+T11.4 [BE] -- app.run com host configuravel
+```
+
+Em `app.py`, alterar `app.run()` para:
+
+```python
+app.run(host=os.getenv("FLASK_HOST", "127.0.0.1"), debug=True)
+```
+
+No Docker, setar `FLASK_HOST=0.0.0.0`. Localmente, mantem `127.0.0.1` por seguranca.
+
+**Arquivos:** `app.py`
+
+**Criterios de aceite S11:**
+- [ ] `docker build -t personal-finance .` completa sem erros
+- [ ] `docker compose up` sobe a aplicacao e serve o frontend
+- [ ] Dados persistem entre restarts (volume montado)
+- [ ] `.env` nao e copiado para a imagem (apenas montado)
+
+---
+
+## S12 — Onboarding de Primeiro Uso
+
+**Branch:** `feat/onboarding`
+
+**Descricao:** Fluxo guiado para novos usuarios: detectar se o banco esta vazio, guiar configuracao de credenciais, executar primeiro sync, e redirecionar para o dashboard quando pronto. Sem onboarding, um usuario novo ve dashboards vazios sem entender o que fazer.
+
+**Dependencias:** S10 (schema limpo) + S11 (Docker, para garantir que o fluxo funciona from scratch)
+
+---
+
+### Tasks
+
+```
+T12.1 [BE] -- GET /api/onboarding/status
+```
+
+Criar `api/routes/onboarding_routes.py` e `services/onboarding_service.py`:
+
+```python
+GET /api/onboarding/status
+# Retorna:
+{
+    "has_pluggy_items": bool,      # pluggy_items tem registros
+    "has_transactions": bool,      # bank_transactions ou credit_transactions tem registros
+    "has_history": bool,           # finance_history tem registros
+    "is_complete": bool            # todos os acima sao True
+}
+```
+
+Registrar blueprint em `app.py` em `/api/onboarding`.
+
+**Arquivos:** `api/routes/onboarding_routes.py` (novo), `services/onboarding_service.py` (novo), `app.py`
+
+```
+T12.2 [BE] -- POST /api/onboarding/full-sync
+```
+
+Endpoint que executa o sync completo (equivalente a rodar `pluggy_api.py` programaticamente):
+
+1. Fetch items e contas
+2. Fetch transacoes (non_recent + recent)
+3. Backfill finance_history
+4. Retornar status de cada etapa
+
+Reutilizar funcoes existentes de `pluggy_api.py` — extrair para funcoes chamvaveis se necessario.
+
+**Arquivos:** `api/routes/onboarding_routes.py`, `pluggy_api.py`
+
+```
+T12.3 [BE] -- Consolidar rebuild_all_months
+```
+
+Garantir que `rebuild_all_months` em `finance_history_service.py` e acessivel via endpoint:
+
+```
+POST /api/finance-history/rebuild-all
+```
+
+Ja pode existir parcialmente — verificar e consolidar.
+
+**Arquivos:** `api/routes/finance_history_routes.py`, `services/finance_history_service.py`
+
+```
+T12.4 [FE] -- Wizard de onboarding
+```
+
+`frontend/src/pages/Onboarding.tsx`:
+
+Steps:
+1. "Bem-vindo" — explicacao do app
+2. "Credenciais" — verificar se `.env` esta configurado (GET /api/pluggy/status)
+3. "Conectar" — disparar full-sync (POST /api/onboarding/full-sync) com progress bar
+4. "Pronto" — resumo do que foi importado, botao para ir ao Dashboard
+
+Polling de status durante sync (ou usar Server-Sent Events se viavel).
+
+**Arquivos:** `frontend/src/pages/Onboarding.tsx` (novo), `frontend/src/App.tsx`
+
+```
+T12.5 [FE] -- Redirect automatico se onboarding incompleto
+```
+
+Em `App.tsx`, antes de renderizar rotas normais:
+- Chamar `GET /api/onboarding/status`
+- Se `is_complete === false`, redirecionar para `/onboarding`
+- Se completo, renderizar normalmente
+
+Adicionar rota `/onboarding` no router.
+
+**Arquivos:** `frontend/src/App.tsx`
+
+**Criterios de aceite S12:**
+- [ ] Banco vazio redireciona para onboarding
+- [ ] Full-sync via onboarding popula todas as tabelas
+- [ ] Apos onboarding, Dashboard mostra dados
+- [ ] Re-visitar /onboarding apos setup mostra "ja configurado"
+
+---
+
+## S13 — Integridade de Dados e Gaps
+
+**Branch:** `feat/data-integrity`
+
+**Descricao:** Detectar e alertar sobre gaps nos dados: dias sem transacoes (> 6 dias indica que Pluggy perdeu cobertura), meses sem finance_history, e tempo desde ultimo sync. Consequencia de parar sync por > 6 dias: a janela de 1 ano da Pluggy avanca e dados antigos sao perdidos permanentemente.
+
+**Dependencias:** S12 (onboarding completo, banco populado)
+
+---
+
+### Tasks
+
+```
+T13.1 [BE] -- Servico de deteccao de gaps
+```
+
+Criar `services/data_integrity_service.py`:
+
+```python
+class DataIntegrityService:
+    def check_transaction_gaps(self, days_threshold=6) -> list[dict]:
+        """Detecta periodos sem transacoes bancarias > threshold dias."""
+        # Query: ordenar datas de bank_transactions, calcular gaps entre datas consecutivas
+        # Retornar lista de {"start": date, "end": date, "gap_days": int}
+
+    def check_history_coverage(self) -> dict:
+        """Verifica quais meses tem transacoes mas nao tem finance_history."""
+        # Comparar meses em bank_transactions vs finance_history
+
+    def get_sync_status(self) -> dict:
+        """Retorna last_sync_at e dias desde ultimo sync."""
+        # Ler de settings tabela
+```
+
+**Arquivos:** `services/data_integrity_service.py` (novo)
+
+```
+T13.2 [BE] -- Endpoints de relatorio e gaps
+```
+
+Criar `api/routes/data_integrity_routes.py`:
+
+```
+GET /api/data-integrity/report
+# Retorna: { "transaction_gaps": [...], "history_gaps": [...], "last_sync": {...}, "alerts": [...] }
+```
+
+Alertas automaticos:
+- `"warning"`: > 3 dias sem sync
+- `"critical"`: > 6 dias sem sync (risco de perda de dados)
+- `"info"`: meses sem finance_history
+
+**Arquivos:** `api/routes/data_integrity_routes.py` (novo), `app.py`
+
+```
+T13.3 [BE] -- Registrar last_sync_at em settings
+```
+
+Em `pluggy_api.py`, ao final de cada sync bem-sucedido:
+
+```python
+settings_repo.upsert("last_sync_at", datetime.now().isoformat())
+```
+
+**Arquivos:** `pluggy_api.py`, `repositories/settings_repository.py`
+
+```
+T13.4 [FE] -- SyncStatusCard
+```
+
+Componente reutilizavel que mostra:
+- Ultimo sync (data/hora)
+- Dias desde ultimo sync (com cor: verde < 3, amarelo 3-6, vermelho > 6)
+- Numero de gaps detectados
+- Cobertura de meses com historico
+
+Usar no Dashboard (topo) e em Settings.
+
+**Arquivos:** `frontend/src/components/SyncStatusCard.tsx` (novo)
+
+```
+T13.5 [FE] -- Pagina/secao de status de dados
+```
+
+Adicionar secao em Settings ou pagina dedicada `/data-status`:
+- Lista de gaps com datas
+- Meses sem cobertura de historico
+- Botao "Recalcular historico" (reutilizar endpoint de S14)
+
+**Arquivos:** `frontend/src/pages/Settings.tsx` ou `frontend/src/pages/DataStatus.tsx` (novo)
+
+**Criterios de aceite S13:**
+- [ ] Gaps > 6 dias sao detectados e exibidos
+- [ ] Alerta critico aparece quando sync atrasado > 6 dias
+- [ ] last_sync_at e atualizado a cada sync
+- [ ] SyncStatusCard visivel no Dashboard
+
+---
+
+## S14 — Backfill Refinado
+
+**Branch:** `feat/backfill-refined`
+
+**Descricao:** Evolucao do backfill para suportar multiplos anchors (snapshots de patrimonio), forward-fill de dados faltantes, e re-importacao segura que preserva dados manuais. Substitui o backfill simples por um mais robusto.
+
+**Dependencias:** S13 (deteccao de gaps informa quais meses precisam de backfill)
+
+---
+
+### Tasks
+
+```
+T14.1 [BE] -- Backfill com multiplos anchors e forward-fill
+```
+
+Evoluir `backfill_from_transactions` em `finance_history_service.py`:
+
+1. **Anchor points:** usar `accounts_snapshot` como pontos de referencia para `total_cash` e `investments` — interpolar entre snapshots para meses intermediarios.
+2. **Forward-fill:** para meses sem snapshot, propagar ultimo valor conhecido de `total_cash`/`investments`.
+3. **Calculo de income/expenses:** manter logica atual (soma de transacoes do mes).
+
+**Arquivos:** `services/finance_history_service.py`
+
+```
+T14.2 [BE] -- Re-importacao segura
+```
+
+Ao recalcular um mes que ja tem dados em `finance_history`:
+
+1. Se `meal_allowance` ou `credit_card_bill` foram definidos manualmente (via Settings), preservar esses valores.
+2. Sobrescrever apenas campos calculados (`income`, `expenses`, `bank_expenses`, `credit_expenses`).
+3. Flag `overwrite_manual=False` por default.
+
+**Arquivos:** `services/finance_history_service.py`, `repositories/finance_history_repository.py`
+
+```
+T14.3 [BE] -- POST /api/finance-history/rebuild com opcoes
+```
+
+Endpoint expandido:
+
+```
+POST /api/finance-history/rebuild
+Body: { "months": ["2025-01", "2025-02"], "overwrite": false }
+# Se months vazio/ausente: rebuild de todos os meses disponiveis
+```
+
+Retorna relatorio detalhado: meses processados, dados preservados, erros.
+
+**Arquivos:** `api/routes/finance_history_routes.py`
+
+```
+T14.4 [FE] -- UI de backfill em Settings
+```
+
+Em Settings, secao "Dados Historicos":
+- Seletor de meses (multi-select ou range)
+- Checkbox "Sobrescrever dados manuais"
+- Botao "Recalcular"
+- Resultado inline com detalhes
+
+**Arquivos:** `frontend/src/pages/Settings.tsx`
+
+**Criterios de aceite S14:**
+- [ ] Backfill interpola total_cash entre snapshots
+- [ ] Dados manuais (meal_allowance, credit_card_bill) preservados por default
+- [ ] Rebuild de meses especificos funciona via API
+- [ ] UI em Settings permite selecionar meses e recalcular
+
+---
+
+## S15 — Metas de Consumo
+
+**Branch:** `feat/spending-goals`
+
+**Descricao:** Permite ao usuario definir sua meta mensal total de gastos (e opcionalmente por categoria) atraves da pagina de Configuracoes. As metas ficam persistidas em `user_goals` e alimentam as linhas de referencia do grafico de Ritmo de Gastos (S1) e a barra de progresso do Resultado Parcial (S2).
+
+**Dependencias:** Independente — pode ser feita a qualquer momento.
+
+**Dados necessarios:** Tabela `user_goals` (ja existe). Categorias em `categories` (ja existe).
+
+---
+
+### Tasks
+
+```
+T15.1 [BE] -- API CRUD de metas de consumo
 ```
 
 Criar blueprint `api/routes/goals_routes.py` e registrar em `app.py` em `/api/goals`:
 
 - `GET /api/goals` — lista todas as metas (`category_id`, `type`, `amount`, `period`).
-- `POST /api/goals` — cria ou substitui meta (`UNIQUE(category_id, type)` → upsert).
+- `POST /api/goals` — cria ou substitui meta (`UNIQUE(category_id, type)` -> upsert).
 - `PUT /api/goals/<id>` — atualiza `amount` e/ou `period`.
 - `DELETE /api/goals/<id>` — remove meta.
 
-Criar `repositories/user_goals_repository.py` com os métodos completos (já existe o arquivo com `get_total_monthly_goal`; expandir com `get_all`, `upsert`, `delete`).
+Expandir `repositories/user_goals_repository.py` (ja existe com `get_total_monthly_goal`) com `get_all`, `upsert`, `delete`.
+
+**Arquivos:** `api/routes/goals_routes.py` (novo), `repositories/user_goals_repository.py`, `app.py`
 
 ```
-T10.2 [FE] 🔴 (depende de T10.1) — Hook useGoals
+T15.2 [FE] -- Hook useGoals
 ```
 
 `hooks/useGoals.ts` com TanStack Query:
@@ -785,143 +1271,185 @@ T10.2 [FE] 🔴 (depende de T10.1) — Hook useGoals
 - `useSaveGoal()` — mutation para criar/atualizar (`POST` ou `PUT`).
 - `useDeleteGoal()` — mutation para remover.
 
+**Arquivos:** `frontend/src/hooks/useGoals.ts` (novo)
+
 ```
-T10.3 [FE] 🟡 (paralelo com T10.2) — Componente GoalsEditor
+T15.3 [FE] -- Componente GoalsEditor
 ```
 
 `components/GoalsEditor.tsx`:
 
-- Campo numérico "Meta mensal total de gastos" (row com `category_id = NULL`).
-- Lista expansível de metas por categoria: seletor de categoria (dropdown com categorias existentes) + campo de valor + botão remover.
-- Botão "Salvar" por linha (feedback inline de sucesso/erro).
-- Sem modal — painel inline dentro da página de Configurações.
+- Campo numerico "Meta mensal total de gastos" (row com `category_id = NULL`).
+- Lista expansivel de metas por categoria: seletor de categoria (dropdown com categorias existentes) + campo de valor + botao remover.
+- Botao "Salvar" por linha (feedback inline de sucesso/erro).
+- Sem modal — painel inline dentro da pagina de Configuracoes.
+
+**Arquivos:** `frontend/src/components/GoalsEditor.tsx` (novo)
 
 ```
-T10.4 [FE] 🟢 (depende de T10.2 + T10.3) — Integrar GoalsEditor em Settings
+T15.4 [FE] -- Integrar GoalsEditor em Settings
 ```
 
-Na página `pages/Settings.tsx` (já existe), adicionar seção "Metas de Consumo" abaixo das configurações existentes de vale-refeição e cartão de crédito.
-Exibir meta total atual como subtítulo da seção antes de abrir o editor.
+Na pagina `pages/Settings.tsx` (ja existe), adicionar secao "Metas de Consumo" abaixo das configuracoes existentes de vale-refeicao e cartao de credito.
+Exibir meta total atual como subtitulo da secao antes de abrir o editor.
+
+**Arquivos:** `frontend/src/pages/Settings.tsx`
+
+**Criterios de aceite S15:**
+- [ ] CRUD de metas funciona via API
+- [ ] GoalsEditor renderiza em Settings com categorias existentes
+- [ ] Meta total e metas por categoria persistem entre sessoes
+- [ ] Alimenta S1 (linha Meta) e S2 (barra de progresso)
 
 ---
 
-## S11 — Backfill de Histórico Financeiro
+## S16 — Transicao Mes/Ciclo Fatura
 
-**Branch:** `feat/history-backfill`
+**Branch:** `feat/billing-cycle`
 
-**Descrição:** Garante que `finance_history` esteja completo para todos os meses com transações disponíveis nas tabelas `bank_transactions` e `credit_transactions`. O backfill é executado automaticamente ao final de cada sincronização, preenchendo apenas meses que ainda não têm `income` e `expenses` registrados. Também expõe um endpoint de trigger manual para uso via Configurações.
+**Descricao:** Mapear transacoes de credito ao mes de fatura correto (billing_month) em vez de usar a data da transacao. Uma compra em 15/mar com close_date em 10/mar pertence a fatura de abril, nao de marco. Sem isso, o resumo financeiro mensal mostra gastos no mes errado.
 
-**Motivação:** `finance_history` é pré-requisito para `monthly_avg` no gráfico de Ritmo de Gastos (S1), para o histórico de patrimônio (S2) e para o Fluxo de Caixa (S6). O sync atual só popula o mês corrente; meses históricos ficam sem registro mesmo com dados disponíveis.
+**Dependencias:** S14 (backfill refinado — precisa recalcular historico com billing_month correto)
 
 ---
 
 ### Tasks
 
 ```
-T11.1 [BE] 🔴 — Método backfill em FinanceHistoryService
+T16.1 [BE] -- Servico de mapeamento transacao->fatura
 ```
 
-Adicionar `backfill_from_transactions(overwrite: bool = False) -> dict` em `services/finance_history_service.py`:
-
-1. Descobrir meses disponíveis: `SELECT DISTINCT substr(date,1,7) FROM bank_transactions UNION SELECT DISTINCT substr(date,1,7) FROM credit_transactions ORDER BY 1`.
-2. Para cada mês descoberto: se `overwrite=False`, pular meses que já têm `income IS NOT NULL AND expenses IS NOT NULL` em `finance_history`.
-3. Chamar `update_finance_history_from_sync(month)` (método já existente) para cada mês pendente.
-4. Retornar `{"backfilled": [...meses processados...], "skipped": [...meses já existentes...]}`.
-
-```
-T11.2 [BE] 🟡 (paralelo com T11.1) — Chamar backfill ao final do sync
-```
-
-Em `pluggy_api.py`, após todas as demais atualizações de `finance_history`, adicionar chamada:
+Criar `services/billing_cycle_service.py`:
 
 ```python
-fh_service.backfill_from_transactions(overwrite=False)
+class BillingCycleService:
+    def get_billing_month(self, transaction_date: str, close_date: str) -> str:
+        """Retorna YYYY-MM da fatura a que a transacao pertence."""
+        # Se transaction_date <= close_date: fatura do mes do close_date
+        # Se transaction_date > close_date: fatura do mes seguinte
 ```
 
-Assim cada sync futuro preenche automaticamente quaisquer lacunas históricas sem sobrescrever dados já existentes.
+Usar `close_date` da tabela `bills` (ja populada pelo sync).
+
+**Arquivos:** `services/billing_cycle_service.py` (novo)
 
 ```
-T11.3 [BE] 🟡 (paralelo com T11.1) — Endpoint de trigger manual
+T16.2 [DB] -- Coluna billing_month em credit_transactions
 ```
 
-Adicionar em `api/routes/settings_routes.py`:
+Adicionar coluna `billing_month TEXT` em credit_transactions no `init_db.py`.
+Script `scripts/add_billing_month.py` para bancos existentes (ALTER TABLE + popular com base nas bills).
+
+**Arquivos:** `init_db.py`, `scripts/add_billing_month.py` (novo)
 
 ```
-POST /api/settings/backfill-history
+T16.3 [BE] -- Adaptar get_credit_expenses para usar billing_month
 ```
 
-Body opcional: `{"overwrite": false}`.
-Retorna o dict de resultado do backfill (`backfilled`, `skipped`, contagens).
-Útil para popular o banco na primeira execução sem precisar disparar um sync completo.
+Em `transaction_repository.py`, alterar queries de despesas de credito para filtrar por `billing_month` em vez de `date` quando disponivel:
+
+```sql
+-- Antes:
+WHERE substr(date, 1, 7) = ?
+-- Depois:
+WHERE COALESCE(billing_month, substr(date, 1, 7)) = ?
+```
+
+Fallback para `date` quando `billing_month` e NULL (transacoes antigas sem mapeamento).
+
+**Arquivos:** `repositories/transaction_repository.py`, `services/finance_summary_service.py`
 
 ```
-T11.4 [FE] 🟢 (depende de T11.3) — Botão "Recalcular histórico" em Settings
+T16.4 [BE] -- Testes de cenarios de transicao
 ```
 
-Na página `pages/Settings.tsx`, adicionar seção "Dados Históricos" com:
+Testar:
+- Compra em 15/mar, close_date 10/mar -> billing_month = "2026-04"
+- Compra em 05/mar, close_date 10/mar -> billing_month = "2026-03"
+- Meses com 28/30/31 dias
+- Transacao sem bill associada (fallback para date)
 
-- Botão "Recalcular histórico financeiro" que chama `POST /api/settings/backfill-history`.
-- Feedback após execução: "X meses recalculados, Y meses mantidos" (usa o dict de retorno).
-- Spinner durante a chamada; desabilitar botão para evitar duplo clique.
+**Arquivos:** `tests/services/test_billing_cycle_service.py` (novo)
+
+```
+T16.5 [FE] -- Indicador de ciclo na UI de Faturas
+```
+
+Na pagina de Bills, mostrar:
+- Close date e due date da fatura atual
+- Indicador visual de qual fatura uma transacao pertence
+- Filtro por billing_month (alem de por data de transacao)
+
+**Arquivos:** `frontend/src/pages/Bills.tsx`
+
+**Criterios de aceite S16:**
+- [ ] billing_month calculado corretamente para todos os cenarios de teste
+- [ ] Resumo financeiro usa billing_month para credito
+- [ ] Transacoes antigas (sem billing_month) continuam funcionando via fallback
+- [ ] UI mostra ciclo de fatura claramente
 
 ---
 
-## Mapa de Dependências (resumo)
+## Mapa de Dependencias (resumo)
 
 ```
-S0 (todas as migrações) ──────────────────────────────────────────────────────┐
-  ├── T0.1 (accounts_snapshot) ──▶ S2.T2.1 (sync snapshot)                   │
-  │                              └▶ S2.T2.2 (net worth endpoint)              │
-  │                                                                            │
-  ├── T0.2 (recurrent_expenses) ─▶ S4.T4.1 (sync recurrency)                 │
-  │                              └▶ S4.T4.3 (API CRUD)                        │
-  │                                                                            │
-  ├── T0.3 (installment cols)   ─▶ S4.T4.2 (popular parcelas no sync)        │
-  │                              └▶ S7.T7.1 (sync bills novas colunas)        │
-  │                                                                            │
-  ├── T0.4 (income_sources)     ─▶ S5.T5.1 (sync income)                     │
-  │                              └▶ S5.T5.2 (API income)                      │
-  │                                                                            │
-  ├── T0.5 (bills cols)         ─▶ S7.T7.1 (sync bills)                      │
-  │                                                                            │
-  └── T0.6 (automation_rules)   ─▶ S8.T8.2 (motor automações)               │
-                                 └▶ S8.T8.3 (API CRUD automações)            │
-                                                                              ▼
-                              S4 + S5 concluídas ──▶ S9 (projeção)
-                              S4 + S7 concluídas ──▶ S3 (próximas despesas)
+S0-S9 ── CONCLUIDAS ──────────────────────────────────────────────────────────
 
-S10 (metas de consumo) ── independente ──────────────────────────────────────
-  ├── T10.1 (API goals) ──▶ T10.2 (hook useGoals)
-  │                       └▶ T10.4 (integrar em Settings)
-  └── T10.3 (GoalsEditor) ─▶ T10.4
-  Alimenta: S1 (linha Meta no gráfico), S2 (barra de meta no resultado parcial)
+S10 (Schema/Indices) ──┐
+                       ├──> S12 (Onboarding) ──> S13 (Integridade) ──> S14 (Backfill) ──> S16 (Ciclo Fatura)
+S11 (Docker) ──────────┘
 
-S11 (backfill de histórico) ── independente ─────────────────────────────────
-  ├── T11.1 (backfill service) ──▶ T11.2 (chamar no sync)
-  │                              └▶ T11.3 (endpoint manual)
-  └── T11.3 ──▶ T11.4 (botão em Settings)
-  Alimenta: S1 (monthly_avg), S2 (histórico patrimônio), S6 (fluxo de caixa)
+S15 (Metas de Consumo) ── independente ────────────────────────────────────────
+
+Detalhamento de tasks dentro de cada historia:
+
+S10: T10.1 (indices) ──> T10.2..T10.5 (podem ser paralelos)
+S11: T11.1 (Dockerfile) ──> T11.2 (compose) ──> T11.3 (dockerignore) | T11.4 (host config)
+S12: T12.1 (status) ──> T12.2 (full-sync) ──> T12.4 (wizard FE) ──> T12.5 (redirect)
+     T12.3 (rebuild endpoint) paralelo
+S13: T13.1 (gaps service) ──> T13.2 (endpoints) ──> T13.4 (SyncStatusCard) ──> T13.5 (pagina)
+     T13.3 (last_sync_at) paralelo
+S14: T14.1 (anchors) ──> T14.2 (safe reimport) ──> T14.3 (API) ──> T14.4 (UI)
+S15: T15.1 (API goals) ──> T15.2 (hook) ──> T15.4 (integrar Settings)
+     T15.3 (GoalsEditor) paralelo com T15.2
+S16: T16.1 (servico) ──> T16.2 (coluna DB) ──> T16.3 (adaptar queries) ──> T16.5 (UI)
+     T16.4 (testes) paralelo com T16.3
 ```
 
 ---
 
 ## Ordem de Entrega Recomendada
 
-| Prioridade | História                        | Justificativa                                                                  |
-| ---------- | ------------------------------- | ------------------------------------------------------------------------------ |
-| 0          | **S0 — Migrações**              | **Bloqueante global** — deve ser mergeada antes de tudo                        |
-| 1          | **S11 — Backfill de Histórico** | Desbloqueia `monthly_avg` em S1 e histórico em S2/S6; independente de S0       |
-| 1          | **S10 — Metas de Consumo**      | Desbloqueia linha de meta em S1 e barra de progresso em S2; independente de S0 |
-| 2          | **S4 — Recorrências**           | Base para S3, S7 e S9                                                          |
-| 3          | **S7 — Faturas**                | Depende de S0 + S4                                                             |
-| 3          | **S5 — Receitas**               | Independente, corre em paralelo com S7                                         |
-| 4          | **S2 — Patrimônio**             | Requer accounts_snapshot + investments sincronizados                           |
-| 4          | **S1 — Ritmo de Gastos**        | Completo apenas com S10 + S11 finalizadas                                      |
-| 5          | **S6 — Fluxo de Caixa**         | Requer boa cobertura de `finance_history` (garantida por S11)                  |
-| 5          | **S8 — Categorias**             | Independente, corre em paralelo com S6                                         |
-| 6          | **S3 — Próximas Despesas**      | Depende de S4 e S7 completos                                                   |
-| 7          | **S9 — Projeção**               | Depende de S4 + S5 completos                                                   |
+| Prioridade | Historia                              | Justificativa                                                      |
+| ---------- | ------------------------------------- | ------------------------------------------------------------------ |
+| 1          | **S10 — Schema/Indices**              | Fundacao: performance e limpeza de schema para tudo que vem depois |
+| 1          | **S11 — Docker**                      | Paralelo com S10, habilita onboarding from scratch                 |
+| 1          | **S15 — Metas de Consumo**            | Independente, pode correr em paralelo com S10/S11                  |
+| 2          | **S12 — Onboarding**                  | Depende de S10+S11, desbloqueia fluxo de primeiro uso              |
+| 3          | **S13 — Integridade de Dados**        | Depende de S12, protege contra perda de dados por sync atrasado    |
+| 4          | **S14 — Backfill Refinado**           | Depende de S13, melhora qualidade do historico financeiro           |
+| 5          | **S16 — Transicao Mes/Ciclo Fatura**  | Depende de S14, corrige alocacao de despesas de credito por fatura |
 
 ---
 
-_Documento gerado em 2026-03-13._
+_Documento gerado em 2026-03-13. Ultima revisao: 2026-03-21._
+
+---
+
+## LEMBRETE PARA O AGENTE — Atualizar este documento ao final de cada sessao
+
+> **IMPORTANTE:** Antes de encerrar qualquer sessao de trabalho, o agente DEVE atualizar este documento:
+>
+> 1. **Atualizar a tabela "STATUS ATUAL"** no topo do documento:
+>    - `Proxima historia a implementar` — apontar para a proxima historia pendente
+>    - `Proxima task a implementar` — apontar para a proxima task dentro da historia
+>    - `Historias concluidas` — adicionar a historia recem-finalizada (se aplicavel)
+>    - `Branch ativa` — atualizar com a branch atual ou "main" se mergeou
+>    - `Mudancas nao commitadas` — listar ou limpar
+>    - `Bloqueios conhecidos` — registrar qualquer impedimento encontrado
+> 2. **Atualizar "O que fazer agora"** com instrucoes claras para a proxima sessao
+> 3. **Marcar tasks concluidas** dentro da historia com `[DONE]` no inicio da linha
+> 4. **Marcar historia concluida** no indice com ~~strikethrough~~ e `[CONCLUIDA]`
+> 5. **Atualizar `Ultima revisao`** no cabecalho com a data atual
+>
+> Isso garante que qualquer nova sessao do agente saiba exatamente onde continuar.

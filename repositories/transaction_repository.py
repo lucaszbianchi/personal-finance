@@ -81,6 +81,20 @@ class TransactionRepository(BaseRepository):
             for row in cursor.fetchall()
         ]
 
+    def get_distinct_months(self) -> list:
+        """Return sorted list of YYYY-MM values that have any non-excluded transactions."""
+        query = """
+            SELECT DISTINCT strftime('%Y-%m', date) AS month
+            FROM (
+                SELECT date FROM bank_transactions WHERE excluded = 0
+                UNION
+                SELECT date FROM credit_transactions WHERE excluded = 0
+            )
+            ORDER BY month
+        """
+        cursor = self.execute_query(query)
+        return [row["month"] for row in cursor.fetchall()]
+
     def get_investments(self) -> List[Investment]:
         """Retorna todas as transações de investimentos."""
         repo = InvestmentRepository(db_path=self.db_path)
@@ -657,6 +671,27 @@ class TransactionRepository(BaseRepository):
         values = [category_id] + transaction_ids
         cursor = self.execute_query(query, tuple(values))
         return cursor.rowcount
+
+    def get_pending_installments_grouped(self) -> list:
+        """Return grouped pending installments for projection.
+
+        For each group (description, total_installments, rounded amount), returns
+        the latest installment number seen and its date, plus the amount per installment.
+        Only includes transactions where installment_number < total_installments (i.e. not yet fully paid).
+        """
+        query = """
+            SELECT description, amount, total_installments,
+                   MAX(installment_number) AS latest_installment,
+                   MAX(date) AS latest_date
+            FROM credit_transactions
+            WHERE installment_number < total_installments
+              AND excluded = 0
+              AND total_installments IS NOT NULL
+              AND installment_number IS NOT NULL
+            GROUP BY description, total_installments, ROUND(amount, 2)
+        """
+        cursor = self.execute_query(query)
+        return [dict(row) for row in cursor.fetchall()]
 
     def get_operation_types(self) -> List[str]:
         """

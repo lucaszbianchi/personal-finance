@@ -7,6 +7,15 @@ import json
 class FinanceHistoryRepository(BaseRepository):
     def __init__(self, db_path: str = "finance.db"):
         super().__init__(db_path=db_path)
+        self._ensure_columns()
+
+    def _ensure_columns(self) -> None:
+        """Add bank_expenses and credit_expenses columns if missing (backward-compatible migration)."""
+        for col in ("bank_expenses", "credit_expenses"):
+            try:
+                self.execute_query(f"ALTER TABLE finance_history ADD COLUMN {col} REAL")
+            except Exception:
+                pass  # Column already exists
 
     def dict_to_json(self, d: Dict) -> str:
         """Converte dicionário para JSON string"""
@@ -68,20 +77,41 @@ class FinanceHistoryRepository(BaseRepository):
                 (month, total_cash, json.dumps(investments)),
             )
 
-    def save_cash_flow(self, month: str, income: float, expenses: float) -> None:
-        """Salva ou atualiza as informações de fluxo de caixa (receitas e despesas) para um determinado mês"""
+    def save_cash_flow(
+        self,
+        month: str,
+        income: float,
+        expenses: float,
+        bank_expenses: float = None,
+        credit_expenses: float = None,
+    ) -> None:
+        """Salva ou atualiza as informações de fluxo de caixa para um determinado mês."""
         if income is None or expenses is None:
             return
         existing = self.get_by_month(month)
         if existing:
             self.execute_query(
-                "UPDATE finance_history SET income = ?, expenses = ? WHERE month = ?",
-                (income, expenses, month),
+                "UPDATE finance_history SET income = ?, expenses = ?, bank_expenses = ?, credit_expenses = ? WHERE month = ?",
+                (income, expenses, bank_expenses, credit_expenses, month),
             )
         else:
             self.execute_query(
-                "INSERT INTO finance_history (month, income, expenses) VALUES (?, ?, ?)",
-                (month, income, expenses),
+                "INSERT INTO finance_history (month, income, expenses, bank_expenses, credit_expenses) VALUES (?, ?, ?, ?, ?)",
+                (month, income, expenses, bank_expenses, credit_expenses),
+            )
+
+    def save_total_cash(self, month: str, total_cash: float) -> None:
+        """Update only total_cash for a given month, preserving all other fields."""
+        existing = self.get_by_month(month)
+        if existing:
+            self.execute_query(
+                "UPDATE finance_history SET total_cash = ? WHERE month = ?",
+                (total_cash, month),
+            )
+        else:
+            self.execute_query(
+                "INSERT INTO finance_history (month, total_cash) VALUES (?, ?)",
+                (month, total_cash),
             )
 
     def save_credit_card_bills(
@@ -142,7 +172,7 @@ class FinanceHistoryRepository(BaseRepository):
 
     def get_by_month(self, month: str) -> FinanceHistory:
         cursor = self.execute_query(
-            "SELECT month, meal_allowance, credit_card_bill, credit_card_future_bill, total_cash, investments, expenses, income, risk_management FROM finance_history WHERE month = ?",
+            "SELECT month, meal_allowance, credit_card_bill, credit_card_future_bill, total_cash, investments, expenses, income, risk_management, bank_expenses, credit_expenses FROM finance_history WHERE month = ?",
             (month,),
         )
         row = cursor.fetchone()
@@ -157,13 +187,15 @@ class FinanceHistoryRepository(BaseRepository):
                 expenses=row[6],
                 income=row[7],
                 risk_management=row[8],
+                bank_expenses=row[9],
+                credit_expenses=row[10],
             )
         return None
 
     def get_all(self) -> List[FinanceHistory]:
         """Retorna todo o histórico de patrimônio"""
         cursor = self.execute_query(
-            "SELECT month, meal_allowance, credit_card_bill, credit_card_future_bill, total_cash, investments, expenses, income, risk_management FROM finance_history ORDER BY month DESC"
+            "SELECT month, meal_allowance, credit_card_bill, credit_card_future_bill, total_cash, investments, expenses, income, risk_management, bank_expenses, credit_expenses FROM finance_history ORDER BY month DESC"
         )
         rows = cursor.fetchall()
         return [
@@ -177,6 +209,8 @@ class FinanceHistoryRepository(BaseRepository):
                 expenses=row[6],
                 income=row[7],
                 risk_management=row[8],
+                bank_expenses=row[9],
+                credit_expenses=row[10],
             )
             for row in rows
         ]

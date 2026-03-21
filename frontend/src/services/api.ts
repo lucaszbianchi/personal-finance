@@ -315,6 +315,17 @@ export const billsService = {
   getHistory: () => api.get('/bills/history'),
 };
 
+export const projectionService = {
+  getProjection: (months?: number) =>
+    api.get('/projection', { params: months ? { months } : {} }),
+  getAssumptions: () =>
+    api.get('/projection/assumptions'),
+};
+
+export const financeHistoryService = {
+  rebuild: () => api.post('/finance-history/rebuild'),
+};
+
 export const categoryVizService = {
   getExpenseHistory: (months = 6) =>
     api.get('/categories/expense-history', { params: { months } }),

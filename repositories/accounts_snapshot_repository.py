@@ -65,3 +65,22 @@ class AccountsSnapshotRepository(BaseRepository):
             (account_type,),
         )
         return [dict(row) for row in cursor.fetchall()]
+
+    def get_snapshot_for_month(self, account_type: str, month: str) -> list:
+        """Retorna o snapshot mais recente por conta antes do fim do mês informado (YYYY-MM)."""
+        year, mon = int(month[:4]), int(month[5:7])
+        next_month_start = f"{year + 1}-01-01" if mon == 12 else f"{year}-{mon + 1:02d}-01"
+        cursor = self.execute_query(
+            """
+            SELECT a.*
+            FROM accounts_snapshot a
+            INNER JOIN (
+                SELECT id, MAX(snapshotted_at) AS latest
+                FROM accounts_snapshot
+                WHERE type = ? AND snapshotted_at < ?
+                GROUP BY id
+            ) sub ON a.id = sub.id AND a.snapshotted_at = sub.latest
+            """,
+            (account_type, next_month_start),
+        )
+        return [dict(row) for row in cursor.fetchall()]

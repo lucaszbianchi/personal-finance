@@ -935,6 +935,44 @@ class TestTransactionRepository(unittest.TestCase):
         for op in operations:
             self.assertIn(op, operation_types)
 
+    # ── get_distinct_months ──
+
+    def test_get_distinct_months_returns_sorted_list(self):
+        """Retorna meses distintos de ambas as tabelas, ordenados, sem excluidos."""
+        self.repo.execute_query(
+            "INSERT INTO bank_transactions (id, date, excluded) VALUES (?, ?, 0)",
+            ("b1", "2025-11-15"),
+        )
+        self.repo.execute_query(
+            "INSERT INTO bank_transactions (id, date, excluded) VALUES (?, ?, 0)",
+            ("b2", "2025-12-10"),
+        )
+        self.repo.execute_query(
+            "INSERT INTO credit_transactions (id, date, excluded) VALUES (?, ?, 0)",
+            ("c1", "2025-11-20"),
+        )
+        result = self.repo.get_distinct_months()
+        self.assertEqual(result, ["2025-11", "2025-12"])
+
+    def test_get_distinct_months_excludes_excluded_transactions(self):
+        """Nao inclui meses cujas transacoes estao excluidas."""
+        self.repo.execute_query(
+            "INSERT INTO bank_transactions (id, date, excluded) VALUES (?, ?, 1)",
+            ("b_excl", "2024-06-01"),
+        )
+        self.repo.execute_query(
+            "INSERT INTO bank_transactions (id, date, excluded) VALUES (?, ?, 0)",
+            ("b_ok", "2025-01-01"),
+        )
+        result = self.repo.get_distinct_months()
+        self.assertNotIn("2024-06", result)
+        self.assertIn("2025-01", result)
+
+    def test_get_distinct_months_empty_db(self):
+        """Retorna lista vazia quando nao ha transacoes."""
+        result = self.repo.get_distinct_months()
+        self.assertEqual(result, [])
+
     def tearDown(self):
         """Limpeza após os testes"""
         # Com :memory:, o banco é automaticamente destruído quando a conexão é fechada

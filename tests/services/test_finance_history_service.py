@@ -10,15 +10,23 @@ class TestFinanceHistoryService(unittest.TestCase):
         self.mock_settings.get_meal_allowance.return_value = 0.0
 
         # Mock repositories
-        with patch("services.finance_history_service.FinanceHistoryRepository"), patch(
-            "services.finance_history_service.TransactionRepository"
-        ):
+        with patch("services.finance_history_service.FinanceHistoryRepository"), \
+             patch("services.finance_history_service.TransactionRepository"), \
+             patch("services.finance_history_service.AccountsSnapshotRepository"), \
+             patch("services.finance_history_service.InvestmentRepository"):
             self.service = FinanceHistoryService(settings_service=self.mock_settings)
 
         self.mock_repo = MagicMock()
         self.mock_txn_repo = MagicMock()
+        self.mock_snapshot_repo = MagicMock()
+        self.mock_investment_repo = MagicMock()
         self.service.finance_history_repository = self.mock_repo
         self.service.transaction_repository = self.mock_txn_repo
+        self.service.accounts_snapshot_repo = self.mock_snapshot_repo
+        self.service.investment_repo = self.mock_investment_repo
+        # Default: no snapshots (so snapshot-based branches are skipped)
+        self.mock_snapshot_repo.get_snapshot_for_month.return_value = []
+        self.mock_repo.get_by_month.return_value = None
 
     def test_update_meal_allowance_calls_repo(self):
         self.mock_repo.get_all.return_value = []
@@ -214,29 +222,94 @@ class TestFinanceHistoryService(unittest.TestCase):
         self.mock_repo.save_net_worth.assert_called_once_with("2026-03", 800.0, {})
 
 
-    def _patch_finance_summary(self, get_income=5000.0, get_expenses=3000.0):
+    def _patch_finance_summary(self, get_income=5000.0, get_expenses=3000.0, get_bank_expenses=2000.0, get_credit_expenses=1000.0):
         """Retorna (mock_inst, patcher) para FinanceSummaryService importado localmente."""
         import services.finance_summary_service as fss_mod
         mock_inst = MagicMock()
         mock_inst.get_income.return_value = get_income
         mock_inst.get_expenses.return_value = get_expenses
+        mock_inst.get_bank_expenses.return_value = get_bank_expenses
+        mock_inst.get_credit_expenses.return_value = get_credit_expenses
         patcher = patch.object(fss_mod, "FinanceSummaryService", return_value=mock_inst)
         return mock_inst, patcher
 
     def test_update_finance_history_from_sync_calls_all_steps(self):
-        """update_finance_history_from_sync calcula income/expenses, bills e risk."""
+        """update_finance_history_from_sync popula todos os campos (sem snapshot disponivel, usa bills fallback)."""
         mock_bill_repo = MagicMock()
         mock_bill_repo.get_current_and_future_bill.return_value = (800.0, 950.0)
         self.service.bill_repository = mock_bill_repo
+        # No snapshots → falls back to bills for future_bill and skips total_cash
+        self.mock_snapshot_repo.get_snapshot_for_month.return_value = []
 
-        mock_inst, patcher = self._patch_finance_summary(5000.0, 3000.0)
+        mock_inst, patcher = self._patch_finance_summary(5000.0, 3000.0, 2000.0, 1000.0)
         with patcher:
             self.service.update_finance_history_from_sync("2026-03")
 
-        self.mock_repo.save_cash_flow.assert_called_once_with("2026-03", 5000.0, 3000.0)
-        mock_bill_repo.get_current_and_future_bill.assert_called_once_with("2026-03")
+        self.mock_repo.save_cash_flow.assert_called_once_with("2026-03", 5000.0, 3000.0, 2000.0, 1000.0)
+        # current_bill call + fallback future_bill call
+        self.assertEqual(mock_bill_repo.get_current_and_future_bill.call_count, 2)
         self.mock_repo.save_credit_card_bills.assert_called_once_with("2026-03", 800.0, 950.0)
         self.mock_repo.calculate_and_save_risk_management.assert_called_once_with("2026-03")
+
+    def test_update_finance_history_from_sync_uses_credit_snapshot_for_future_bill(self):
+        """credit_card_future_bill = credit_limit - available_credit quando snapshot disponivel."""
+        mock_bill_repo = MagicMock()
+        mock_bill_repo.get_current_and_future_bill.return_value = (800.0, 999.0)
+        self.service.bill_repository = mock_bill_repo
+
+        # Credit snapshot: limit=5000, available=3200 → outstanding=1800
+        self.mock_snapshot_repo.get_snapshot_for_month.side_effect = lambda account_type, month: (
+            [{"credit_limit": 5000.0, "available_credit": 3200.0}]
+            if account_type == "CREDIT" else []
+        )
+
+        mock_inst, patcher = self._patch_finance_summary(5000.0, 3000.0, 2000.0, 1000.0)
+        with patcher:
+            self.service.update_finance_history_from_sync("2026-03")
+
+        # future_bill = 5000 - 3200 = 1800, NOT 999 from bills
+        self.mock_repo.save_credit_card_bills.assert_called_once_with("2026-03", 800.0, 1800.0)
+
+    def test_update_finance_history_from_sync_saves_total_cash_from_bank_snapshot(self):
+        """total_cash é computado a partir do snapshot bancário quando disponivel."""
+        mock_bill_repo = MagicMock()
+        mock_bill_repo.get_current_and_future_bill.return_value = (0.0, 0.0)
+        self.service.bill_repository = mock_bill_repo
+        # Entry has no total_cash yet
+        self.mock_repo.get_by_month.return_value = None
+
+        # Bank snapshot: balance = 10000
+        self.mock_snapshot_repo.get_snapshot_for_month.side_effect = lambda account_type, month: (
+            [{"balance": 10000.0}] if account_type == "BANK" else []
+        )
+        # Investments: 2000
+        inv = MagicMock()
+        inv.name = "CDB"
+        inv.balance = 2000.0
+        self.mock_investment_repo.get_investments.return_value = [inv]
+
+        mock_inst, patcher = self._patch_finance_summary(5000.0, 3000.0, 2000.0, 1000.0)
+        with patcher:
+            self.service.update_finance_history_from_sync("2026-03")
+
+        # total_cash = 10000 + 2000 = 12000
+        self.mock_repo.save_net_worth.assert_called_once_with("2026-03", 12000.0, {"CDB": 2000.0})
+
+    def test_update_finance_history_from_sync_skips_total_cash_if_already_set(self):
+        """total_cash nao e sobrescrito se ja estiver definido."""
+        mock_bill_repo = MagicMock()
+        mock_bill_repo.get_current_and_future_bill.return_value = (0.0, 0.0)
+        self.service.bill_repository = mock_bill_repo
+
+        existing = MagicMock()
+        existing.total_cash = 50000.0
+        self.mock_repo.get_by_month.return_value = existing
+
+        mock_inst, patcher = self._patch_finance_summary(5000.0, 3000.0, 2000.0, 1000.0)
+        with patcher:
+            self.service.update_finance_history_from_sync("2026-03")
+
+        self.mock_repo.save_net_worth.assert_not_called()
 
     def test_update_finance_history_from_sync_december(self):
         """update_finance_history_from_sync trata dezembro corretamente (end_date = 2027-01-01)."""
@@ -244,12 +317,91 @@ class TestFinanceHistoryService(unittest.TestCase):
         mock_bill_repo.get_current_and_future_bill.return_value = (0.0, 0.0)
         self.service.bill_repository = mock_bill_repo
 
-        mock_inst, patcher = self._patch_finance_summary(0.0, 0.0)
+        mock_inst, patcher = self._patch_finance_summary(0.0, 0.0, 0.0, 0.0)
         with patcher:
             self.service.update_finance_history_from_sync("2026-12")
 
         mock_inst.get_income.assert_called_once_with("2026-12-01", "2027-01-01")
         mock_inst.get_expenses.assert_called_once_with("2026-12-01", "2027-01-01")
+
+
+    # ── rebuild_all_months ──
+
+    def test_rebuild_processes_all_distinct_months(self):
+        months = ["2025-11", "2025-12", "2026-01"]
+        self.mock_txn_repo.get_distinct_months.return_value = months
+        self.mock_repo.get_all.return_value = []
+        with patch.object(self.service, "update_finance_history_from_sync") as mock_sync:
+            result = self.service.rebuild_all_months()
+        self.assertEqual(result["months_processed"], 3)
+        self.assertEqual(result["months"], months)
+        self.assertEqual(mock_sync.call_count, 3)
+        mock_sync.assert_any_call("2025-11")
+        mock_sync.assert_any_call("2025-12")
+        mock_sync.assert_any_call("2026-01")
+
+    def test_rebuild_is_idempotent(self):
+        months = ["2026-01", "2026-02"]
+        self.mock_txn_repo.get_distinct_months.return_value = months
+        self.mock_repo.get_all.return_value = []
+        with patch.object(self.service, "update_finance_history_from_sync"):
+            result1 = self.service.rebuild_all_months()
+            result2 = self.service.rebuild_all_months()
+        self.assertEqual(result1["months_processed"], 2)
+        self.assertEqual(result2["months_processed"], 2)
+
+    def test_rebuild_empty_db_returns_zero(self):
+        self.mock_txn_repo.get_distinct_months.return_value = []
+        with patch.object(self.service, "update_finance_history_from_sync") as mock_sync:
+            result = self.service.rebuild_all_months()
+        self.assertEqual(result, {"months_processed": 0, "months": []})
+        mock_sync.assert_not_called()
+
+    # ── _backfill_total_cash ──
+
+    def _make_history_entry(self, month, income=None, expenses=None, bank_expenses=None, credit_expenses=None, total_cash=None):
+        from models.finance_history import FinanceHistory
+        return FinanceHistory(
+            month=month, income=income, expenses=expenses,
+            bank_expenses=bank_expenses, credit_expenses=credit_expenses,
+            total_cash=total_cash, meal_allowance=None,
+            credit_card_bill=None, credit_card_future_bill=None,
+            investments=None, risk_management=None,
+        )
+
+    def test_backfill_total_cash_fills_backwards(self):
+        """total_cash(fev) = total_cash(mar) - income(mar) + bank_expenses(mar) + credit_expenses(fev)"""
+        months = ["2026-01", "2026-02", "2026-03"]
+        self.mock_repo.get_all.return_value = [
+            self._make_history_entry("2026-01", income=5000, expenses=4000, bank_expenses=2000, credit_expenses=2000),
+            self._make_history_entry("2026-02", income=5000, expenses=3500, bank_expenses=2000, credit_expenses=1500),
+            self._make_history_entry("2026-03", income=5000, expenses=4500, bank_expenses=3000, credit_expenses=1500, total_cash=50000),
+        ]
+        self.service._backfill_total_cash(months)
+        # Feb = Mar_tc(50000) - Mar_income(5000) + Mar_bank(3000) + Feb_credit(1500) = 49500
+        self.mock_repo.save_total_cash.assert_any_call("2026-02", 49500.0)
+        # Jan = Feb_tc(49500) - Feb_income(5000) + Feb_bank(2000) + Jan_credit(2000) = 48500
+        self.mock_repo.save_total_cash.assert_any_call("2026-01", 48500.0)
+
+    def test_backfill_total_cash_no_anchor_does_nothing(self):
+        months = ["2026-01", "2026-02"]
+        self.mock_repo.get_all.return_value = [
+            self._make_history_entry("2026-01", income=5000, expenses=4000),
+            self._make_history_entry("2026-02", income=5000, expenses=3500),
+        ]
+        self.service._backfill_total_cash(months)
+        self.mock_repo.save_total_cash.assert_not_called()
+
+    def test_backfill_total_cash_skips_existing(self):
+        """Months that already have total_cash are the anchor, not overwritten."""
+        months = ["2026-01", "2026-02"]
+        self.mock_repo.get_all.return_value = [
+            self._make_history_entry("2026-01", income=5000, bank_expenses=2000, credit_expenses=500),
+            self._make_history_entry("2026-02", income=5000, bank_expenses=2500, credit_expenses=1000, total_cash=40000),
+        ]
+        self.service._backfill_total_cash(months)
+        # Jan = 40000 - 5000 + 2500 + 500 = 38000
+        self.mock_repo.save_total_cash.assert_called_once_with("2026-01", 38000.0)
 
 
 class TestFirstDayOfNextMonth(unittest.TestCase):

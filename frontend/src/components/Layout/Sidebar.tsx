@@ -32,6 +32,7 @@ const navigation = [
   { name: 'Receitas', href: '/income', icon: DollarSign },
   { name: 'Fluxo de Caixa', href: '/cash-flow', icon: BarChart2 },
   { name: 'Faturas', href: '/bills', icon: Receipt },
+  { name: 'Projecao', href: '/projection', icon: TrendingUp },
 ];
 
 const actions = [

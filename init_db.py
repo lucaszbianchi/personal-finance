@@ -100,7 +100,9 @@ TABLES_SQL = [
         investments TEXT,
         expenses REAL,
         income REAL,
-        risk_management REAL
+        risk_management REAL,
+        bank_expenses REAL,
+        credit_expenses REAL
     )
     """,
     """
@@ -267,25 +269,23 @@ TABLES_SQL = [
     """,
 ]
 
+# Tabelas de configuração do usuário (settings, persons, user_goals, automation_rules)
+# são preservadas no reset — o usuário pode apagá-las manualmente pela UI se desejar.
 RESET_SQL = [
     "DROP TABLE IF EXISTS pluggy_book_categories",
     "DROP TABLE IF EXISTS pluggy_book_summary",
     "DROP TABLE IF EXISTS rate_limit_usage",
     "DROP TABLE IF EXISTS pluggy_insights",
-    "DROP TABLE IF EXISTS user_goals",
-    "DROP TABLE IF EXISTS automation_rules",
     "DROP TABLE IF EXISTS accounts_snapshot",
     "DROP TABLE IF EXISTS income_sources",
     "DROP TABLE IF EXISTS recurrent_expenses",
     "DROP TABLE IF EXISTS bills",
     "DROP TABLE IF EXISTS pluggy_items",
     "DROP TABLE IF EXISTS finance_history",
-    "DROP TABLE IF EXISTS settings",
     "DROP TABLE IF EXISTS investments",
     "DROP TABLE IF EXISTS splitwise",
     "DROP TABLE IF EXISTS credit_transactions",
     "DROP TABLE IF EXISTS bank_transactions",
-    "DROP TABLE IF EXISTS persons",
     "DROP TABLE IF EXISTS categories",
 ]
 
