@@ -381,6 +381,10 @@ export const onboardingService = {
     const response = await api.post('/onboarding/full-sync', {}, { timeout: 180000 });
     return response.data;
   },
+  restart: async (): Promise<OnboardingStatus> => {
+    const response = await api.post('/onboarding/restart');
+    return response.data;
+  },
 };
 
 export default api;

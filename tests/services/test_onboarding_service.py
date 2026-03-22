@@ -131,6 +131,56 @@ class TestOnboardingService(unittest.TestCase):
         self.assertEqual(calls[0].args, ("pluggy_client_id", "my-id"))
         self.assertEqual(calls[1].args, ("pluggy_client_secret", "my-secret"))
 
+    # ── mark_complete ──
+
+    def test_mark_complete(self):
+        self.service.mark_complete()
+
+        self.mock_settings_repo.set_value.assert_called_once_with(
+            "onboarding_completed", True
+        )
+
+    # ── restart ──
+
+    def test_restart_clears_flag_and_returns_status(self):
+        self.mock_settings_repo.get_value.side_effect = lambda key: {
+            "pluggy_client_id": "id",
+            "pluggy_client_secret": "secret",
+        }.get(key)
+        self.mock_pluggy_item_repo.get_items_by_role.return_value = [
+            {"item_id": "item-1"}
+        ]
+        mock_cursor = MagicMock()
+        mock_cursor.fetchone.return_value = (1,)
+        self.mock_settings_repo.execute_query.return_value = mock_cursor
+
+        result = self.service.restart()
+
+        self.mock_settings_repo.delete_value.assert_called_once_with(
+            "onboarding_completed"
+        )
+        self.assertTrue(result["has_credentials"])
+        self.assertTrue(result["has_pluggy_items"])
+
+    # ── is_complete with onboarding_completed flag ──
+
+    def test_status_complete_via_flag_even_without_data(self):
+        """is_complete = True when onboarding_completed flag is set,
+        even if transactions/history are empty."""
+        self.mock_settings_repo.get_value.side_effect = lambda key: {
+            "pluggy_client_id": "id",
+            "pluggy_client_secret": "secret",
+            "onboarding_completed": True,
+        }.get(key)
+        self.mock_pluggy_item_repo.get_items_by_role.return_value = []
+        mock_cursor = MagicMock()
+        mock_cursor.fetchone.return_value = None
+        self.mock_settings_repo.execute_query.return_value = mock_cursor
+
+        result = self.service.get_status()
+
+        self.assertTrue(result["is_complete"])
+
 
 if __name__ == "__main__":
     unittest.main()

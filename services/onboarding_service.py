@@ -13,16 +13,27 @@ class OnboardingService:
         has_pluggy_items = len(self.pluggy_item_repo.get_items_by_role("bank")) > 0
         has_transactions = self._has_transactions()
         has_history = self._has_rows("finance_history")
+        onboarding_completed = bool(
+            self.settings_repo.get_value("onboarding_completed")
+        )
 
         return {
             "has_credentials": has_credentials,
             "has_pluggy_items": has_pluggy_items,
             "has_transactions": has_transactions,
             "has_history": has_history,
-            "is_complete": all(
-                [has_credentials, has_pluggy_items, has_transactions, has_history]
-            ),
+            "is_complete": onboarding_completed
+            or all([has_credentials, has_pluggy_items, has_transactions, has_history]),
         }
+
+    def mark_complete(self) -> None:
+        """Marca o onboarding como concluido."""
+        self.settings_repo.set_value("onboarding_completed", True)
+
+    def restart(self) -> dict:
+        """Limpa o flag de conclusao e retorna o status atual."""
+        self.settings_repo.delete_value("onboarding_completed")
+        return self.get_status()
 
     def save_credentials(
         self,

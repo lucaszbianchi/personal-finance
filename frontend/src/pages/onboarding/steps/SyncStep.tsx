@@ -11,9 +11,9 @@ const SYNC_MESSAGES = [
   'Quase la...',
 ];
 
-type Props = { onNext: () => void };
+type Props = { onNext: () => void; skippable?: boolean };
 
-export const SyncStep: React.FC<Props> = ({ onNext }) => {
+export const SyncStep: React.FC<Props> = ({ onNext, skippable = false }) => {
   const { mutate, isPending, isSuccess, isError, error, data } = useFullSync();
   const [messageIndex, setMessageIndex] = useState(0);
   const [started, setStarted] = useState(false);
@@ -41,13 +41,23 @@ export const SyncStep: React.FC<Props> = ({ onNext }) => {
       </p>
 
       {!started && (
-        <button
-          onClick={handleStart}
-          className="w-full rounded-lg bg-blue-600 px-6 py-3 font-semibold text-white hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
-        >
-          <RefreshCw size={20} />
-          Iniciar Sincronizacao
-        </button>
+        <div className="space-y-3">
+          <button
+            onClick={handleStart}
+            className="w-full rounded-lg bg-blue-600 px-6 py-3 font-semibold text-white hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
+          >
+            <RefreshCw size={20} />
+            Iniciar Sincronizacao
+          </button>
+          {skippable && (
+            <button
+              onClick={onNext}
+              className="w-full rounded-lg border border-gray-300 px-6 py-3 text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors"
+            >
+              Pular sincronizacao
+            </button>
+          )}
+        </div>
       )}
 
       {isPending && (

@@ -13,15 +13,13 @@ export const Header: React.FC<HeaderProps> = ({ isSidebarOpen, toggleSidebar }) 
   const getPageTitle = () => {
     switch (location.pathname) {
       case '/':
-        return 'Dashboard';
+        return 'Visao Geral';
       case '/transactions':
         return 'Transações';
       case '/categories':
         return 'Categorias';
       case '/investments':
         return 'Investimentos';
-      case '/summary':
-        return 'Resumo Financeiro';
       default:
         return 'Personal Finance';
     }

@@ -1,18 +1,59 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useMemo, useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useOnboardingStatus } from '@/hooks/useOnboarding';
 import { WelcomeStep } from './steps/WelcomeStep';
 import { CredentialsStep } from './steps/CredentialsStep';
 import { ConnectStep } from './steps/ConnectStep';
 import { SyncStep } from './steps/SyncStep';
+import { FeaturesGuideStep } from './steps/FeaturesGuideStep';
 import { DoneStep } from './steps/DoneStep';
 
-const STEP_COUNT = 5;
+type StepEntry = {
+  key: string;
+  render: (onNext: () => void) => React.ReactNode;
+};
+
+type OnboardingMode = 'arrive' | 'restart' | 'review';
+
+function buildSteps(mode: OnboardingMode, hasCredentials: boolean, hasPluggyItems: boolean): StepEntry[] {
+  const isReview = mode === 'review';
+  const skipCompleted = mode === 'restart' || mode === 'review';
+
+  const allSteps: StepEntry[] = [
+    { key: 'welcome', render: (onNext) => <WelcomeStep onNext={onNext} /> },
+    { key: 'credentials', render: (onNext) => <CredentialsStep onNext={onNext} /> },
+    { key: 'connect', render: (onNext) => <ConnectStep onNext={onNext} /> },
+    { key: 'sync', render: (onNext) => <SyncStep onNext={onNext} skippable={isReview} /> },
+    { key: 'features', render: (onNext) => <FeaturesGuideStep onNext={onNext} /> },
+    { key: 'done', render: () => <DoneStep /> },
+  ];
+
+  if (!skipCompleted) return allSteps;
+
+  return allSteps.filter((s) => {
+    if (s.key === 'welcome') return false;
+    if (s.key === 'credentials' && hasCredentials) return false;
+    if (s.key === 'connect' && hasPluggyItems) return false;
+    return true;
+  });
+}
 
 export const OnboardingPage: React.FC = () => {
   const [step, setStep] = useState(0);
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const mode = (searchParams.get('mode') as OnboardingMode) || 'arrive';
   const { data: status, isLoading } = useOnboardingStatus();
+
+  const steps = useMemo(
+    () =>
+      buildSteps(
+        mode,
+        status?.has_credentials ?? false,
+        status?.has_pluggy_items ?? false,
+      ),
+    [mode, status?.has_credentials, status?.has_pluggy_items],
+  );
 
   if (isLoading) {
     return (
@@ -22,7 +63,7 @@ export const OnboardingPage: React.FC = () => {
     );
   }
 
-  if (status?.is_complete) {
+  if (status?.is_complete && mode === 'arrive') {
     return (
       <div className="flex min-h-screen items-center justify-center bg-gray-50 p-4">
         <div className="w-full max-w-md rounded-xl bg-white p-8 shadow-lg text-center">
@@ -41,22 +82,14 @@ export const OnboardingPage: React.FC = () => {
     );
   }
 
-  const onNext = () => setStep((prev) => Math.min(prev + 1, STEP_COUNT - 1));
-
-  const steps: Record<number, React.ReactNode> = {
-    0: <WelcomeStep onNext={onNext} />,
-    1: <CredentialsStep onNext={onNext} />,
-    2: <ConnectStep onNext={onNext} />,
-    3: <SyncStep onNext={onNext} />,
-    4: <DoneStep />,
-  };
+  const onNext = () => setStep((prev) => Math.min(prev + 1, steps.length - 1));
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-gray-50 p-4">
       <div className="w-full max-w-md">
         {/* Progress indicator */}
         <div className="mb-6 flex items-center justify-center gap-2">
-          {Array.from({ length: STEP_COUNT }).map((_, i) => (
+          {steps.map((_, i) => (
             <div
               key={i}
               className={`h-2 rounded-full transition-all ${
@@ -67,7 +100,9 @@ export const OnboardingPage: React.FC = () => {
         </div>
 
         {/* Step content */}
-        <div className="rounded-xl bg-white p-8 shadow-lg">{steps[step]}</div>
+        <div className="rounded-xl bg-white p-8 shadow-lg">
+          {steps[step]?.render(onNext)}
+        </div>
       </div>
     </div>
   );

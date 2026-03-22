@@ -1,12 +1,10 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import {
-  Home,
   LayoutDashboard,
   CreditCard,
   Tag,
   TrendingUp,
-  PieChart,
   Settings,
   RefreshCw,
   Repeat,
@@ -22,12 +20,10 @@ interface SidebarProps {
 }
 
 const navigation = [
-  { name: 'Dashboard', href: '/', icon: Home },
-  { name: 'Visão Geral', href: '/overview', icon: LayoutDashboard },
+  { name: 'Visão Geral', href: '/', icon: LayoutDashboard },
   { name: 'Transações', href: '/transactions', icon: CreditCard },
   { name: 'Categorias', href: '/categories', icon: Tag },
   { name: 'Investimentos', href: '/investments', icon: TrendingUp },
-  { name: 'Resumo', href: '/summary', icon: PieChart },
   { name: 'Recorrencias', href: '/recurrences', icon: Repeat },
   { name: 'Receitas', href: '/income', icon: DollarSign },
   { name: 'Fluxo de Caixa', href: '/cash-flow', icon: BarChart2 },

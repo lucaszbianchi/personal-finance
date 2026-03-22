@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { KeyRound, AlertCircle } from 'lucide-react';
+import { KeyRound, AlertCircle, ExternalLink } from 'lucide-react';
 import { useSaveCredentials } from '@/hooks/useOnboarding';
 
 type Props = { onNext: () => void };
@@ -29,25 +29,53 @@ export const CredentialsStep: React.FC<Props> = ({ onNext }) => {
 
   return (
     <div>
-      <div className="flex items-center gap-3 mb-6">
+      <div className="flex items-center gap-3 mb-4">
         <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-100">
           <KeyRound size={20} className="text-blue-600" />
         </div>
-        <div>
-          <h2 className="text-xl font-bold text-gray-800">Credenciais da Pluggy</h2>
-          <p className="text-sm text-gray-500">
-            Crie uma conta em{' '}
+        <h2 className="text-xl font-bold text-gray-800">Credenciais da Pluggy</h2>
+      </div>
+
+      <div className="mb-6 rounded-lg border border-blue-100 bg-blue-50 p-4 text-sm text-gray-700 space-y-2">
+        <p className="font-medium text-blue-800">Como obter suas credenciais:</p>
+        <ol className="list-decimal list-inside space-y-1 text-gray-600">
+          <li>
+            Crie uma conta de desenvolvedor em{' '}
             <a
-              href="https://pluggy.ai"
+              href="https://dashboard.pluggy.ai"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-blue-600 underline"
+              className="text-blue-600 underline inline-flex items-center gap-0.5"
             >
-              pluggy.ai
-            </a>{' '}
-            e obtenha suas credenciais
-          </p>
-        </div>
+              dashboard.pluggy.ai <ExternalLink size={12} />
+            </a>
+          </li>
+          <li>
+            Acesse{' '}
+            <a
+              href="https://dashboard.pluggy.ai/applications"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-blue-600 underline inline-flex items-center gap-0.5"
+            >
+              Applications <ExternalLink size={12} />
+            </a>
+            {' '}e crie uma nova aplicacao (o nome pode ser qualquer um)
+          </li>
+          <li>Copie o <strong>Client ID</strong> e o <strong>Client Secret</strong> exibidos</li>
+          <li>
+            Em{' '}
+            <a
+              href="https://dashboard.pluggy.ai/customization"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-blue-600 underline inline-flex items-center gap-0.5"
+            >
+              Customization <ExternalLink size={12} />
+            </a>
+            , habilite o conector <strong>MeuPluggy</strong> em Connectors {'>'} Personal {'>'} Direct Connectors e salve
+          </li>
+        </ol>
       </div>
 
       {errorMessage && (

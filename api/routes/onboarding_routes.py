@@ -29,6 +29,11 @@ def save_credentials():
         return jsonify({"error": str(e)}), 400
 
 
+@bp.route("/restart", methods=["POST"])
+def restart():
+    return jsonify(onboarding_service.restart())
+
+
 @bp.route("/full-sync", methods=["POST"])
 def full_sync():
     """Executa sync completo: non_recent + recent + rebuild finance_history."""
@@ -40,6 +45,8 @@ def full_sync():
 
         fh_service = FinanceHistoryService()
         rebuild_result = fh_service.rebuild_all_months()
+
+        onboarding_service.mark_complete()
 
         combined = {
             "status": "success",

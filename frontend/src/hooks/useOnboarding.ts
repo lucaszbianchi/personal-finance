@@ -39,3 +39,14 @@ export function useFullSync() {
     },
   });
 }
+
+export function useRestartOnboarding() {
+  const queryClient = useQueryClient();
+
+  return useMutation<OnboardingStatus, Error>({
+    mutationFn: () => onboardingService.restart(),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['onboarding', 'status'] });
+    },
+  });
+}
