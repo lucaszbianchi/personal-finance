@@ -6,7 +6,11 @@ import services.pluggy_auth_service as auth_service
 
 class TestGetApiKey(unittest.TestCase):
     @patch("services.pluggy_auth_service.requests.post")
-    def test_returns_api_key_on_success(self, mock_post):
+    @patch(
+        "services.pluggy_auth_service._load_credentials",
+        return_value=("my-id", "my-secret"),
+    )
+    def test_returns_api_key_on_success(self, _mock_creds, mock_post):
         mock_post.return_value = MagicMock(
             raise_for_status=lambda: None,
             json=lambda: {"apiKey": "test-key-123"},
@@ -17,7 +21,11 @@ class TestGetApiKey(unittest.TestCase):
         self.assertEqual(result, "test-key-123")
 
     @patch("services.pluggy_auth_service.requests.post")
-    def test_posts_to_auth_endpoint(self, mock_post):
+    @patch(
+        "services.pluggy_auth_service._load_credentials",
+        return_value=("my-id", "my-secret"),
+    )
+    def test_posts_to_auth_endpoint(self, _mock_creds, mock_post):
         mock_post.return_value = MagicMock(
             raise_for_status=lambda: None,
             json=lambda: {"apiKey": "key"},
@@ -29,7 +37,11 @@ class TestGetApiKey(unittest.TestCase):
         self.assertIn("/auth", url)
 
     @patch("services.pluggy_auth_service.requests.post")
-    def test_raises_on_http_error(self, mock_post):
+    @patch(
+        "services.pluggy_auth_service._load_credentials",
+        return_value=("my-id", "my-secret"),
+    )
+    def test_raises_on_http_error(self, _mock_creds, mock_post):
         mock_response = MagicMock()
         mock_response.raise_for_status.side_effect = HTTPError("401 Unauthorized")
         mock_post.return_value = mock_response
@@ -38,8 +50,11 @@ class TestGetApiKey(unittest.TestCase):
             auth_service.get_api_key()
 
     @patch("services.pluggy_auth_service.requests.post")
-    @patch.dict("os.environ", {"CLIENT_ID": "my-id", "CLIENT_SECRET": "my-secret"})
-    def test_sends_client_credentials(self, mock_post):
+    @patch(
+        "services.pluggy_auth_service._load_credentials",
+        return_value=("my-id", "my-secret"),
+    )
+    def test_sends_client_credentials_from_db(self, _mock_creds, mock_post):
         mock_post.return_value = MagicMock(
             raise_for_status=lambda: None,
             json=lambda: {"apiKey": "key"},
@@ -50,6 +65,17 @@ class TestGetApiKey(unittest.TestCase):
         payload = mock_post.call_args[1]["json"]
         self.assertEqual(payload["clientId"], "my-id")
         self.assertEqual(payload["clientSecret"], "my-secret")
+
+    def test_load_credentials_raises_when_not_configured(self):
+        with patch(
+            "services.pluggy_auth_service.SettingsRepository"
+        ) as MockRepo:
+            instance = MockRepo.return_value
+            instance.get_value.return_value = None
+            instance.close = MagicMock()
+
+            with self.assertRaises(ValueError):
+                auth_service._load_credentials()
 
 
 class TestGetItem(unittest.TestCase):

@@ -65,6 +65,7 @@ def add_item():
             item_id,
             connector_name=data.get("connector_name"),
             status=data.get("status"),
+            role=data.get("role", "bank"),
         )
         return jsonify({"status": "success", "item_id": item_id})
     except Exception as e:

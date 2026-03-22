@@ -237,16 +237,15 @@ INDEXES_SQL = [
     "CREATE INDEX IF NOT EXISTS idx_income_sources_last_occurrence ON income_sources(last_occurrence)",
 ]
 
-# Tabelas de configuração do usuário (settings, persons, user_goals, automation_rules)
-# são preservadas no reset — o usuário pode apagá-las manualmente pela UI se desejar.
+# Tabelas preservadas no reset (configuracao do usuario):
+#   settings, persons, user_goals, automation_rules,
+#   income_sources, recurrent_expenses
 RESET_SQL = [
     "DROP TABLE IF EXISTS pluggy_book_categories",
     "DROP TABLE IF EXISTS pluggy_book_summary",
     "DROP TABLE IF EXISTS rate_limit_usage",
     "DROP TABLE IF EXISTS pluggy_insights",
     "DROP TABLE IF EXISTS accounts_snapshot",
-    "DROP TABLE IF EXISTS income_sources",
-    "DROP TABLE IF EXISTS recurrent_expenses",
     "DROP TABLE IF EXISTS bills",
     "DROP TABLE IF EXISTS pluggy_items",
     "DROP TABLE IF EXISTS finance_history",
@@ -259,7 +258,11 @@ RESET_SQL = [
 
 
 def reset_db():
-    """Dropa todas as tabelas e recria do zero."""
+    """Dropa todas as tabelas e recria do zero.
+
+    A tabela settings e preservada, mas flags de estado como
+    onboarding_completed sao removidos para permitir reconfigurar.
+    """
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     for sql in RESET_SQL:
@@ -268,6 +271,7 @@ def reset_db():
         cursor.execute(sql)
     for sql in INDEXES_SQL:
         cursor.execute(sql)
+    cursor.execute("DELETE FROM settings WHERE key = 'onboarding_completed'")
     conn.commit()
     conn.close()
 

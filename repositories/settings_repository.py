@@ -10,12 +10,10 @@ class SettingsRepository(BaseRepository):
     def set_value(self, key: str, value: Any) -> None:
         """Salva ou atualiza um valor nas configurações"""
         value_json = json.dumps(value)
-        print(f"Setting {key} to {value_json}")
-        cursor = self.execute_query(
+        self.execute_query(
             "INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)",
             (key, value_json),
         )
-        print(f"Rows affected: {cursor.rowcount}")
 
     def get_value(self, key: str) -> Optional[Any]:
         """Retorna um valor das configurações"""
@@ -24,6 +22,10 @@ class SettingsRepository(BaseRepository):
         if row:
             return json.loads(row[0])
         return None
+
+    def delete_value(self, key: str) -> None:
+        """Remove um valor das configurações"""
+        self.execute_query("DELETE FROM settings WHERE key = ?", (key,))
 
     def get_all(self) -> dict[str, Any]:
         """Retorna todas as configurações"""

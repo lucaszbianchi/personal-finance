@@ -1,11 +1,13 @@
 import React, { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { formatDistanceToNow } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { useQuery, useQueries, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Trash2, ShieldCheck } from 'lucide-react'
+import { Trash2, ShieldCheck, RotateCcw } from 'lucide-react'
 import api, { databaseService } from '@/services/api'
 import { PluggyConnectButton } from '@/components/PluggyConnectButton'
 import { useCategoryLanguage } from '@/contexts/CategoryLanguageContext'
+import { useRestartOnboarding } from '@/hooks/useOnboarding'
 
 type PluggyItem = {
   item_id: string
@@ -42,7 +44,9 @@ type MealAllowanceSettings = {
 
 export const Settings: React.FC = () => {
   const queryClient = useQueryClient()
+  const navigate = useNavigate()
   const { categoryLanguage, setCategoryLanguage } = useCategoryLanguage()
+  const restartOnboarding = useRestartOnboarding()
 
   const [updateModalOpen, setUpdateModalOpen] = useState(false)
   const [securityModalOpen, setSecurityModalOpen] = useState(false)
@@ -361,6 +365,30 @@ export const Settings: React.FC = () => {
         <p className="text-xs text-gray-500">
           Altera o idioma exibido para os nomes de categorias em toda a aplicação.
         </p>
+      </section>
+
+      {/* Refazer Onboarding */}
+      <section className="bg-white rounded-lg shadow p-6">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h2 className="text-lg font-semibold text-gray-700">Refazer onboarding</h2>
+            <p className="text-xs text-gray-500 mt-1">
+              Passa pelo assistente de configuracao novamente. Etapas ja concluidas (credenciais, contas conectadas) serao puladas automaticamente.
+            </p>
+          </div>
+          <button
+            onClick={() => {
+              restartOnboarding.mutate(undefined, {
+                onSuccess: () => navigate('/onboarding?mode=review'),
+              })
+            }}
+            disabled={restartOnboarding.isPending}
+            className="flex-shrink-0 inline-flex items-center gap-2 rounded border border-blue-600 px-4 py-2 text-sm font-medium text-blue-600 hover:bg-blue-50 disabled:opacity-50"
+          >
+            <RotateCcw size={14} />
+            {restartOnboarding.isPending ? 'Reiniciando...' : 'Refazer'}
+          </button>
+        </div>
       </section>
 
       {/* Zona de Perigo */}
