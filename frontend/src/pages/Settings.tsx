@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { formatDistanceToNow } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
@@ -36,10 +36,6 @@ const STATUS_BADGE: Record<ItemStatus, { label: string; className: string }> = {
 function formatRelativeDate(isoString?: string): string {
   if (!isoString) return ''
   return formatDistanceToNow(new Date(isoString), { addSuffix: true, locale: ptBR })
-}
-
-type MealAllowanceSettings = {
-  value: number
 }
 
 export const Settings: React.FC = () => {
@@ -97,26 +93,6 @@ export const Settings: React.FC = () => {
   const deleteItem = useMutation({
     mutationFn: (itemId: string) => api.delete(`/pluggy/items/${itemId}`),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['pluggy-items'] }),
-  })
-
-  // --- Meal allowance ---
-  const { data: mealData } = useQuery({
-    queryKey: ['settings-meal-allowance'],
-    queryFn: () => api.get<MealAllowanceSettings>('/settings/meal-allowance').then(r => r.data),
-  })
-
-  const [mealValue, setMealValue] = useState('')
-
-  useEffect(() => {
-    if (mealData) {
-      setMealValue(String(mealData.value))
-    }
-  }, [mealData])
-
-  const saveMeal = useMutation({
-    mutationFn: () =>
-      api.post('/settings/meal-allowance', { value: parseFloat(mealValue) }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['settings-meal-allowance'] }),
   })
 
   return (
@@ -310,30 +286,6 @@ export const Settings: React.FC = () => {
           </div>
         </div>
       )}
-
-      {/* Vale Refeição */}
-      <section className="bg-white rounded-lg shadow p-6 space-y-4">
-        <h2 className="text-lg font-semibold text-gray-700">Vale Refeição</h2>
-        <div className="flex items-center gap-3">
-          <label className="text-sm text-gray-700 w-24">Valor (R$)</label>
-          <input
-            type="number"
-            value={mealValue}
-            onChange={e => setMealValue(e.target.value)}
-            className="border border-gray-300 rounded px-3 py-1.5 text-sm w-32 focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
-        </div>
-        <button
-          onClick={() => saveMeal.mutate()}
-          disabled={saveMeal.isPending}
-          className="rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
-        >
-          {saveMeal.isPending ? 'Salvando...' : 'Salvar'}
-        </button>
-        {saveMeal.isSuccess && (
-          <p className="text-sm text-green-600">Configuração salva!</p>
-        )}
-      </section>
 
       {/* Exibição de Categorias */}
       <section className="bg-white rounded-lg shadow p-6 space-y-4">

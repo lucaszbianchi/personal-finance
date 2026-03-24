@@ -57,7 +57,6 @@ class TestInvestmentService(unittest.TestCase):
         history_entry = FinanceHistory(
             month="2026-03",
             investments={"Tesouro IPCA": 1000.0},
-            meal_allowance=None,
             credit_card_bill=None,
             credit_card_future_bill=None,
             total_cash=None,
@@ -82,7 +81,6 @@ class TestInvestmentService(unittest.TestCase):
         history_entry = FinanceHistory(
             month="2026-03",
             investments={"Unknown Fund": 500.0},
-            meal_allowance=None,
             credit_card_bill=None,
             credit_card_future_bill=None,
             total_cash=None,
@@ -101,7 +99,6 @@ class TestInvestmentService(unittest.TestCase):
         empty_entry = FinanceHistory(
             month="2026-02",
             investments={},
-            meal_allowance=None,
             credit_card_bill=None,
             credit_card_future_bill=None,
             total_cash=None,
@@ -123,7 +120,6 @@ class TestInvestmentService(unittest.TestCase):
         history_entry = FinanceHistory(
             month="2026-03",
             investments={"CDB Banco A": 1000.0, "CDB Banco B": 500.0},
-            meal_allowance=None,
             credit_card_bill=None,
             credit_card_future_bill=None,
             total_cash=None,

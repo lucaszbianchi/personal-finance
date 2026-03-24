@@ -16,42 +16,6 @@ class FinanceHistoryRepository(BaseRepository):
         """Converte JSON string para dicionário"""
         return json.loads(j)
 
-    def save_meal_allowance(self, month: str, meal_allowance: float) -> None:
-        """Salva ou atualiza o valor do vale refeição para um determinado mês"""
-        if meal_allowance is None:
-            return
-        existing = self.get_by_month(month)
-        cursor = None
-        if existing:
-            cursor = self.execute_query(
-                "UPDATE finance_history SET meal_allowance = ? WHERE month = ?",
-                (meal_allowance, month),
-            )
-        else:
-            cursor = self.execute_query(
-                "INSERT INTO finance_history (month, meal_allowance) VALUES (?, ?)",
-                (month, meal_allowance),
-            )
-        print(f"Rows affected: {cursor.rowcount}")
-
-    def save_credit_card_info(
-        self, month: str, current_bill: float, future_bill: float
-    ) -> None:
-        """Salva ou atualiza as informações de cartão de crédito para um determinado mês"""
-        if current_bill is None or future_bill is None:
-            return
-        existing = self.get_by_month(month)
-        if existing:
-            self.execute_query(
-                "UPDATE finance_history SET credit_card_bill = ?, credit_card_future_bill = ? WHERE month = ?",
-                (current_bill, future_bill, month),
-            )
-        else:
-            self.execute_query(
-                "INSERT INTO finance_history (month, credit_card_bill, credit_card_future_bill) VALUES (?, ?, ?)",
-                (month, current_bill, future_bill),
-            )
-
     def save_net_worth(self, month: str, total_cash: float, investments: Dict) -> None:
         """Salva ou atualiza as informações de patrimônio líquido para um determinado mês"""
         if total_cash is None or investments is None:
@@ -128,7 +92,7 @@ class FinanceHistoryRepository(BaseRepository):
             return
 
         total_fixed_costs = (finance_data.credit_card_bill or 0) + (finance_data.expenses or 0)
-        available_cash = (finance_data.total_cash or 0) + (finance_data.meal_allowance or 0)
+        available_cash = finance_data.total_cash or 0
         investment_count = len(finance_data.investments) if finance_data.investments else 0
         income = finance_data.income or 0
 
@@ -145,8 +109,7 @@ class FinanceHistoryRepository(BaseRepository):
 
     def save(self, finance_history: FinanceHistory) -> None:
         """Método legado que salva todas as informações de uma vez"""
-        self.save_meal_allowance(finance_history.month, finance_history.meal_allowance)
-        self.save_credit_card_info(
+        self.save_credit_card_bills(
             finance_history.month,
             finance_history.credit_card_bill,
             finance_history.credit_card_future_bill,
@@ -163,45 +126,43 @@ class FinanceHistoryRepository(BaseRepository):
 
     def get_by_month(self, month: str) -> FinanceHistory:
         cursor = self.execute_query(
-            "SELECT month, meal_allowance, credit_card_bill, credit_card_future_bill, total_cash, investments, expenses, income, risk_management, bank_expenses, credit_expenses FROM finance_history WHERE month = ?",
+            "SELECT month, credit_card_bill, credit_card_future_bill, total_cash, investments, expenses, income, risk_management, bank_expenses, credit_expenses FROM finance_history WHERE month = ?",
             (month,),
         )
         row = cursor.fetchone()
         if row:
             return FinanceHistory(
                 month=row[0],
-                meal_allowance=row[1],
-                credit_card_bill=row[2],
-                credit_card_future_bill=row[3],
-                total_cash=row[4],
-                investments=json.loads(row[5]) if row[5] else {},
-                expenses=row[6],
-                income=row[7],
-                risk_management=row[8],
-                bank_expenses=row[9],
-                credit_expenses=row[10],
+                credit_card_bill=row[1],
+                credit_card_future_bill=row[2],
+                total_cash=row[3],
+                investments=json.loads(row[4]) if row[4] else {},
+                expenses=row[5],
+                income=row[6],
+                risk_management=row[7],
+                bank_expenses=row[8],
+                credit_expenses=row[9],
             )
         return None
 
     def get_all(self) -> List[FinanceHistory]:
         """Retorna todo o histórico de patrimônio"""
         cursor = self.execute_query(
-            "SELECT month, meal_allowance, credit_card_bill, credit_card_future_bill, total_cash, investments, expenses, income, risk_management, bank_expenses, credit_expenses FROM finance_history ORDER BY month DESC"
+            "SELECT month, credit_card_bill, credit_card_future_bill, total_cash, investments, expenses, income, risk_management, bank_expenses, credit_expenses FROM finance_history ORDER BY month DESC"
         )
         rows = cursor.fetchall()
         return [
             FinanceHistory(
                 month=row[0],
-                meal_allowance=row[1],
-                credit_card_bill=row[2],
-                credit_card_future_bill=row[3],
-                total_cash=row[4],
-                investments=json.loads(row[5]) if row[5] else {},
-                expenses=row[6],
-                income=row[7],
-                risk_management=row[8],
-                bank_expenses=row[9],
-                credit_expenses=row[10],
+                credit_card_bill=row[1],
+                credit_card_future_bill=row[2],
+                total_cash=row[3],
+                investments=json.loads(row[4]) if row[4] else {},
+                expenses=row[5],
+                income=row[6],
+                risk_management=row[7],
+                bank_expenses=row[8],
+                credit_expenses=row[9],
             )
             for row in rows
         ]

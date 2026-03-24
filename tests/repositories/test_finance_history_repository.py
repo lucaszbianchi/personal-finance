@@ -6,23 +6,17 @@ class TestFinanceHistoryRepository(unittest.TestCase):
     def setUp(self):
         self.repo = FinanceHistoryRepository(db_path=":memory:")
         self.month = "2099-01"
-        # Use canonical schema from init_db
         from init_db import TABLES_SQL
         for sql in TABLES_SQL:
             try:
                 self.repo.execute_query(sql)
             except Exception:
-                pass  # Table may already exist
-        self.repo.save_meal_allowance(self.month, 0)  # Limpa mes de teste
+                pass
+        # Seed a row so update-path tests have an existing record
+        self.repo.save_cash_flow(self.month, 0, 0)
 
-    def test_save_and_get_meal_allowance(self):
-        self.repo.save_meal_allowance(self.month, 123.45)
-        history = self.repo.get_by_month(self.month)
-        self.assertIsNotNone(history)
-        self.assertEqual(history.meal_allowance, 123.45)
-
-    def test_save_and_get_credit_card_info(self):
-        self.repo.save_credit_card_info(self.month, 1000, 2000)
+    def test_save_and_get_credit_card_bills(self):
+        self.repo.save_credit_card_bills(self.month, 1000, 2000)
         history = self.repo.get_by_month(self.month)
         self.assertEqual(history.credit_card_bill, 1000)
         self.assertEqual(history.credit_card_future_bill, 2000)
@@ -41,8 +35,7 @@ class TestFinanceHistoryRepository(unittest.TestCase):
         self.assertEqual(history.expenses, 3000)
 
     def test_calculate_risk_management(self):
-        self.repo.save_meal_allowance(self.month, 100)
-        self.repo.save_credit_card_info(self.month, 100, 100)
+        self.repo.save_credit_card_bills(self.month, 100, 100)
         self.repo.save_net_worth(self.month, 100, {"A": 100})
         self.repo.save_cash_flow(self.month, 100, 100)
         self.repo.calculate_and_save_risk_management(self.month)
@@ -56,7 +49,6 @@ class TestFinanceHistoryRepository(unittest.TestCase):
         self.assertEqual(history.credit_card_bill, 1000.0)
         self.assertEqual(history.credit_card_future_bill, 1200.0)
 
-        # Atualiza
         self.repo.save_credit_card_bills(self.month, 1500.0, 1800.0)
         history = self.repo.get_by_month(self.month)
         self.assertEqual(history.credit_card_bill, 1500.0)
