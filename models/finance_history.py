@@ -5,7 +5,6 @@ class FinanceHistory:
     def __init__(
         self,
         month: str,
-        meal_allowance: Optional[float],
         credit_card_bill: Optional[float],
         credit_card_future_bill: Optional[float],
         total_cash: Optional[float],
@@ -17,7 +16,6 @@ class FinanceHistory:
         credit_expenses: Optional[float] = None,
     ):
         self.month = month
-        self.meal_allowance = meal_allowance
         self.credit_card_bill = credit_card_bill
         self.credit_card_future_bill = credit_card_future_bill
         self.total_cash = total_cash
@@ -27,3 +25,4 @@ class FinanceHistory:
         self.risk_management = risk_management
         self.bank_expenses = bank_expenses
         self.credit_expenses = credit_expenses
+

@@ -291,7 +291,7 @@ class TestGetActualHistory(unittest.TestCase):
         from models.finance_history import FinanceHistory
         return FinanceHistory(
             month=month, income=income, expenses=expenses,
-            total_cash=total_cash, meal_allowance=None,
+            total_cash=total_cash,
             credit_card_bill=None, credit_card_future_bill=None,
             investments=None, risk_management=None,
             bank_expenses=bank_expenses, credit_expenses=credit_expenses,

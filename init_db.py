@@ -93,7 +93,6 @@ TABLES_SQL = [
     """
     CREATE TABLE IF NOT EXISTS finance_history (
         month TEXT PRIMARY KEY,
-        meal_allowance REAL,
         credit_card_bill REAL,
         credit_card_future_bill REAL,
         total_cash REAL,
@@ -248,7 +247,6 @@ RESET_SQL = [
     "DROP TABLE IF EXISTS accounts_snapshot",
     "DROP TABLE IF EXISTS bills",
     "DROP TABLE IF EXISTS pluggy_items",
-    "DROP TABLE IF EXISTS finance_history",
     "DROP TABLE IF EXISTS investments",
     "DROP TABLE IF EXISTS splitwise",
     "DROP TABLE IF EXISTS credit_transactions",
@@ -277,6 +275,8 @@ def reset_db():
 
 
 def init_db():
+    # Para bases existentes, rodar migrations pendentes em scripts/:
+    #   python scripts/migrate_remove_meal_allowance.py
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     for sql in TABLES_SQL:
