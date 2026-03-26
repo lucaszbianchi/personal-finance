@@ -237,6 +237,7 @@ export const dashboardService = {
 export type ImportType = 'recent' | 'non_recent';
 
 export interface RateLimitUsage {
+  item_id: string;
   call_type: string;
   year_month: string;
   count: number;
@@ -263,9 +264,17 @@ export interface SyncResponse {
 }
 
 export const importService = {
-  syncData: async (importType: ImportType = 'recent'): Promise<SyncResponse> => {
-    const response = await api.post('/import/data', { import_type: importType }, { timeout: 120000 });
+  syncData: async (importType: ImportType = 'recent', itemId?: string): Promise<SyncResponse> => {
+    const body: Record<string, unknown> = { import_type: importType };
+    if (itemId) body.item_id = itemId;
+    const response = await api.post('/import/data', body, { timeout: 120000 });
     return response.data;
+  },
+
+  getRateLimitUsage: async (itemId?: string): Promise<RateLimitUsage[]> => {
+    const params = itemId ? { item_id: itemId } : {};
+    const response = await api.get('/import/rate-limit-usage', { params });
+    return response.data.usage;
   },
 
   importSplitwise: async (): Promise<ApiResponse<void>> => {

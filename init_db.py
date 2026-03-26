@@ -38,6 +38,7 @@ TABLES_SQL = [
         split_info TEXT,
         payment_data TEXT,
         excluded INTEGER DEFAULT 0,
+        item_id TEXT,
         FOREIGN KEY (category_id) REFERENCES categories(id)
     )
     """,
@@ -53,6 +54,7 @@ TABLES_SQL = [
         installment_number INT,
         total_installments INT,
         total_amount REAL,  -- DEPRECATED: written by sync but never read; kept for backward compat
+        item_id TEXT,
         FOREIGN KEY (category_id) REFERENCES categories(id)
     )
     """,
@@ -110,6 +112,7 @@ TABLES_SQL = [
         connector_name TEXT,
         status TEXT,
         role TEXT DEFAULT 'bank',
+        alias TEXT,
         created_at TEXT DEFAULT (datetime('now')),
         updated_at TEXT DEFAULT (datetime('now'))
     )
@@ -133,12 +136,13 @@ TABLES_SQL = [
     """,
     """
     CREATE TABLE IF NOT EXISTS rate_limit_usage (
-        id         INTEGER PRIMARY KEY AUTOINCREMENT,
-        call_type  TEXT NOT NULL,
-        year_month TEXT NOT NULL,
-        count      INTEGER DEFAULT 0,
+        id          INTEGER PRIMARY KEY AUTOINCREMENT,
+        item_id     TEXT NOT NULL DEFAULT '',
+        call_type   TEXT NOT NULL,
+        year_month  TEXT NOT NULL,
+        count       INTEGER DEFAULT 0,
         limit_value INTEGER NOT NULL,
-        UNIQUE(call_type, year_month)
+        UNIQUE(item_id, call_type, year_month)
     )
     """,
     """
@@ -194,6 +198,7 @@ TABLES_SQL = [
         description     TEXT,
         amount          REAL,
         frequency       TEXT,
+        next_occurrence TEXT,
         last_occurrence TEXT,
         confidence      REAL,
         total_m1        REAL,
@@ -201,7 +206,11 @@ TABLES_SQL = [
         total_m6        REAL,
         total_m12       REAL,
         source          TEXT DEFAULT 'pluggy',
-        synced_at       TEXT
+        synced_at       TEXT,
+        merchant_name   TEXT,
+        amount_min      REAL,
+        amount_max      REAL,
+        category_id     TEXT
     )
     """,
     """
@@ -242,7 +251,6 @@ INDEXES_SQL = [
 RESET_SQL = [
     "DROP TABLE IF EXISTS pluggy_book_categories",
     "DROP TABLE IF EXISTS pluggy_book_summary",
-    "DROP TABLE IF EXISTS rate_limit_usage",
     "DROP TABLE IF EXISTS pluggy_insights",
     "DROP TABLE IF EXISTS accounts_snapshot",
     "DROP TABLE IF EXISTS bills",
@@ -277,6 +285,9 @@ def reset_db():
 def init_db():
     # Para bases existentes, rodar migrations pendentes em scripts/:
     #   python scripts/migrate_remove_meal_allowance.py
+    #   python scripts/migrate_income_sources_add_columns.py
+    #   python scripts/migrate_add_item_alias_and_transaction_item_id.py
+    #   python scripts/migrate_add_rate_limit_item_id.py
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     for sql in TABLES_SQL:

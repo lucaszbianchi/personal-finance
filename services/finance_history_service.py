@@ -77,22 +77,48 @@ class FinanceHistoryService:
         """Backfill finance_history for every month that has transaction data.
 
         Calls update_finance_history_from_sync() for each distinct month, then
-        backfills total_cash for months without it using the formula:
-          total_cash(M) = total_cash(M+1) - income(M+1) + bank_expenses(M+1) + credit_expenses(M)
+        force-recalculates total_cash from bank snapshots (ignoring existing values),
+        clears total_cash for months without snapshots, and backfills them using:
+          total_cash(M) = total_cash(M+1) - sum_of_all_bank_transactions(M+1)
         Idempotent — safe to run multiple times.
         Returns {"months_processed": N, "months": ["2025-04", ...]}.
         """
         months = self.transaction_repository.get_distinct_months()
+        months_with_snapshot = set()
+
         for month in months:
             self.update_finance_history_from_sync(month)
+            # Force-recalculate total_cash from snapshot regardless of existing value
+            bank_snaps = self.accounts_snapshot_repo.get_snapshot_for_month("BANK", month)
+            if bank_snaps:
+                bank_balance = sum(row.get("balance") or 0.0 for row in bank_snaps)
+                investments = self.investment_repo.get_investments()
+                inv_dict: dict = {}
+                for inv in investments:
+                    inv_dict[inv.name] = inv_dict.get(inv.name, 0.0) + (inv.balance or 0.0)
+                total_cash = round(bank_balance + sum(inv_dict.values()), 2)
+                self.finance_history_repository.save_net_worth(month, total_cash, inv_dict)
+                months_with_snapshot.add(month)
+
+        # Clear total_cash for months without snapshots so backfill can recompute them
+        for month in months:
+            if month not in months_with_snapshot:
+                self.finance_history_repository.save_total_cash(month, None)
+
         self._backfill_total_cash(months)
         return {"months_processed": len(months), "months": months}
 
     def _backfill_total_cash(self, months: list) -> None:
-        """Fill total_cash backwards from the most recent anchor using cash-flow formula."""
+        """Fill total_cash backwards from the most recent anchor using net bank transaction flow.
+
+        Formula: total_cash(M) = total_cash(M+1) - sum_of_all_bank_transactions(M+1)
+        Sums ALL bank transactions in each month (including excluded ones such as investment
+        applications and credit card bill payments) to capture the true change in bank balance.
+        """
         if not months:
             return
 
+        bank_net = self.transaction_repository.get_bank_net_by_month()
         sorted_months = sorted(months)
         all_entries = {e.month: e for e in self.finance_history_repository.get_all()}
 
@@ -120,12 +146,8 @@ class FinanceHistoryService:
             if curr.total_cash is not None:
                 continue
 
-            # Use bank_expenses from next month; fall back to expenses when not available
-            bank_exp_next = nxt.bank_expenses if nxt.bank_expenses is not None else (nxt.expenses or 0.0)
-            credit_exp_curr = curr.credit_expenses or 0.0
-            income_next = nxt.income or 0.0
-
-            total_cash = round(nxt.total_cash - income_next + bank_exp_next + credit_exp_curr, 2)
+            net_next = bank_net.get(next_month, 0.0)
+            total_cash = round(nxt.total_cash - net_next, 2)
             self.finance_history_repository.save_total_cash(curr_month, total_cash)
             # Update local cache so subsequent iterations use the computed value
             curr.total_cash = total_cash

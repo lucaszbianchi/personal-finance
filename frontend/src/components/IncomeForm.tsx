@@ -3,6 +3,7 @@ import { useCreateIncomeSource, useUpdateIncomeSource, useIncomeMatchCount } fro
 import { useCategories } from '@/hooks/useCategories';
 import { FREQUENCY_LABELS } from '@/constants/recurrences';
 import type { IncomeSource } from '@/types';
+import { AxiosError } from 'axios';
 
 interface Props {
   initial?: IncomeSource;
@@ -56,6 +57,7 @@ export const IncomeForm: React.FC<Props> = ({ initial, onClose }) => {
 
   const isEditing = Boolean(initial);
   const isPending = create.isPending || update.isPending;
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const nextDay = form.next_occurrence ? new Date(form.next_occurrence + 'T12:00:00').getDate() : null;
   const freqLabel = (FREQUENCY_LABELS[form.frequency] ?? form.frequency).toLowerCase();
@@ -67,6 +69,7 @@ export const IncomeForm: React.FC<Props> = ({ initial, onClose }) => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setSubmitError(null);
     const data: Record<string, unknown> = {
       description: form.description,
       amount: parseFloat(form.amount) || 0,
@@ -78,12 +81,20 @@ export const IncomeForm: React.FC<Props> = ({ initial, onClose }) => {
       category_id: form.category_id || null,
     };
 
-    if (isEditing && initial) {
-      await update.mutateAsync({ id: initial.id, data });
-    } else {
-      await create.mutateAsync(data);
+    try {
+      if (isEditing && initial) {
+        await update.mutateAsync({ id: initial.id, data });
+      } else {
+        await create.mutateAsync(data);
+      }
+      onClose();
+    } catch (err) {
+      const message =
+        err instanceof AxiosError
+          ? (err.response?.data?.error ?? err.message)
+          : 'Erro ao salvar receita recorrente.';
+      setSubmitError(String(message));
     }
-    onClose();
   };
 
   return (
@@ -244,6 +255,12 @@ export const IncomeForm: React.FC<Props> = ({ initial, onClose }) => {
               {debouncedMerchant ? (matchCountData?.count ?? '-') : 0}
             </span>
           </div>
+
+          {submitError && (
+            <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded px-3 py-2">
+              {submitError}
+            </p>
+          )}
 
           <div className="flex flex-col items-center gap-2 pt-2">
             <button

@@ -3,9 +3,10 @@ import { useNavigate } from 'react-router-dom'
 import { formatDistanceToNow } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { useQuery, useQueries, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Trash2, ShieldCheck, RotateCcw } from 'lucide-react'
+import { Trash2, ShieldCheck, RotateCcw, Pencil, Check, X } from 'lucide-react'
 import api, { databaseService } from '@/services/api'
 import { PluggyConnectButton } from '@/components/PluggyConnectButton'
+import { AliasModal } from '@/components/AliasModal'
 import { useCategoryLanguage } from '@/contexts/CategoryLanguageContext'
 import { useRestartOnboarding } from '@/hooks/useOnboarding'
 
@@ -13,7 +14,13 @@ type PluggyItem = {
   item_id: string
   connector_name: string | null
   status: string | null
+  alias: string | null
   created_at: string
+}
+
+type PendingItem = {
+  id: string
+  connector_name?: string
 }
 
 type ItemStatus = 'UPDATED' | 'UPDATING' | 'LOGIN_ERROR' | 'OUTDATED' | 'WAITING_USER_INPUT'
@@ -50,6 +57,12 @@ export const Settings: React.FC = () => {
   const [resetLoading, setResetLoading] = useState(false)
   const [resetMessage, setResetMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
 
+  // Alias naming state
+  const [pendingItem, setPendingItem] = useState<PendingItem | null>(null)
+  const [pendingAlias, setPendingAlias] = useState('')
+  const [editingItemId, setEditingItemId] = useState<string | null>(null)
+  const [editAlias, setEditAlias] = useState('')
+
   async function handleConfirmReset() {
     setResetLoading(true)
     setResetMessage(null)
@@ -85,10 +98,30 @@ export const Settings: React.FC = () => {
   )
 
   const addItem = useMutation({
-    mutationFn: (payload: { item_id: string; connector_name?: string }) =>
+    mutationFn: (payload: { item_id: string; connector_name?: string; alias?: string }) =>
       api.post('/pluggy/items', payload),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['pluggy-items'] }),
   })
+
+  const updateAlias = useMutation({
+    mutationFn: ({ item_id, alias }: { item_id: string; alias: string | null }) =>
+      api.patch(`/pluggy/items/${item_id}`, { alias }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['pluggy-items'] })
+      setEditingItemId(null)
+    },
+  })
+
+  function handleSavePendingItem(alias: string) {
+    if (!pendingItem) return
+    addItem.mutate({
+      item_id: pendingItem.id,
+      connector_name: pendingItem.connector_name,
+      alias: alias.trim() || undefined,
+    })
+    setPendingItem(null)
+    setPendingAlias('')
+  }
 
   const deleteItem = useMutation({
     mutationFn: (itemId: string) => api.delete(`/pluggy/items/${itemId}`),
@@ -122,19 +155,57 @@ export const Settings: React.FC = () => {
               const live = liveByItemId[item.item_id]
               const status = live?.status
               const badge = status ? STATUS_BADGE[status] : null
-              const connectorName = live?.connector?.name ?? item.connector_name ?? 'Conta desconhecida'
+              const displayName = item.alias ?? live?.connector?.name ?? item.connector_name ?? 'Conta desconhecida'
+              const isEditing = editingItemId === item.item_id
 
               return (
                 <li key={item.item_id} className="flex items-center justify-between py-3 gap-4">
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <p className="text-sm font-medium text-gray-800">{connectorName}</p>
-                      {badge && (
-                        <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${badge.className}`}>
-                          {badge.label}
-                        </span>
-                      )}
-                    </div>
+                    {isEditing ? (
+                      <div className="flex items-center gap-2">
+                        <input
+                          className="border border-gray-300 rounded px-2 py-1 text-sm flex-1 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                          value={editAlias}
+                          onChange={e => setEditAlias(e.target.value)}
+                          onKeyDown={e => {
+                            if (e.key === 'Enter') updateAlias.mutate({ item_id: item.item_id, alias: editAlias.trim() || null })
+                            if (e.key === 'Escape') setEditingItemId(null)
+                          }}
+                          autoFocus
+                        />
+                        <button
+                          onClick={() => updateAlias.mutate({ item_id: item.item_id, alias: editAlias.trim() || null })}
+                          disabled={updateAlias.isPending}
+                          className="text-green-600 hover:text-green-800 disabled:opacity-50"
+                          title="Confirmar"
+                        >
+                          <Check size={15} />
+                        </button>
+                        <button
+                          onClick={() => setEditingItemId(null)}
+                          className="text-gray-400 hover:text-gray-600"
+                          title="Cancelar"
+                        >
+                          <X size={15} />
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="text-sm font-medium text-gray-800">{displayName}</p>
+                        {badge && (
+                          <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${badge.className}`}>
+                            {badge.label}
+                          </span>
+                        )}
+                        <button
+                          onClick={() => { setEditingItemId(item.item_id); setEditAlias(item.alias ?? '') }}
+                          className="text-gray-400 hover:text-gray-600"
+                          title="Renomear conta"
+                        >
+                          <Pencil size={13} />
+                        </button>
+                      </div>
+                    )}
                     {live?.lastUpdatedAt && (
                       <p className="text-xs text-gray-400 mt-0.5">
                         Última atualização: {formatRelativeDate(live.lastUpdatedAt)}
@@ -158,10 +229,8 @@ export const Settings: React.FC = () => {
         <div className="flex items-center gap-3 flex-wrap">
           <PluggyConnectButton
             onSuccess={item => {
-              addItem.mutate({
-                item_id: item.id,
-                connector_name: item.connector?.name,
-              })
+              setPendingItem({ id: item.id, connector_name: item.connector?.name })
+              setPendingAlias('')
             }}
           />
           <button
@@ -367,6 +436,15 @@ export const Settings: React.FC = () => {
           </p>
         )}
       </section>
+
+      {/* Modal: Nome da nova conta conectada */}
+      {pendingItem && (
+        <AliasModal
+          alias={pendingAlias}
+          onChange={setPendingAlias}
+          onSave={handleSavePendingItem}
+        />
+      )}
 
       {/* Modal de confirmação de reset */}
       {resetModalOpen && (

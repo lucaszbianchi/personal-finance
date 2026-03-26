@@ -34,6 +34,7 @@ class TestTransactionRepository(unittest.TestCase):
                 split_info TEXT,
                 payment_data TEXT,
                 excluded INTEGER DEFAULT 0,
+                item_id TEXT,
                 FOREIGN KEY (category_id) REFERENCES categories(id)
             )
         """
@@ -49,7 +50,8 @@ class TestTransactionRepository(unittest.TestCase):
                 amount REAL,
                 category_id TEXT,
                 status TEXT,
-                excluded INTEGER DEFAULT 0
+                excluded INTEGER DEFAULT 0,
+                item_id TEXT
             )
         """
         )

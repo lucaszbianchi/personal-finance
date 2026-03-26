@@ -61,13 +61,33 @@ def add_item():
 
     repo = PluggyItemRepository()
     try:
+        alias = (data.get("alias") or "").strip() or None
         repo.upsert_item(
             item_id,
             connector_name=data.get("connector_name"),
             status=data.get("status"),
             role=data.get("role", "bank"),
+            alias=alias,
         )
         return jsonify({"status": "success", "item_id": item_id})
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"status": "error", "message": str(e)}), 500
+    finally:
+        repo.close()
+
+
+@bp.route("/items/<item_id>", methods=["PATCH"])
+def update_item(item_id):
+    """Atualiza o alias de um item conectado."""
+    data = request.get_json() or {}
+    alias = (data.get("alias") or "").strip() or None
+    repo = PluggyItemRepository()
+    try:
+        repo.update_alias(item_id, alias)
+        return jsonify({"status": "success"})
+    except ValueError as e:
+        return jsonify({"status": "error", "message": str(e)}), 404
     except Exception as e:
         traceback.print_exc()
         return jsonify({"status": "error", "message": str(e)}), 500

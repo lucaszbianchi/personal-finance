@@ -28,7 +28,8 @@ class TransactionRepository(BaseRepository):
                 operation_type,
                 split_info,
                 payment_data,
-                excluded
+                excluded,
+                item_id
             FROM bank_transactions
             ORDER BY date DESC
         """
@@ -49,6 +50,7 @@ class TransactionRepository(BaseRepository):
                     json.loads(row["payment_data"]) if row["payment_data"] else None
                 ),
                 excluded=row["excluded"] or 0,
+                item_id=row["item_id"],
             )
             for row in cursor.fetchall()
         ]
@@ -63,7 +65,8 @@ class TransactionRepository(BaseRepository):
                 amount,
                 category_id,
                 status,
-                excluded
+                excluded,
+                item_id
             FROM credit_transactions
             ORDER BY date DESC
         """
@@ -77,6 +80,7 @@ class TransactionRepository(BaseRepository):
                 category_id=row["category_id"],
                 status=row["status"],
                 excluded=row["excluded"] or 0,
+                item_id=row["item_id"],
             )
             for row in cursor.fetchall()
         ]
@@ -94,6 +98,23 @@ class TransactionRepository(BaseRepository):
         """
         cursor = self.execute_query(query)
         return [row["month"] for row in cursor.fetchall()]
+
+    def get_bank_net_by_month(self) -> dict:
+        """Returns {YYYY-MM: net_amount} summing ALL bank transactions (including excluded) per month,
+        excluding investment movements (APLICACAO_FINANCEIRA / RESGATE_APLIC_FINANCEIRA by operation_type,
+        or transactions whose category parent is 'investimentos').
+        """
+        cursor = self.execute_query(
+            """
+            SELECT strftime('%Y-%m', bt.date) AS month, SUM(bt.amount) AS net
+            FROM bank_transactions bt
+            LEFT JOIN categories c ON bt.category_id = c.id
+            WHERE bt.operation_type NOT IN ('APLICACAO_FINANCEIRA', 'RESGATE_APLIC_FINANCEIRA')
+              AND LOWER(COALESCE(c.parent_description, c.description, '')) != 'investimentos'
+            GROUP BY month
+            """
+        )
+        return {row["month"]: row["net"] for row in cursor.fetchall()}
 
     def get_investments(self) -> List[Investment]:
         """Retorna todas as transações de investimentos."""
@@ -355,22 +376,24 @@ class TransactionRepository(BaseRepository):
         )
         return cursor.rowcount > 0
 
-    def upsert_bank_transaction(self, transaction_data: dict) -> dict:
+    def upsert_bank_transaction(
+        self, transaction_data: dict, item_id: str = None
+    ) -> dict:
         """
         Insere ou atualiza uma transação bancária usando strategy insert_only.
         Transações bancárias são consideradas imutáveis, então apenas novos registros são inseridos.
 
         Args:
             transaction_data: Dict com dados da transação da API Pluggy
+            item_id: ID do item Pluggy de origem (opcional)
 
         Returns:
             Dict com resultado da operação
         """
         description = transaction_data.get("description", "") or ""
         op_type = transaction_data.get("operationType", "") or ""
-        auto_excluded = (
-            op_type == "RESGATE_APLIC_FINANCEIRA"
-            or description.startswith("Pagamento de fatura")
+        auto_excluded = op_type == "RESGATE_APLIC_FINANCEIRA" or description.startswith(
+            "Pagamento de fatura"
         )
 
         mapped_data = {
@@ -383,6 +406,7 @@ class TransactionRepository(BaseRepository):
             "operation_type": op_type,
             "payment_data": transaction_data.get("paymentData"),
             "excluded": 1 if auto_excluded else 0,
+            "item_id": item_id,
         }
 
         result = self.upsert("bank_transactions", "id", mapped_data)
@@ -393,13 +417,16 @@ class TransactionRepository(BaseRepository):
 
         return result
 
-    def upsert_credit_transaction(self, transaction_data: dict) -> dict:
+    def upsert_credit_transaction(
+        self, transaction_data: dict, item_id: str = None
+    ) -> dict:
         """
         Insere uma transação de cartão de crédito usando strategy insert_only.
         Transações já existentes são ignoradas.
 
         Args:
             transaction_data: Dict com dados da transação da API Pluggy
+            item_id: ID do item Pluggy de origem (opcional)
 
         Returns:
             Dict com resultado da operação
@@ -433,6 +460,7 @@ class TransactionRepository(BaseRepository):
             "installment_number": installment_number,
             "total_installments": total_installments,
             "total_amount": None,
+            "item_id": item_id,
         }
 
         result = self.upsert(

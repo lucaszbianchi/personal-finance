@@ -22,6 +22,7 @@ class TestFinanceHistoryService(unittest.TestCase):
         self.service.investment_repo = self.mock_investment_repo
         self.mock_snapshot_repo.get_snapshot_for_month.return_value = []
         self.mock_repo.get_by_month.return_value = None
+        self.mock_txn_repo.get_bank_net_by_month.return_value = {}
 
     def test_update_finance_history_net_worth_aggregates_investments(self):
         investment = MagicMock()
@@ -227,6 +228,7 @@ class TestFinanceHistoryService(unittest.TestCase):
         months = ["2025-11", "2025-12", "2026-01"]
         self.mock_txn_repo.get_distinct_months.return_value = months
         self.mock_repo.get_all.return_value = []
+        self.mock_snapshot_repo.get_snapshot_for_month.return_value = []
         with patch.object(self.service, "update_finance_history_from_sync") as mock_sync:
             result = self.service.rebuild_all_months()
         self.assertEqual(result["months_processed"], 3)
@@ -240,6 +242,7 @@ class TestFinanceHistoryService(unittest.TestCase):
         months = ["2026-01", "2026-02"]
         self.mock_txn_repo.get_distinct_months.return_value = months
         self.mock_repo.get_all.return_value = []
+        self.mock_snapshot_repo.get_snapshot_for_month.return_value = []
         with patch.object(self.service, "update_finance_history_from_sync"):
             result1 = self.service.rebuild_all_months()
             result2 = self.service.rebuild_all_months()
@@ -253,6 +256,48 @@ class TestFinanceHistoryService(unittest.TestCase):
         self.assertEqual(result, {"months_processed": 0, "months": []})
         mock_sync.assert_not_called()
 
+    def test_rebuild_force_recalculates_total_cash_from_snapshot(self):
+        """rebuild_all_months must update total_cash from snapshot even when already set."""
+        months = ["2026-02", "2026-03"]
+        self.mock_txn_repo.get_distinct_months.return_value = months
+        self.mock_repo.get_all.return_value = []
+
+        inv = MagicMock()
+        inv.name = "CDB"
+        inv.balance = 2000.0
+        self.mock_investment_repo.get_investments.return_value = [inv]
+        self.mock_snapshot_repo.get_snapshot_for_month.side_effect = lambda t, m: (
+            [{"balance": 8000.0}] if t == "BANK" else []
+        )
+
+        with patch.object(self.service, "update_finance_history_from_sync"):
+            self.service.rebuild_all_months()
+
+        # save_net_worth should be called for both months (10000 = 8000 bank + 2000 CDB)
+        calls = [c.args for c in self.mock_repo.save_net_worth.call_args_list]
+        self.assertIn(("2026-02", 10000.0, {"CDB": 2000.0}), calls)
+        self.assertIn(("2026-03", 10000.0, {"CDB": 2000.0}), calls)
+
+    def test_rebuild_clears_total_cash_for_months_without_snapshot(self):
+        """rebuild_all_months must clear total_cash for months with no snapshot so backfill recomputes."""
+        months = ["2025-11", "2026-03"]
+        self.mock_txn_repo.get_distinct_months.return_value = months
+        self.mock_repo.get_all.return_value = []
+        # Only 2026-03 has a bank snapshot
+        self.mock_snapshot_repo.get_snapshot_for_month.side_effect = lambda t, m: (
+            [{"balance": 5000.0}] if (t == "BANK" and m == "2026-03") else []
+        )
+        self.mock_investment_repo.get_investments.return_value = []
+
+        with patch.object(self.service, "update_finance_history_from_sync"):
+            self.service.rebuild_all_months()
+
+        # 2025-11 has no snapshot → total_cash must be cleared
+        self.mock_repo.save_total_cash.assert_any_call("2025-11", None)
+        # 2026-03 has a snapshot → save_net_worth called, NOT save_total_cash(None)
+        none_calls = [c.args[0] for c in self.mock_repo.save_total_cash.call_args_list if c.args[1] is None]
+        self.assertNotIn("2026-03", none_calls)
+
     # ── _backfill_total_cash ──
 
     def _make_history_entry(self, month, income=None, expenses=None, bank_expenses=None, credit_expenses=None, total_cash=None):
@@ -265,25 +310,31 @@ class TestFinanceHistoryService(unittest.TestCase):
         )
 
     def test_backfill_total_cash_fills_backwards(self):
-        """total_cash(fev) = total_cash(mar) - income(mar) + bank_expenses(mar) + credit_expenses(fev)"""
+        """total_cash(M) = total_cash(M+1) - bank_net(M+1)"""
         months = ["2026-01", "2026-02", "2026-03"]
         self.mock_repo.get_all.return_value = [
-            self._make_history_entry("2026-01", income=5000, expenses=4000, bank_expenses=2000, credit_expenses=2000),
-            self._make_history_entry("2026-02", income=5000, expenses=3500, bank_expenses=2000, credit_expenses=1500),
-            self._make_history_entry("2026-03", income=5000, expenses=4500, bank_expenses=3000, credit_expenses=1500, total_cash=50000),
+            self._make_history_entry("2026-01"),
+            self._make_history_entry("2026-02"),
+            self._make_history_entry("2026-03", total_cash=50000),
         ]
+        # bank_net: net sum of all bank transactions in each month
+        self.mock_txn_repo.get_bank_net_by_month.return_value = {
+            "2026-02": 3000.0,   # Feb had net +3000 in bank
+            "2026-03": 2000.0,   # Mar had net +2000 in bank
+        }
         self.service._backfill_total_cash(months)
-        # Feb = 50000 - 5000 + 3000 + 1500 = 49500
-        self.mock_repo.save_total_cash.assert_any_call("2026-02", 49500.0)
-        # Jan = 49500 - 5000 + 2000 + 2000 = 48500
-        self.mock_repo.save_total_cash.assert_any_call("2026-01", 48500.0)
+        # Feb = 50000 - bank_net(Mar=2000) = 48000
+        self.mock_repo.save_total_cash.assert_any_call("2026-02", 48000.0)
+        # Jan = 48000 - bank_net(Feb=3000) = 45000
+        self.mock_repo.save_total_cash.assert_any_call("2026-01", 45000.0)
 
     def test_backfill_total_cash_no_anchor_does_nothing(self):
         months = ["2026-01", "2026-02"]
         self.mock_repo.get_all.return_value = [
-            self._make_history_entry("2026-01", income=5000, expenses=4000),
-            self._make_history_entry("2026-02", income=5000, expenses=3500),
+            self._make_history_entry("2026-01"),
+            self._make_history_entry("2026-02"),
         ]
+        self.mock_txn_repo.get_bank_net_by_month.return_value = {"2026-01": 1000.0, "2026-02": 1500.0}
         self.service._backfill_total_cash(months)
         self.mock_repo.save_total_cash.assert_not_called()
 
@@ -291,29 +342,35 @@ class TestFinanceHistoryService(unittest.TestCase):
         """Months that already have total_cash are not overwritten."""
         months = ["2026-01", "2026-02"]
         self.mock_repo.get_all.return_value = [
-            self._make_history_entry("2026-01", income=5000, bank_expenses=2000, credit_expenses=500),
-            self._make_history_entry("2026-02", income=5000, bank_expenses=2500, credit_expenses=1000, total_cash=40000),
+            self._make_history_entry("2026-01"),
+            self._make_history_entry("2026-02", total_cash=40000),
         ]
+        self.mock_txn_repo.get_bank_net_by_month.return_value = {"2026-02": 1500.0}
         self.service._backfill_total_cash(months)
-        # Jan = 40000 - 5000 + 2500 + 500 = 38000
-        self.mock_repo.save_total_cash.assert_called_once_with("2026-01", 38000.0)
+        # Jan = 40000 - bank_net(Feb=1500) = 38500
+        self.mock_repo.save_total_cash.assert_called_once_with("2026-01", 38500.0)
 
     def test_backfill_total_cash_respects_intermediate_anchors(self):
         """Months with existing total_cash (intermediate anchors) are not overwritten by formula."""
         months = ["2026-01", "2026-02", "2026-03", "2026-04"]
         self.mock_repo.get_all.return_value = [
-            self._make_history_entry("2026-01", income=5000, bank_expenses=2000, credit_expenses=500),
-            self._make_history_entry("2026-02", income=5000, bank_expenses=2000, credit_expenses=500, total_cash=30000),
-            self._make_history_entry("2026-03", income=5000, bank_expenses=2500, credit_expenses=1000),
-            self._make_history_entry("2026-04", income=5000, bank_expenses=3000, credit_expenses=1500, total_cash=50000),
+            self._make_history_entry("2026-01"),
+            self._make_history_entry("2026-02", total_cash=30000),
+            self._make_history_entry("2026-03"),
+            self._make_history_entry("2026-04", total_cash=50000),
         ]
+        self.mock_txn_repo.get_bank_net_by_month.return_value = {
+            "2026-02": 2500.0,
+            "2026-03": 1000.0,
+            "2026-04": 3000.0,
+        }
         self.service._backfill_total_cash(months)
-        # Mar = 50000 - 5000 + 3000 + 1000 = 49000 (computed)
-        self.mock_repo.save_total_cash.assert_any_call("2026-03", 49000.0)
+        # Mar = 50000 - bank_net(Apr=3000) = 47000 (computed from Apr anchor)
+        self.mock_repo.save_total_cash.assert_any_call("2026-03", 47000.0)
         # Feb already has total_cash=30000, must NOT be overwritten
         calls = [c.args for c in self.mock_repo.save_total_cash.call_args_list]
         self.assertNotIn("2026-02", [c[0] for c in calls])
-        # Jan = 30000 - 5000 + 2000 + 500 = 27500 (anchors from Feb's snapshot value)
+        # Jan = 30000 - bank_net(Feb=2500) = 27500 (computed from Feb anchor)
         self.mock_repo.save_total_cash.assert_any_call("2026-01", 27500.0)
 
 

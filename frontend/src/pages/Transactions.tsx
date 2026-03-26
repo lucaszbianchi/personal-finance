@@ -19,6 +19,7 @@ interface Transaction {
   split_info?: any;
   payment_data?: any;
   excluded?: number;
+  account_alias?: string;
 }
 
 type TransactionType = 'bank' | 'credit';
@@ -491,6 +492,11 @@ export const Transactions: React.FC = () => {
                       <div className="max-w-md" title={transaction.description}>
                         {transaction.description}
                       </div>
+                      {transaction.account_alias && (
+                        <span className="inline-block mt-0.5 text-[10px] bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded-full">
+                          {transaction.account_alias}
+                        </span>
+                      )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">

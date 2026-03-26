@@ -12,6 +12,7 @@ class TestPluggyItemRepository(unittest.TestCase):
                 connector_name TEXT,
                 status TEXT,
                 role TEXT DEFAULT 'bank',
+                alias TEXT,
                 created_at TEXT DEFAULT (datetime('now')),
                 updated_at TEXT DEFAULT (datetime('now'))
             )
@@ -101,6 +102,25 @@ class TestPluggyItemRepository(unittest.TestCase):
         self.assertIsInstance(result[0], dict)
         self.assertIn("item_id", result[0])
         self.assertIn("connector_name", result[0])
+
+    # --- update_alias ---
+
+    def test_update_alias_changes_value(self):
+        self.repo.upsert_item("item-1", alias="Old Name")
+        self.repo.update_alias("item-1", "New Name")
+        rows = self.repo.list_all()
+        self.assertEqual(rows[0]["alias"], "New Name")
+
+    def test_update_alias_nonexistent_raises(self):
+        with self.assertRaises(ValueError) as ctx:
+            self.repo.update_alias("nao-existe", "Qualquer")
+        self.assertIn("nao-existe", str(ctx.exception))
+
+    def test_update_alias_to_none(self):
+        self.repo.upsert_item("item-1", alias="Nome")
+        self.repo.update_alias("item-1", None)
+        rows = self.repo.list_all()
+        self.assertIsNone(rows[0]["alias"])
 
     # --- delete ---
 
