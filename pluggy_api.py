@@ -160,7 +160,7 @@ class PluggyAPI:
                     if account["type"] != "CREDIT":
                         continue
 
-                    if not rate_limit_repo.can_call("recent"):
+                    if not rate_limit_repo.can_call("recent", item_id):
                         print(
                             "[WARN] Rate limit de sincronização recente atingido para este mês"
                         )
@@ -169,7 +169,7 @@ class PluggyAPI:
                     url = f"{self.base_url}/bills?accountId={account['id']}"
                     headers = {"X-API-KEY": self.api_key}
                     response = requests.get(url, headers=headers, timeout=30)
-                    rate_limit_repo.increment("recent")
+                    rate_limit_repo.increment("recent", item_id)
 
                     for bill in response.json().get("results", []):
                         bill_repo.upsert_bill(bill, account["id"])
@@ -180,7 +180,7 @@ class PluggyAPI:
 
         return count
 
-    def fetch_and_store_data_to_db(self, import_type: str = "recent"):
+    def fetch_and_store_data_to_db(self, import_type: str = "recent", item_id: str | None = None):
         """
         Busca dados da API e salva diretamente no banco usando repositórios.
         Mantém arquivos JSON em paralelo para debug/desenvolvimento.
@@ -255,7 +255,7 @@ class PluggyAPI:
 
             call_type = import_type
             snapshotted_at = today.strftime("%Y-%m-%d")
-            item_ids = self._get_item_ids_to_sync()
+            item_ids = self._get_item_ids_to_sync(item_id)
             print(f"[INFO] Sincronizando {len(item_ids)} item(s): {item_ids}")
             for item_id in item_ids:
                 accounts = self.list_accounts(item_id).get("results", [])
@@ -271,7 +271,7 @@ class PluggyAPI:
 
                     account_id = account.get("id")
 
-                    if not rate_limit_repo.can_call(call_type):
+                    if not rate_limit_repo.can_call(call_type, item_id):
                         print(
                             f"[WARN] Rate limit de sincronização/{call_type} atingido"
                         )
@@ -281,12 +281,12 @@ class PluggyAPI:
                         f"Processando conta {account_type}: {account_id} (item: {item_id})"
                     )
                     transactions = self._fetch_all_pages(account_id, from_date, to_date)
-                    rate_limit_repo.increment(call_type)
+                    rate_limit_repo.increment(call_type, item_id)
 
                     for transaction in transactions:
                         if account_type == "BANK":
                             result = transaction_repo.upsert_bank_transaction(
-                                transaction
+                                transaction, item_id=item_id
                             )
                             if result["success"]:
                                 if result["action"] == "inserted":
@@ -295,7 +295,7 @@ class PluggyAPI:
                                     summary["bank_transactions_updated"] += 1
                         else:
                             result = transaction_repo.upsert_credit_transaction(
-                                transaction
+                                transaction, item_id=item_id
                             )
                             if result["success"]:
                                 if result["action"] == "inserted":
@@ -389,12 +389,22 @@ class PluggyAPI:
             accounts_snapshot_repo.close()
             bill_repo.close()
 
-    def _get_item_ids_to_sync(self) -> list:
-        """Retorna item_ids de role 'bank' para sincronizar."""
+    def _get_item_ids_to_sync(self, item_id: str | None = None) -> list:
+        """Retorna item_ids de role 'bank' para sincronizar.
+
+        Se item_id for fornecido, retorna apenas esse item se existir.
+        Retorna lista vazia (com aviso) se o item_id nao for encontrado.
+        """
         repo = PluggyItemRepository()
         try:
             items = repo.get_items_by_role("bank")
-            return [item["item_id"] for item in items]
+            all_ids = [item["item_id"] for item in items]
+            if item_id is not None:
+                if item_id not in all_ids:
+                    print(f"[WARN] item_id {item_id!r} not found in bank items; skipping sync")
+                    return []
+                return [item_id]
+            return all_ids
         finally:
             repo.close()
 

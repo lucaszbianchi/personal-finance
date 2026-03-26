@@ -5,6 +5,7 @@ Módulo de rotas relacionadas a transações bancárias.
 from flask import Blueprint, jsonify, request
 from services.transaction_service import TransactionService
 from services.category_service import CategoryService
+from repositories.pluggy_item_repository import PluggyItemRepository
 
 bp = Blueprint("transactions", __name__)
 transaction_service = TransactionService()
@@ -19,6 +20,15 @@ def _get_category_name(category_id):
     return category.description if category else None
 
 
+def _build_alias_map() -> dict:
+    """Retorna mapa {item_id: alias} de todos os itens Pluggy conectados."""
+    repo = PluggyItemRepository()
+    try:
+        return {item["item_id"]: item.get("alias") for item in repo.list_all()}
+    finally:
+        repo.close()
+
+
 @bp.route("/bank", methods=["GET"])
 def get_bank_transactions():
     """Retorna transações bancárias com filtros opcionais."""
@@ -29,6 +39,7 @@ def get_bank_transactions():
     transactions = transaction_service.get_bank_transactions(
         start_date=start_date, end_date=end_date, category_id=category_id
     )
+    alias_map = _build_alias_map()
     return jsonify(
         [
             {
@@ -42,6 +53,7 @@ def get_bank_transactions():
                 "payment_data": t.payment_data,
                 "type": t.type_,
                 "excluded": t.excluded,
+                "account_alias": alias_map.get(t.item_id),
             }
             for t in transactions
         ]
@@ -58,6 +70,7 @@ def get_credit_transactions():
     transactions = transaction_service.get_credit_transactions(
         start_date=start_date, end_date=end_date, category_id=category_id
     )
+    alias_map = _build_alias_map()
     return jsonify(
         [
             {
@@ -69,6 +82,7 @@ def get_credit_transactions():
                 "status": t.status,
                 "split_info": t.split_info,
                 "excluded": t.excluded,
+                "account_alias": alias_map.get(t.item_id),
             }
             for t in transactions
         ]

@@ -35,6 +35,7 @@ class BankTransaction(Transaction):
         split_info: Optional[dict] = None,
         payment_data: Optional[dict] = None,
         excluded: int = 0,
+        item_id: Optional[str] = None,
     ):
         super().__init__(
             transaction_id, date, description, amount, category_id, "bank", split_info
@@ -43,6 +44,7 @@ class BankTransaction(Transaction):
         self.payment_data = payment_data
         self.type_ = type_  # 'debit' ou 'credit'
         self.excluded = excluded
+        self.item_id = item_id
 
 
 class CreditTransaction(Transaction):
@@ -56,9 +58,11 @@ class CreditTransaction(Transaction):
         status: Optional[str] = None,
         split_info: Optional[dict] = None,
         excluded: int = 0,
+        item_id: Optional[str] = None,
     ):
         super().__init__(
             transaction_id, date, description, amount, category_id, "credit", split_info
         )
         self.status = status
         self.excluded = excluded
+        self.item_id = item_id

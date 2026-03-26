@@ -7,6 +7,7 @@ from repositories.finance_history_repository import FinanceHistoryRepository
 from repositories.investment_repository import InvestmentRepository
 from repositories.income_sources_repository import IncomeSourcesRepository
 from repositories.recurrent_expenses_repository import RecurrentExpensesRepository
+from repositories.transaction_repository import TransactionRepository
 from services.finance_summary_service import FinanceSummaryService
 from services.recurrences_service import RecurrencesService
 
@@ -22,6 +23,7 @@ class ProjectionService:
         self.investment_repo = InvestmentRepository()
         self.income_repo = IncomeSourcesRepository()
         self.recurrences_repo = RecurrentExpensesRepository()
+        self.transaction_repo = TransactionRepository()
         self.recurrences_service = RecurrencesService()
         self.finance_summary = FinanceSummaryService()
 
@@ -75,6 +77,7 @@ class ProjectionService:
         next_month = (date.today().replace(day=1) + relativedelta(months=1)).strftime("%Y-%m")
         monthly_fixed = self._get_monthly_fixed_expenses()
         all_entries = self.finance_history_repo.get_all()
+        bank_net_by_month = self.transaction_repo.get_bank_net_by_month()
         result = []
         for entry in sorted(all_entries, key=lambda x: x.month):
             if entry.month >= next_month:
@@ -100,9 +103,8 @@ class ProjectionService:
                 "installments": installments,
                 "variable": variable,
                 "net_worth": round(entry.total_cash, 2) if entry.total_cash is not None else None,
-                # Needed for _backfill_net_worth formula; fall back to combined expenses when not split
-                "bank_expenses": round(entry.bank_expenses, 2) if entry.bank_expenses is not None else round(expenses, 2),
-                "credit_expenses": round(entry.credit_expenses or 0.0, 2),
+                # Needed for _backfill_net_worth formula
+                "bank_net": bank_net_by_month.get(entry.month, 0.0),
             })
         return self._backfill_net_worth(result)
 
@@ -110,7 +112,8 @@ class ProjectionService:
     def _backfill_net_worth(entries: list) -> list:
         """Fill missing net_worth values by working backwards from the most recent known value.
 
-        Formula: total_cash(M) = total_cash(M+1) - income(M+1) + bank_expenses(M+1) + credit_expenses(M)
+        Formula: net_worth(M) = net_worth(M+1) - bank_net(M+1)
+        where bank_net is the sum of ALL bank transactions in month M+1 (including excluded ones).
         Entries must be sorted oldest-first. Only the most recent anchor is used.
         """
         anchor_idx = None
@@ -126,9 +129,7 @@ class ProjectionService:
             if entries[i]["net_worth"] is not None:
                 break  # Stop at the next existing anchor
             nxt = entries[i + 1]
-            entries[i]["net_worth"] = round(
-                nxt["net_worth"] - nxt["income"] + nxt["bank_expenses"] + entries[i]["credit_expenses"], 2
-            )
+            entries[i]["net_worth"] = round(nxt["net_worth"] - nxt["bank_net"], 2)
 
         return entries
 

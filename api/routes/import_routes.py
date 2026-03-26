@@ -18,9 +18,10 @@ def import_data():
         import_type = body.get("import_type", "recent")
         if import_type not in ("recent", "non_recent"):
             return jsonify({"status": "error", "message": "import_type inválido"}), 400
+        item_id = body.get("item_id") or None
 
         api = PluggyAPI()
-        summary = api.fetch_and_store_data_to_db(import_type=import_type)
+        summary = api.fetch_and_store_data_to_db(import_type=import_type, item_id=item_id)
 
         response_body = {
             "status": "success",
@@ -67,9 +68,10 @@ def import_data():
 @bp.route("/rate-limit-usage", methods=["GET"])
 def rate_limit_usage():
     """Retorna o resumo de uso de rate-limit do mês atual."""
+    item_id = request.args.get("item_id") or None
     repo = RateLimitRepository()
     try:
-        usage = repo.get_usage_summary()
+        usage = repo.get_usage_summary(item_id=item_id)
         return jsonify({"status": "success", "usage": usage})
     except Exception as e:
         traceback.print_exc()

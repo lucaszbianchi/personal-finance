@@ -13,16 +13,25 @@ class PluggyItemRepository(BaseRepository):
         connector_name: str = None,
         status: str = None,
         role: str = "bank",
+        alias: str = None,
     ) -> None:
         query = """
-            INSERT INTO pluggy_items (item_id, connector_name, status, role)
-            VALUES (?, ?, ?, ?)
+            INSERT INTO pluggy_items (item_id, connector_name, status, role, alias)
+            VALUES (?, ?, ?, ?, ?)
             ON CONFLICT(item_id) DO UPDATE SET
                 connector_name = excluded.connector_name,
                 status = excluded.status,
                 updated_at = datetime('now')
         """
-        self.execute_query(query, (item_id, connector_name, status, role))
+        self.execute_query(query, (item_id, connector_name, status, role, alias))
+
+    def update_alias(self, item_id: str, alias: str) -> None:
+        cursor = self.execute_query(
+            "UPDATE pluggy_items SET alias = ? WHERE item_id = ?",
+            (alias, item_id),
+        )
+        if cursor.rowcount == 0:
+            raise ValueError(f"Item not found: {item_id}")
 
     def get_items_by_role(self, role: str) -> list:
         cursor = self.execute_query(

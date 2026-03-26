@@ -13,6 +13,7 @@ def _make_service():
          patch("services.projection_service.InvestmentRepository"), \
          patch("services.projection_service.IncomeSourcesRepository"), \
          patch("services.projection_service.RecurrentExpensesRepository"), \
+         patch("services.projection_service.TransactionRepository"), \
          patch("services.projection_service.RecurrencesService"), \
          patch("services.projection_service.FinanceSummaryService"):
         svc = ProjectionService()
@@ -22,6 +23,8 @@ def _make_service():
     svc.investment_repo = MagicMock()
     svc.income_repo = MagicMock()
     svc.recurrences_repo = MagicMock()
+    svc.transaction_repo = MagicMock()
+    svc.transaction_repo.get_bank_net_by_month.return_value = {}
     svc.recurrences_service = MagicMock()
     svc.finance_summary = MagicMock()
     return svc
@@ -394,32 +397,30 @@ class TestGetActualHistory(unittest.TestCase):
         result = svc._get_actual_history()
         self.assertEqual(result, [])
 
-    def _entry(self, month, income, expenses, bank_expenses=None, credit_expenses=0.0, net_worth=None):
+    def _entry(self, month, income, expenses, bank_net=0.0, net_worth=None):
         """Helper to build a history entry dict for backfill tests."""
         return {
             "month": month,
             "income": income,
             "expenses": expenses,
-            "bank_expenses": bank_expenses if bank_expenses is not None else expenses,
-            "credit_expenses": credit_expenses,
+            "bank_net": bank_net,
             "net_worth": net_worth,
         }
 
     def test_backfill_fills_missing_net_worth_backwards(self):
-        # Formula: total_cash(M) = total_cash(M+1) - income(M+1) + bank_expenses(M+1) + credit_expenses(M)
-        # M=Oct: bank=2500, credit=1500, income=5000
-        # M=Nov: bank=2000, credit=1500, income=5000
-        # M=Dec: nw=50000 (anchor), bank=3000, income=5000
+        # Formula: net_worth(M) = net_worth(M+1) - bank_net(M+1)
+        # M=Dec: nw=50000 (anchor), bank_net=+2000
+        # M=Nov: bank_net=-1500
         entries = [
-            self._entry("2025-10", income=5000.0, expenses=4000.0, bank_expenses=2500.0, credit_expenses=1500.0),
-            self._entry("2025-11", income=5000.0, expenses=3500.0, bank_expenses=2000.0, credit_expenses=1500.0),
-            self._entry("2025-12", income=5000.0, expenses=4500.0, bank_expenses=3000.0, credit_expenses=0.0, net_worth=50000.0),
+            self._entry("2025-10", income=5000.0, expenses=4000.0, bank_net=500.0),
+            self._entry("2025-11", income=5000.0, expenses=3500.0, bank_net=-1500.0),
+            self._entry("2025-12", income=5000.0, expenses=4500.0, bank_net=2000.0, net_worth=50000.0),
         ]
         result = ProjectionService._backfill_net_worth(entries)
-        # Nov = Dec_nw(50000) - Dec_income(5000) + Dec_bank(3000) + Nov_credit(1500) = 49500
-        self.assertAlmostEqual(result[1]["net_worth"], 49500.0)
-        # Oct = Nov_nw(49500) - Nov_income(5000) + Nov_bank(2000) + Oct_credit(1500) = 48000
-        self.assertAlmostEqual(result[0]["net_worth"], 48000.0)
+        # Nov = Dec_nw(50000) - Dec_bank_net(2000) = 48000
+        self.assertAlmostEqual(result[1]["net_worth"], 48000.0)
+        # Oct = Nov_nw(48000) - Nov_bank_net(-1500) = 49500
+        self.assertAlmostEqual(result[0]["net_worth"], 49500.0)
 
     def test_backfill_no_anchor_returns_entries_unchanged(self):
         entries = [
@@ -440,17 +441,17 @@ class TestGetActualHistory(unittest.TestCase):
         self.assertAlmostEqual(result[1]["net_worth"], 48500.0)
 
     def test_backfill_anchor_in_middle_only_fills_before(self):
-        # Anchor at index 1; index 0 should be filled, index 2 stays null
-        # Nov_nw=48500, Nov_bank=2000, Nov_income=5000; Oct_credit=1500
-        # Oct = 48500 - 5000 + 2000 + 1500 = 47000
+        # Anchor at index 1 (Nov); index 0 should be filled, index 2 stays null
+        # Nov_nw=48500, Nov_bank_net=-3000
+        # Oct = 48500 - (-3000) = 51500
         entries = [
-            self._entry("2025-10", income=5000.0, expenses=4000.0, bank_expenses=2500.0, credit_expenses=1500.0),
-            self._entry("2025-11", income=5000.0, expenses=3500.0, bank_expenses=2000.0, credit_expenses=1000.0, net_worth=48500.0),
-            self._entry("2025-12", income=5000.0, expenses=4500.0, bank_expenses=3000.0, credit_expenses=0.0),
+            self._entry("2025-10", income=5000.0, expenses=4000.0, bank_net=1000.0),
+            self._entry("2025-11", income=5000.0, expenses=3500.0, bank_net=-3000.0, net_worth=48500.0),
+            self._entry("2025-12", income=5000.0, expenses=4500.0, bank_net=2000.0),
         ]
         result = ProjectionService._backfill_net_worth(entries)
-        # Oct = Nov_nw(48500) - Nov_income(5000) + Nov_bank(2000) + Oct_credit(1500) = 47000
-        self.assertAlmostEqual(result[0]["net_worth"], 47000.0)
+        # Oct = Nov_nw(48500) - Nov_bank_net(-3000) = 51500
+        self.assertAlmostEqual(result[0]["net_worth"], 51500.0)
         # Dec is after the anchor, stays null
         self.assertIsNone(result[2]["net_worth"])
 

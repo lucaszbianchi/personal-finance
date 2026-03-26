@@ -2,12 +2,19 @@ import React, { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link2, CheckCircle, Trash2, AlertCircle, ExternalLink } from 'lucide-react';
 import { PluggyConnectButton } from '@/components/PluggyConnectButton';
+import { AliasModal } from '@/components/AliasModal';
 import api from '@/services/api';
 
 type PluggyItem = {
   item_id: string;
   connector_name?: string;
+  alias?: string | null;
   role?: string;
+};
+
+type PendingItem = {
+  id: string;
+  connector_name?: string;
 };
 
 type Props = { onNext: () => void };
@@ -15,6 +22,8 @@ type Props = { onNext: () => void };
 export const ConnectStep: React.FC<Props> = ({ onNext }) => {
   const queryClient = useQueryClient();
   const [error, setError] = useState<string | null>(null);
+  const [pendingItem, setPendingItem] = useState<PendingItem | null>(null);
+  const [pendingAlias, setPendingAlias] = useState('');
 
   const { data: items = [] } = useQuery<PluggyItem[]>({
     queryKey: ['pluggy', 'items'],
@@ -24,21 +33,31 @@ export const ConnectStep: React.FC<Props> = ({ onNext }) => {
     },
   });
 
-  const handleConnectSuccess = async (item: {
+  const handleConnectSuccess = (item: {
     id: string;
     connector?: { name?: string };
   }) => {
     setError(null);
+    setPendingItem({ id: item.id, connector_name: item.connector?.name });
+    setPendingAlias('');
+  };
+
+  const handleSavePendingItem = async (alias: string) => {
+    if (!pendingItem) return;
     try {
       await api.post('/pluggy/items', {
-        item_id: item.id,
-        connector_name: item.connector?.name,
+        item_id: pendingItem.id,
+        connector_name: pendingItem.connector_name,
         status: 'CONNECTED',
+        alias: alias.trim() || undefined,
       });
       queryClient.invalidateQueries({ queryKey: ['pluggy', 'items'] });
       queryClient.invalidateQueries({ queryKey: ['onboarding', 'status'] });
     } catch {
       setError('Erro ao salvar item. Tente novamente.');
+    } finally {
+      setPendingItem(null);
+      setPendingAlias('');
     }
   };
 
@@ -123,7 +142,7 @@ export const ConnectStep: React.FC<Props> = ({ onNext }) => {
               <div className="flex items-center gap-2">
                 <CheckCircle size={16} className="text-green-600" />
                 <span className="text-sm text-green-800">
-                  {item.connector_name || item.item_id.substring(0, 8) + '...'}
+                  {item.alias || item.connector_name || item.item_id.substring(0, 8) + '...'}
                 </span>
               </div>
               <button
@@ -149,6 +168,15 @@ export const ConnectStep: React.FC<Props> = ({ onNext }) => {
         <p className="mt-2 text-center text-xs text-gray-400">
           Conecte pelo menos uma conta para continuar
         </p>
+      )}
+
+      {/* Modal: Nome da nova conta conectada */}
+      {pendingItem && (
+        <AliasModal
+          alias={pendingAlias}
+          onChange={setPendingAlias}
+          onSave={handleSavePendingItem}
+        />
       )}
     </div>
   );
