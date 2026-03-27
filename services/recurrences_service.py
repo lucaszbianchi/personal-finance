@@ -209,15 +209,13 @@ class RecurrencesService:
             items.append(row_dict)
         return items
 
-    def _get_fixed_items(self, month: str) -> list[dict]:
-        """Return recurrences relevant to the given month.
+    def get_fixed_expenses_for_month(self, month_key: str) -> list[dict]:
+        """Retorna lista de despesas fixas aplicáveis ao mês informado.
 
-        Monthly recurrences always appear.
-        Non-monthly recurrences match by the month-of-year portion (MM) of
-        next_occurrence, so an annual expense stored as '2027-02-09' correctly
-        appears in every February regardless of which year is queried.
+        Inclui recorrências mensais (sempre) e anuais/semanais cujo mês-do-ano
+        coincide com month_key. Mesmo dado exibido na tela de Recorrências.
         """
-        return self._filter_fixed_items(self.repo.get_all(), month)
+        return self._filter_fixed_items(self.repo.get_all(), month_key)
 
     @staticmethod
     def _filter_fixed_items(rows: list[dict], month: str) -> list[dict]:

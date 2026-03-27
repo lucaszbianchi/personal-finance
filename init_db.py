@@ -16,7 +16,8 @@ TABLES_SQL = [
         description TEXT NOT NULL,
         description_translated TEXT,
         parent_id TEXT,
-        parent_description TEXT
+        parent_description TEXT,
+        expense_type TEXT
     )
     """,
     """
@@ -288,6 +289,7 @@ def init_db():
     #   python scripts/migrate_income_sources_add_columns.py
     #   python scripts/migrate_add_item_alias_and_transaction_item_id.py
     #   python scripts/migrate_add_rate_limit_item_id.py
+    #   python scripts/migrate_add_category_expense_type.py
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     for sql in TABLES_SQL:

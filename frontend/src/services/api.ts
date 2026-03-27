@@ -155,7 +155,7 @@ export const categoryService = {
     return response.data;
   },
 
-  updateFields: async (id: string, fields: { description_translated?: string | null; parent_id?: string | null; parent_description?: string | null }) => {
+  updateFields: async (id: string, fields: { description_translated?: string | null; parent_id?: string | null; parent_description?: string | null; expense_type?: string | null }) => {
     const response = await api.patch(`/categories/${id}/fields`, fields);
     return response.data;
   },
@@ -329,6 +329,11 @@ export const projectionService = {
     api.get('/projection', { params: months ? { months } : {} }),
   getAssumptions: () =>
     api.get('/projection/assumptions'),
+};
+
+export const settingsService = {
+  updateOptionalExpensesTarget: (value: number) =>
+    api.post('/settings/optional-expenses-target', { value }),
 };
 
 export const financeHistoryService = {

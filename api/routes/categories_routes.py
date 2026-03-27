@@ -86,6 +86,7 @@ def update_category_fields(category_id: str):
             description_translated=data.get("description_translated"),
             parent_id=data.get("parent_id"),
             parent_description=data.get("parent_description"),
+            expense_type=data.get("expense_type"),
         )
         return jsonify({"message": "Campos atualizados com sucesso"})
     except ValueError as e:

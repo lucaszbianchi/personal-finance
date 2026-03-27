@@ -29,6 +29,21 @@ def handle_credit_card():
         return jsonify(config)
 
 
+@bp.route("/optional-expenses-target", methods=["GET", "POST"])
+def handle_optional_expenses_target():
+    """Gerencia a meta mensal de gastos opcionais"""
+    if request.method == "POST":
+        data = request.get_json()
+        if data is None or "value" not in data:
+            return jsonify({"error": "Campo 'value' obrigatorio"}), 400
+        try:
+            settings_service.update_optional_expenses_target(float(data["value"]))
+            return jsonify({"status": "success"})
+        except (ValueError, TypeError) as e:
+            return jsonify({"error": str(e)}), 400
+    return jsonify({"value": settings_service.get_optional_expenses_target()})
+
+
 @bp.route("/all", methods=["GET"])
 def get_all_settings():
     """Retorna todas as configurações"""

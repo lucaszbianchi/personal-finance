@@ -65,9 +65,12 @@ class CategoryService:
         description_translated: str = None,
         parent_id: str = None,
         parent_description: str = None,
+        expense_type: str = None,
     ) -> bool:
         """Atualiza campos diretos de uma categoria (sem renomear nem migrar transações)."""
-        updated = self.category_repo.update_category_fields(category_id, description_translated, parent_id, parent_description)
+        updated = self.category_repo.update_category_fields(
+            category_id, description_translated, parent_id, parent_description, expense_type
+        )
         if not updated:
             raise ValueError(f"Categoria '{category_id}' não encontrada.")
         return True

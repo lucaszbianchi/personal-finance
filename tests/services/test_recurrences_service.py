@@ -173,13 +173,13 @@ class TestRecurrencesService(unittest.TestCase):
         svc.repo.update.assert_called_once_with("manual-1", {"is_unavoidable": 0})
         self.assertEqual(result["is_unavoidable"], 0)
 
-    # ── _get_fixed_items ──
+    # ── get_fixed_expenses_for_month ──
 
     def test_get_fixed_items_includes_monthly_always(self):
         svc = _make_service()
         monthly = {**_MANUAL, "frequency": "monthly", "next_occurrence": "2026-06-01"}
         svc.repo.get_all.return_value = [monthly]
-        result = svc._get_fixed_items("2026-03")
+        result = svc.get_fixed_expenses_for_month("2026-03")
         self.assertEqual(len(result), 1)
 
     def test_get_fixed_items_annual_matches_by_month_of_year(self):
@@ -187,16 +187,16 @@ class TestRecurrencesService(unittest.TestCase):
         svc = _make_service()
         annual = {**_MANUAL, "frequency": "annual", "next_occurrence": "2027-02-09"}
         svc.repo.get_all.return_value = [annual]
-        self.assertEqual(len(svc._get_fixed_items("2026-02")), 1)
-        self.assertEqual(len(svc._get_fixed_items("2025-02")), 1)
-        self.assertEqual(len(svc._get_fixed_items("2026-03")), 0)
+        self.assertEqual(len(svc.get_fixed_expenses_for_month("2026-02")), 1)
+        self.assertEqual(len(svc.get_fixed_expenses_for_month("2025-02")), 1)
+        self.assertEqual(len(svc.get_fixed_expenses_for_month("2026-03")), 0)
 
     def test_get_fixed_items_annual_excluded_in_wrong_month(self):
         svc = _make_service()
         annual = {**_MANUAL, "frequency": "annual", "next_occurrence": "2027-02-09"}
         svc.repo.get_all.return_value = [annual]
-        self.assertEqual(len(svc._get_fixed_items("2026-01")), 0)
-        self.assertEqual(len(svc._get_fixed_items("2026-03")), 0)
+        self.assertEqual(len(svc.get_fixed_expenses_for_month("2026-01")), 0)
+        self.assertEqual(len(svc.get_fixed_expenses_for_month("2026-03")), 0)
 
     def test_get_fixed_items_sorted_by_next_occurrence(self):
         svc = _make_service()
@@ -204,7 +204,7 @@ class TestRecurrencesService(unittest.TestCase):
         b = {**_MANUAL, "id": "b", "next_occurrence": "2026-03-05"}
         c = {**_MANUAL, "id": "c", "next_occurrence": None}
         svc.repo.get_all.return_value = [a, c, b]
-        result = svc._get_fixed_items("2026-03")
+        result = svc.get_fixed_expenses_for_month("2026-03")
         self.assertEqual([r["id"] for r in result], ["b", "a", "c"])
 
     # ── count_matching ──

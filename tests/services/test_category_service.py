@@ -246,7 +246,7 @@ class TestCategoryService(unittest.TestCase):
 
         # Assert
         self.mock_category_repo.update_category_fields.assert_called_once_with(
-            category_id, "Translated", "01000000", "Root"
+            category_id, "Translated", "01000000", "Root", None
         )
         self.assertTrue(result)
 
