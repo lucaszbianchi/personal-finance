@@ -33,10 +33,11 @@ export const useUpdateCategoryFields = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ id, fields }: { id: string; fields: { description_translated?: string | null; parent_id?: string | null; parent_description?: string | null } }) =>
+    mutationFn: ({ id, fields }: { id: string; fields: { description_translated?: string | null; parent_id?: string | null; parent_description?: string | null; expense_type?: string | null } }) =>
       categoryService.updateFields(id, fields),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['categories'] });
+      queryClient.invalidateQueries({ queryKey: ['projection'] });
     },
   });
 };

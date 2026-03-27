@@ -22,6 +22,16 @@ class SettingsService:
             "due_day": 10,
         }
 
+    def get_optional_expenses_target(self) -> float:
+        """Retorna a meta mensal de gastos opcionais definida pelo usuário."""
+        return float(self.settings_repository.get_value("optional_expenses_target") or 0.0)
+
+    def update_optional_expenses_target(self, value: float) -> None:
+        """Salva a meta mensal de gastos opcionais."""
+        if value < 0:
+            raise ValueError("Meta de gastos opcionais nao pode ser negativa")
+        self.settings_repository.set_value("optional_expenses_target", value)
+
     def get_all_settings(self) -> Dict[str, Any]:
         """Retorna todas as configurações"""
         return self.settings_repository.get_all()

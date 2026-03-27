@@ -10,7 +10,8 @@ import { CategorySankeyChart } from '@/components/CategorySankeyChart';
 import { AutomationsTab } from '@/components/AutomationsTab';
 import { useDashboardData } from '@/hooks/useDashboardData';
 
-type ActiveTab = 'categories' | 'visualizations' | 'automations';
+type ActiveTab = 'categories' | 'manage' | 'visualizations' | 'automations';
+type ExpenseType = 'necessary' | 'optional' | null;
 
 const VisualizationsSection: React.FC = () => {
   const { data: dashboardData } = useDashboardData();
@@ -51,6 +52,7 @@ export const Categories: React.FC = () => {
   const [editDescriptionTranslated, setEditDescriptionTranslated] = useState('');
   const [editParentId, setEditParentId] = useState<string>('');
   const [editParentDescription, setEditParentDescription] = useState<string>('');
+  const [editExpenseType, setEditExpenseType] = useState<string>('');
 
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [isDeleteBulkModalOpen, setIsDeleteBulkModalOpen] = useState(false);
@@ -136,6 +138,7 @@ export const Categories: React.FC = () => {
     setEditDescriptionTranslated(category.description_translated ?? '');
     setEditParentId(category.parent_id ?? '');
     setEditParentDescription(category.parent_description ?? '');
+    setEditExpenseType(category.expense_type ?? '');
     setIsEditModalOpen(true);
   };
 
@@ -165,6 +168,7 @@ export const Categories: React.FC = () => {
           description_translated: editDescriptionTranslated || null,
           parent_id: resolvedParentId,
           parent_description: resolvedParentDesc,
+          expense_type: editExpenseType || null,
         },
       });
 
@@ -173,6 +177,7 @@ export const Categories: React.FC = () => {
       setEditDescriptionTranslated('');
       setEditParentId('');
       setEditParentDescription('');
+      setEditExpenseType('');
       setIsEditModalOpen(false);
     } catch (err) {
       console.error('Erro ao editar categoria:', err);
@@ -244,8 +249,61 @@ export const Categories: React.FC = () => {
     }
   };
 
+  const parentCategories = React.useMemo(
+    () => uniqueParents.map(desc => catByDescription.get(desc)).filter((c): c is Category => !!c),
+    [uniqueParents, catByDescription],
+  );
+
+  const childrenByParentId = React.useMemo(() => {
+    const map = new Map<string, Category[]>();
+    categoriesList.forEach(cat => {
+      if (cat.parent_id && cat.parent_id !== cat.id) {
+        const list = map.get(cat.parent_id) ?? [];
+        list.push(cat);
+        map.set(cat.parent_id, list);
+      }
+    });
+    return map;
+  }, [categoriesList]);
+
+  const [manageFilter, setManageFilter] = useState<'expenses' | 'all'>('expenses');
+
+  const parentExpenseCount = React.useMemo(() => {
+    const counts = new Map<string, number>();
+    parentCategories.forEach(cat => {
+      const children = childrenByParentId.get(cat.id) ?? [];
+      const total = cat.expense_transaction_count
+        + children.reduce((s, c) => s + c.expense_transaction_count, 0);
+      counts.set(cat.id, total);
+    });
+    return counts;
+  }, [parentCategories, childrenByParentId]);
+
+  const filteredParents = React.useMemo(() => {
+    if (manageFilter === 'expenses') {
+      return parentCategories.filter(cat => (parentExpenseCount.get(cat.id) ?? 0) > 0);
+    }
+    return parentCategories.filter(cat =>
+      cat.transaction_count > 0 ||
+      (childrenByParentId.get(cat.id) ?? []).some(c => c.transaction_count > 0)
+    );
+  }, [manageFilter, parentCategories, parentExpenseCount, childrenByParentId]);
+
+  const handleSetExpenseType = async (category: Category, value: ExpenseType) => {
+    await updateCategoryFields.mutateAsync({
+      id: category.id,
+      fields: {
+        description_translated: category.description_translated ?? null,
+        parent_id: category.parent_id ?? null,
+        parent_description: category.parent_description ?? null,
+        expense_type: value,
+      },
+    });
+  };
+
   const TAB_LABELS: Record<ActiveTab, string> = {
     categories: 'Categorias',
+    manage: 'Gerenciamento',
     visualizations: 'Visualizações',
     automations: 'Automações',
   };
@@ -390,11 +448,28 @@ export const Categories: React.FC = () => {
                       />
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        <Tag className="w-5 h-5 text-gray-400 mr-3" />
+                      <div className="flex items-center gap-2">
+                        <Tag className="w-5 h-5 text-gray-400 flex-shrink-0" />
                         <span className="text-sm font-medium text-gray-900">
                           {getCategoryLabel(category)}
                         </span>
+                        {(() => {
+                          // Show inherited expense_type badge
+                          const parentCat = categoriesList.find(c => c.id === category.parent_id && c.id !== category.id);
+                          const ownType = category.expense_type;
+                          const inherited = !ownType && parentCat?.expense_type;
+                          const type = ownType || inherited;
+                          if (!type) return null;
+                          return (
+                            <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                              type === 'necessary'
+                                ? 'bg-green-100 text-green-700'
+                                : 'bg-amber-100 text-amber-700'
+                            }`}>
+                              {type === 'necessary' ? 'Necessario' : 'Opcional'}
+                            </span>
+                          );
+                        })()}
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm text-gray-900">
@@ -427,6 +502,90 @@ export const Categories: React.FC = () => {
           </table>
         </div>
       </div>
+      )}
+
+      {/* Manage tab */}
+      {activeTab === 'manage' && (
+        <div className="bg-white rounded-lg shadow overflow-hidden">
+          <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between gap-4">
+            <p className="text-sm text-gray-500">
+              Classifique os grupos de categorias para que a Projeção calcule corretamente gastos necessários e opcionais.
+            </p>
+            <div className="flex items-center gap-2 flex-shrink-0">
+              {(['expenses', 'all'] as const).map(f => (
+                <button
+                  key={f}
+                  onClick={() => setManageFilter(f)}
+                  className={`px-3 py-1 text-xs rounded-full border transition-colors ${
+                    manageFilter === f
+                      ? 'bg-primary-600 text-white border-primary-600'
+                      : 'bg-white text-gray-500 border-gray-300 hover:bg-gray-50'
+                  }`}
+                >
+                  {f === 'expenses' ? 'Despesas' : 'Todas'}
+                </button>
+              ))}
+            </div>
+          </div>
+          {filteredParents.length === 0 ? (
+            <p className="px-6 py-12 text-center text-gray-500">Nenhum grupo de categorias encontrado.</p>
+          ) : (
+            <ul className="divide-y divide-gray-200">
+              {filteredParents.map(cat => {
+                const children = childrenByParentId.get(cat.id) ?? [];
+                return (
+                <li key={cat.id} className="px-6 py-4">
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="min-w-0">
+                      <span className="text-sm font-medium text-gray-900">
+                        {getCategoryLabel(cat)}
+                      </span>
+                      {children.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mt-1">
+                          {children.map(child => (
+                            <span key={child.id} className="text-xs text-gray-400 bg-gray-100 rounded px-1.5 py-0.5">
+                              {getCategoryLabel(child)}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  <div className="flex items-center gap-1 flex-shrink-0">
+                    {(
+                      [
+                        { value: null, label: 'Sem tipo' },
+                        { value: 'necessary', label: 'Necessaria' },
+                        { value: 'optional', label: 'Opcional' },
+                      ] as { value: ExpenseType; label: string }[]
+                    ).map(opt => {
+                      const active = (cat.expense_type ?? null) === opt.value;
+                      return (
+                        <button
+                          key={String(opt.value)}
+                          onClick={() => handleSetExpenseType(cat, opt.value)}
+                          disabled={updateCategoryFields.isPending}
+                          className={`px-3 py-1.5 text-xs font-medium rounded-full border transition-colors disabled:opacity-50 ${
+                            active
+                              ? opt.value === 'necessary'
+                                ? 'bg-green-100 text-green-700 border-green-300'
+                                : opt.value === 'optional'
+                                  ? 'bg-amber-100 text-amber-700 border-amber-300'
+                                  : 'bg-gray-200 text-gray-700 border-gray-300'
+                              : 'bg-white text-gray-400 border-gray-200 hover:bg-gray-50 hover:text-gray-600'
+                          }`}
+                        >
+                          {opt.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  </div>
+                </li>
+                );
+              })}
+            </ul>
+          )}
+        </div>
       )}
 
       {/* Visualizations tab */}
@@ -593,6 +752,25 @@ export const Categories: React.FC = () => {
                     <option value="__new__">Criar novo grupo</option>
                   </select>
                 </div>
+
+                {/* Expense type — only for parent (group) categories */}
+                {uniqueParents.includes(editingCategory.description) && (
+                  <div className="mb-4">
+                    <label htmlFor="editExpenseType" className="block text-sm font-medium text-gray-700 mb-2">
+                      Tipo de Gasto
+                    </label>
+                    <select
+                      id="editExpenseType"
+                      value={editExpenseType}
+                      onChange={(e) => setEditExpenseType(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500"
+                    >
+                      <option value="">Sem classificacao (opcional por padrao)</option>
+                      <option value="necessary">Gasto Necessario</option>
+                      <option value="optional">Gasto Opcional</option>
+                    </select>
+                  </div>
+                )}
 
                 <div className="flex justify-end space-x-3">
                   <button

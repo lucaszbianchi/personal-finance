@@ -18,7 +18,9 @@ class CategoryRepository(BaseRepository):
                 c.description_translated,
                 c.parent_id,
                 c.parent_description,
-                COALESCE(tc.transaction_count, 0) as transaction_count
+                c.expense_type,
+                COALESCE(tc.transaction_count, 0) as transaction_count,
+                COALESCE(ec.expense_transaction_count, 0) as expense_transaction_count
             FROM categories c
             LEFT JOIN (
                 SELECT
@@ -31,6 +33,17 @@ class CategoryRepository(BaseRepository):
                 ) all_transactions
                 GROUP BY category_id
             ) tc ON c.id = tc.category_id
+            LEFT JOIN (
+                SELECT
+                    category_id,
+                    COUNT(*) as expense_transaction_count
+                FROM (
+                    SELECT category_id FROM bank_transactions WHERE category_id IS NOT NULL AND amount < 0 AND excluded = 0
+                    UNION ALL
+                    SELECT category_id FROM credit_transactions WHERE category_id IS NOT NULL AND amount > 0 AND excluded = 0
+                ) expense_transactions
+                GROUP BY category_id
+            ) ec ON c.id = ec.category_id
             ORDER BY c.description
         """
         cursor = self.execute_query(query)
@@ -41,14 +54,16 @@ class CategoryRepository(BaseRepository):
                 "description_translated": row["description_translated"],
                 "parent_id": row["parent_id"],
                 "parent_description": row["parent_description"],
+                "expense_type": row["expense_type"],
                 "transaction_count": row["transaction_count"],
+                "expense_transaction_count": row["expense_transaction_count"],
             }
             for row in cursor.fetchall()
         ]
 
     def get_category_by_id(self, category_id: int) -> Category:
         """Retorna uma categoria específica pelo ID."""
-        query = "SELECT id, description, description_translated, parent_id, parent_description FROM categories WHERE id = ?"
+        query = "SELECT id, description, description_translated, parent_id, parent_description, expense_type FROM categories WHERE id = ?"
         cursor = self.execute_query(query, (category_id,))
         row = cursor.fetchone()
         if row:
@@ -58,12 +73,13 @@ class CategoryRepository(BaseRepository):
                 description_translated=row["description_translated"],
                 parent_id=row["parent_id"],
                 parent_description=row["parent_description"],
+                expense_type=row["expense_type"],
             )
         return None
 
     def get_category_by_name(self, name: str) -> Category:
         """Retorna uma categoria específica pela descrição."""
-        query = "SELECT id, description, description_translated, parent_id, parent_description FROM categories WHERE description = ?"
+        query = "SELECT id, description, description_translated, parent_id, parent_description, expense_type FROM categories WHERE description = ?"
         cursor = self.execute_query(query, (name,))
         row = cursor.fetchone()
         if row:
@@ -73,6 +89,7 @@ class CategoryRepository(BaseRepository):
                 description_translated=row["description_translated"],
                 parent_id=row["parent_id"],
                 parent_description=row["parent_description"],
+                expense_type=row["expense_type"],
             )
         return None
 
@@ -192,19 +209,48 @@ class CategoryRepository(BaseRepository):
         description_translated: str = None,
         parent_id: str = None,
         parent_description: str = None,
+        expense_type: str = None,
     ) -> bool:
         """Atualiza campos diretos de uma categoria (sem renomear nem migrar transações)."""
         cursor = self.execute_query(
-            "UPDATE categories SET description_translated = ?, parent_id = ?, parent_description = ? WHERE id = ?",
-            (description_translated, parent_id, parent_description, category_id),
+            "UPDATE categories SET description_translated = ?, parent_id = ?, parent_description = ?, expense_type = ? WHERE id = ?",
+            (description_translated, parent_id, parent_description, expense_type, category_id),
         )
         return cursor.rowcount > 0
+
+    def get_necessary_category_ids(self) -> set:
+        """Retorna IDs de todas as categorias cuja raiz tem expense_type='necessary'.
+
+        Inclui tanto as categorias-pai tagged diretamente quanto seus filhos.
+        """
+        cursor = self.execute_query("""
+            SELECT c.id FROM categories c
+            LEFT JOIN categories parent
+                ON c.parent_id = parent.id AND c.parent_id != c.id
+            WHERE c.expense_type = 'necessary'
+               OR parent.expense_type = 'necessary'
+        """)
+        return {row["id"] for row in cursor.fetchall()}
+
+    def get_optional_category_ids(self) -> set:
+        """Retorna IDs de todas as categorias cuja raiz tem expense_type='optional'.
+
+        Inclui tanto as categorias-pai tagged diretamente quanto seus filhos.
+        """
+        cursor = self.execute_query("""
+            SELECT c.id FROM categories c
+            LEFT JOIN categories parent
+                ON c.parent_id = parent.id AND c.parent_id != c.id
+            WHERE c.expense_type = 'optional'
+               OR parent.expense_type = 'optional'
+        """)
+        return {row["id"] for row in cursor.fetchall()}
 
     def get_children_of(self, parent_id: str) -> List[Category]:
         """Retorna todas as categorias filhas de um dado parent_id."""
         cursor = self.execute_query(
             # AND id != ? exclui self-parent (grupos raiz onde parent_id = id)
-            "SELECT id, description, description_translated, parent_id, parent_description FROM categories WHERE parent_id = ? AND id != ?",
+            "SELECT id, description, description_translated, parent_id, parent_description, expense_type FROM categories WHERE parent_id = ? AND id != ?",
             (parent_id, parent_id),
         )
         return [
@@ -214,6 +260,7 @@ class CategoryRepository(BaseRepository):
                 description_translated=row["description_translated"],
                 parent_id=row["parent_id"],
                 parent_description=row["parent_description"],
+                expense_type=row["expense_type"],
             )
             for row in cursor.fetchall()
         ]

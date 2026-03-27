@@ -141,6 +141,47 @@ class TestSettingsService(unittest.TestCase):
         self.mock_settings_repo.get_all.assert_called_once()
         self.assertEqual(result, {})
 
+    # ── get_optional_expenses_target ──
+
+    def test_get_optional_expenses_target_returns_stored_value(self):
+        """Testa retorno da meta de gastos opcionais quando existe valor salvo"""
+        self.mock_settings_repo.get_value.return_value = 500.0
+
+        result = self.service.get_optional_expenses_target()
+
+        self.mock_settings_repo.get_value.assert_called_once_with("optional_expenses_target")
+        self.assertEqual(result, 500.0)
+
+    def test_get_optional_expenses_target_returns_zero_when_none(self):
+        """Testa retorno de 0.0 quando nenhum valor está salvo"""
+        self.mock_settings_repo.get_value.return_value = None
+
+        result = self.service.get_optional_expenses_target()
+
+        self.assertEqual(result, 0.0)
+
+    # ── update_optional_expenses_target ──
+
+    def test_update_optional_expenses_target_saves_value(self):
+        """Testa salvamento válido da meta de gastos opcionais"""
+        self.service.update_optional_expenses_target(300.0)
+
+        self.mock_settings_repo.set_value.assert_called_once_with("optional_expenses_target", 300.0)
+
+    def test_update_optional_expenses_target_allows_zero(self):
+        """Testa que meta zero é válida"""
+        self.service.update_optional_expenses_target(0.0)
+
+        self.mock_settings_repo.set_value.assert_called_once_with("optional_expenses_target", 0.0)
+
+    def test_update_optional_expenses_target_raises_on_negative(self):
+        """Testa erro quando valor negativo é fornecido"""
+        with self.assertRaises(ValueError) as context:
+            self.service.update_optional_expenses_target(-50.0)
+
+        self.assertIn("negativa", str(context.exception))
+        self.mock_settings_repo.set_value.assert_not_called()
+
 
 if __name__ == "__main__":
     unittest.main()

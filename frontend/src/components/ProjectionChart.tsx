@@ -26,7 +26,8 @@ interface ChartEntry {
   income: number;
   fixed: number;
   installments: number;
-  variable: number;
+  necessary: number;
+  optional: number;
   net_worth_actual: number | null;
   net_worth_projected: number | null;
 }
@@ -44,7 +45,8 @@ export const ProjectionChart: React.FC<Props> = ({ history, projection }) => {
     income: entry.income,
     fixed: entry.fixed,
     installments: entry.installments,
-    variable: entry.variable,
+    necessary: entry.necessary,
+    optional: entry.optional,
     net_worth_actual: entry.net_worth,
     // Bridge: last history point also anchors the projection line so the two connect
     net_worth_projected: idx === history.length - 1 ? entry.net_worth : null,
@@ -56,7 +58,8 @@ export const ProjectionChart: React.FC<Props> = ({ history, projection }) => {
     income: entry.income,
     fixed: entry.fixed,
     installments: entry.installments,
-    variable: entry.variable,
+    necessary: entry.necessary,
+    optional: entry.optional,
     net_worth_actual: null,
     net_worth_projected: entry.net_worth,
   }));
@@ -71,7 +74,8 @@ export const ProjectionChart: React.FC<Props> = ({ history, projection }) => {
     income: 'Receitas',
     fixed: 'Gastos Fixos',
     installments: 'Parcelas',
-    variable: 'Gastos Variaveis',
+    necessary: 'Gastos Necessarios',
+    optional: 'Gastos Opcionais',
     net_worth_actual: 'Patrimonio Real',
     net_worth_projected: 'Projecao Patrimonio',
   };
@@ -106,7 +110,7 @@ export const ProjectionChart: React.FC<Props> = ({ history, projection }) => {
           ))}
         </Bar>
 
-        {/* Stacked expense bars: fixed → installments → variable */}
+        {/* Stacked expense bars: fixed → installments → necessary → optional */}
         <Bar dataKey="fixed" name="fixed" stackId="expenses" fill="#ef4444">
           {chartData.map((entry, index) => (
             <Cell key={index} fill="#ef4444" fillOpacity={entry.type === 'actual' ? 1 : 0.5} />
@@ -117,9 +121,14 @@ export const ProjectionChart: React.FC<Props> = ({ history, projection }) => {
             <Cell key={index} fill="#f97316" fillOpacity={entry.type === 'actual' ? 1 : 0.5} />
           ))}
         </Bar>
-        <Bar dataKey="variable" name="variable" stackId="expenses" fill="#a855f7" radius={[3, 3, 0, 0]}>
+        <Bar dataKey="necessary" name="necessary" stackId="expenses" fill="#a855f7">
           {chartData.map((entry, index) => (
             <Cell key={index} fill="#a855f7" fillOpacity={entry.type === 'actual' ? 1 : 0.5} />
+          ))}
+        </Bar>
+        <Bar dataKey="optional" name="optional" stackId="expenses" fill="#f59e0b" radius={[3, 3, 0, 0]}>
+          {chartData.map((entry, index) => (
+            <Cell key={index} fill="#f59e0b" fillOpacity={entry.type === 'actual' ? 1 : 0.5} />
           ))}
         </Bar>
 

@@ -37,7 +37,9 @@ export interface Category {
   description_translated: string | null;
   parent_id: string | null;
   parent_description: string | null;
+  expense_type: 'necessary' | 'optional' | null;
   transaction_count: number;
+  expense_transaction_count: number;
 }
 
 export interface Person {
@@ -398,7 +400,8 @@ export interface ProjectionMonth {
   expenses: number;
   fixed: number;
   installments: number;
-  variable: number;
+  necessary: number;
+  optional: number;
 }
 
 export interface ProjectionHistoryMonth {
@@ -407,13 +410,14 @@ export interface ProjectionHistoryMonth {
   expenses: number;
   fixed: number;
   installments: number;
-  variable: number;
+  necessary: number;
+  optional: number;
   net_worth: number | null;
 }
 
 export interface ProjectionData {
   current_net_worth: number;
-  avg_variable_expenses: number;
+  avg_necessary_expenses: number;
   history: ProjectionHistoryMonth[];
   projection: ProjectionMonth[];
 }
@@ -432,7 +436,9 @@ export interface ProjectionAssumptions {
   income_sources: ProjectionAssumptionItem[];
   fixed_expenses: ProjectionAssumptionItem[];
   installments_by_month: ProjectionInstallmentItem[];
-  avg_variable_expenses: number;
+  avg_necessary_expenses: number;
+  avg_optional_expenses_historical: number;
+  optional_expenses_target: number;
 }
 
 export interface AutomationPreviewTransaction {

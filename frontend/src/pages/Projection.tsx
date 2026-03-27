@@ -1,9 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useProjection, useProjectionAssumptions } from '@/hooks/useProjection';
 import { ProjectionChart } from '@/components/ProjectionChart';
 import { formatCurrency } from '@/utils/format';
-import { financeHistoryService } from '@/services/api';
+import { financeHistoryService, settingsService } from '@/services/api';
 
 function LoadingSpinner() {
   return (
@@ -22,10 +22,19 @@ function shortMonthLabel(ym: string): string {
 export const Projection: React.FC = () => {
   const queryClient = useQueryClient();
   const [rebuilding, setRebuilding] = useState(false);
+  const [optionalTarget, setOptionalTarget] = useState<number>(0);
+  const [savingTarget, setSavingTarget] = useState(false);
   const { data: projection, isLoading: loadingProjection } = useProjection(10);
   const { data: assumptions, isLoading: loadingAssumptions } = useProjectionAssumptions();
 
   const isLoading = loadingProjection || loadingAssumptions;
+
+  // Sync local state with server value when assumptions load
+  useEffect(() => {
+    if (assumptions) {
+      setOptionalTarget(assumptions.optional_expenses_target);
+    }
+  }, [assumptions?.optional_expenses_target]);
 
   async function handleRebuild() {
     setRebuilding(true);
@@ -34,6 +43,16 @@ export const Projection: React.FC = () => {
       queryClient.invalidateQueries({ queryKey: ['projection'] });
     } finally {
       setRebuilding(false);
+    }
+  }
+
+  async function handleSaveOptionalTarget() {
+    setSavingTarget(true);
+    try {
+      await settingsService.updateOptionalExpensesTarget(optionalTarget);
+      queryClient.invalidateQueries({ queryKey: ['projection'] });
+    } finally {
+      setSavingTarget(false);
     }
   }
 
@@ -78,7 +97,7 @@ export const Projection: React.FC = () => {
 
           {/* Assumptions section */}
           {assumptions && (
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
               {/* Income sources */}
               <div className="bg-white rounded-lg shadow p-4">
                 <h2 className="text-sm font-semibold text-gray-700 mb-3">Receitas Recorrentes</h2>
@@ -136,16 +155,40 @@ export const Projection: React.FC = () => {
                 )}
               </div>
 
-              {/* Average variable expenses */}
+              {/* Average necessary expenses */}
               <div className="bg-white rounded-lg shadow p-4">
-                <h2 className="text-sm font-semibold text-gray-700 mb-3">Media Gastos Variaveis</h2>
+                <h2 className="text-sm font-semibold text-gray-700 mb-3">Media Gastos Necessarios</h2>
                 <p className="text-xs text-gray-400 mb-3">
-                  Media dos ultimos 6 meses (total - fixos - parcelas)
+                  Media dos ultimos 6 meses (categorias necessarias - fixos - parcelas)
                 </p>
                 <p className="text-2xl font-bold text-purple-700">
-                  {formatCurrency(assumptions.avg_variable_expenses)}
+                  {formatCurrency(assumptions.avg_necessary_expenses)}
                 </p>
                 <p className="text-xs text-gray-400 mt-1">por mes</p>
+              </div>
+
+              {/* Optional expenses target */}
+              <div className="bg-white rounded-lg shadow p-4">
+                <h2 className="text-sm font-semibold text-gray-700 mb-3">Meta Gastos Opcionais</h2>
+                <p className="text-xs text-gray-400 mb-3">
+                  Meta mensal para gastos opcionais na projecao
+                </p>
+                <div className="flex items-center gap-2 mb-1">
+                  <input
+                    type="number"
+                    min="0"
+                    step="50"
+                    value={optionalTarget}
+                    onChange={e => setOptionalTarget(Number(e.target.value))}
+                    onBlur={handleSaveOptionalTarget}
+                    disabled={savingTarget}
+                    className="text-xl font-bold text-amber-600 w-32 border-b border-gray-300 bg-transparent focus:outline-none focus:border-amber-500 disabled:opacity-50"
+                  />
+                </div>
+                <p className="text-xs text-gray-400 mt-1">por mes</p>
+                <p className="text-xs text-gray-400 mt-2">
+                  Media real ultimos 6 meses: {formatCurrency(assumptions.avg_optional_expenses_historical)}
+                </p>
               </div>
             </div>
           )}

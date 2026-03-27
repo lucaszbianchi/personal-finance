@@ -18,7 +18,8 @@ class TestCategoryRepository(unittest.TestCase):
                 description TEXT NOT NULL,
                 description_translated TEXT,
                 parent_id TEXT,
-                parent_description TEXT
+                parent_description TEXT,
+                expense_type TEXT
             )
         """
         )
@@ -170,6 +171,50 @@ class TestCategoryRepository(unittest.TestCase):
         """update_category_fields retorna False quando categoria não existe"""
         result = self.repo.update_category_fields("99999999", description_translated="X")
         self.assertFalse(result)
+
+    def test_update_category_fields_saves_expense_type(self):
+        """update_category_fields persiste expense_type corretamente"""
+        cat_id = self.repo.create_category("Alimentacao", id_="03000000")
+        self.repo.update_category_fields(cat_id, expense_type="necessary")
+        updated = self.repo.get_category_by_id(cat_id)
+        self.assertEqual(updated.expense_type, "necessary")
+
+    def test_update_category_fields_clears_expense_type(self):
+        """update_category_fields com expense_type=None limpa o valor"""
+        cat_id = self.repo.create_category("Lazer", id_="04000000")
+        self.repo.update_category_fields(cat_id, expense_type="optional")
+        self.repo.update_category_fields(cat_id, expense_type=None)
+        updated = self.repo.get_category_by_id(cat_id)
+        self.assertIsNone(updated.expense_type)
+
+    def test_get_necessary_category_ids_returns_tagged_parent(self):
+        """Categorias-pai com expense_type='necessary' são retornadas"""
+        self.repo.create_category("Alimentacao", id_="01000000", parent_id="01000000", parent_description="Alimentacao")
+        self.repo.update_category_fields("01000000", expense_type="necessary")
+        ids = self.repo.get_necessary_category_ids()
+        self.assertIn("01000000", ids)
+
+    def test_get_necessary_category_ids_includes_children(self):
+        """Filhos de categorias 'necessary' também são incluídos"""
+        self.repo.create_category("Alimentacao", id_="01000000", parent_id="01000000", parent_description="Alimentacao")
+        self.repo.update_category_fields("01000000", expense_type="necessary")
+        self.repo.create_category("Supermercado", id_="01010000", parent_id="01000000", parent_description="Alimentacao")
+        ids = self.repo.get_necessary_category_ids()
+        self.assertIn("01000000", ids)
+        self.assertIn("01010000", ids)
+
+    def test_get_necessary_category_ids_excludes_optional(self):
+        """Categorias 'optional' não são retornadas"""
+        self.repo.create_category("Lazer", id_="02000000", parent_id="02000000", parent_description="Lazer")
+        self.repo.update_category_fields("02000000", expense_type="optional")
+        ids = self.repo.get_necessary_category_ids()
+        self.assertNotIn("02000000", ids)
+
+    def test_get_necessary_category_ids_empty_when_none_tagged(self):
+        """Sem tags, retorna conjunto vazio"""
+        self.repo.create_category("SemTipo", id_="01000000")
+        ids = self.repo.get_necessary_category_ids()
+        self.assertEqual(ids, set())
 
     def test_get_children_of_returns_children(self):
         """get_children_of retorna filhos diretos do pai"""
