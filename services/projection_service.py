@@ -95,18 +95,13 @@ class ProjectionService:
                 continue
             if entry.income is None and entry.expenses is None:
                 continue
-            expenses = entry.expenses or 0.0
-            fixed_items = self.recurrences_service.get_fixed_expenses_for_month(entry.month)
-            fixed = round(sum(item.get("amount") or 0.0 for item in fixed_items), 2)
-            installment_items = self.recurrences_service.get_installments(entry.month)
-            installments = round(sum(item.get("amount", 0.0) for item in installment_items), 2)
-            necessary, optional = self._get_expense_split_for_month(
+            fixed, installments, necessary, optional = self._get_expense_split_for_month(
                 entry.month, necessary_ids, optional_ids
             )
             result.append({
                 "month": entry.month,
                 "income": round(entry.income or 0.0, 2),
-                "expenses": round(expenses, 2),
+                "expenses": round(entry.expenses or 0.0, 2),
                 "fixed": fixed,
                 "installments": installments,
                 "necessary": necessary,
@@ -191,12 +186,14 @@ class ProjectionService:
         month_key: str,
         necessary_ids: set,
         optional_ids: set,
-    ) -> tuple[float, float]:
-        """Retorna (necessary_variable, optional_variable) para um mês específico.
+    ) -> tuple[float, float, float, float]:
+        """Retorna (fixed_total, installments_total, necessary_variable, optional_variable) para um mês.
 
+        fixed_total       = soma de todas as despesas fixas do mês
+        installments_total = soma de todas as parcelas do mês
         necessary_variable = despesas em cats necessary − fixos necessary − parcelas necessary
         optional_variable  = despesas em cats optional  − fixos optional  − parcelas optional
-        Transações sem categoria classificada não entram em nenhum dos dois.
+        Transações sem categoria classificada não entram em necessary/optional.
         """
         start = f"{month_key}-01"
         month_date = date.fromisoformat(start)
@@ -207,6 +204,9 @@ class ProjectionService:
 
         fixed_items = self.recurrences_service.get_fixed_expenses_for_month(month_key)
         installment_items = self.recurrences_service.get_installments(month_key)
+
+        fixed_total = round(sum(item.get("amount") or 0.0 for item in fixed_items), 2)
+        installments_total = round(sum(item.get("amount", 0.0) for item in installment_items), 2)
 
         necessary_fixed = sum(
             item.get("amount") or 0.0
@@ -249,52 +249,44 @@ class ProjectionService:
 
         necessary_variable = max(0.0, necessary_gross - necessary_fixed - necessary_installments)
         optional_variable = max(0.0, optional_gross - optional_fixed - optional_installments)
-        return round(necessary_variable, 2), round(optional_variable, 2)
+        return fixed_total, installments_total, round(necessary_variable, 2), round(optional_variable, 2)
 
-    def _get_avg_necessary_expenses(self) -> float:
-        """Average monthly variable expenses from 'necessary' categories over the last N months.
+    def _compute_variable_averages(self) -> tuple[float, float]:
+        """Returns (avg_necessary, avg_optional) over the last N months in a single pass.
 
-        Deducts fixed recurrences and installments whose category belongs to 'necessary'
-        to avoid double-counting with the Fixed and Installments projection cards.
-        Only months with a positive result are included in the average.
+        Fetches category IDs and transactions once per month, computing both averages
+        together to avoid double-fetching when both values are needed (e.g. get_assumptions).
         """
         today = date.today()
         necessary_ids = self.category_repo.get_necessary_category_ids()
         optional_ids = self.category_repo.get_optional_category_ids()
-        totals = []
+        necessary_totals: list[float] = []
+        optional_totals: list[float] = []
 
         for i in range(1, _VARIABLE_LOOKBACK_MONTHS + 1):
-            month_date = today.replace(day=1) - relativedelta(months=i)
-            month_key = month_date.strftime("%Y-%m")
-            necessary_variable, _ = self._get_expense_split_for_month(
+            month_key = (today.replace(day=1) - relativedelta(months=i)).strftime("%Y-%m")
+            _, _, necessary, optional = self._get_expense_split_for_month(
                 month_key, necessary_ids, optional_ids
             )
-            if necessary_variable > 0:
-                totals.append(necessary_variable)
+            if necessary > 0:
+                necessary_totals.append(necessary)
+            if optional > 0:
+                optional_totals.append(optional)
 
-        return sum(totals) / len(totals) if totals else 0.0
+        avg_n = sum(necessary_totals) / len(necessary_totals) if necessary_totals else 0.0
+        avg_o = sum(optional_totals) / len(optional_totals) if optional_totals else 0.0
+        return avg_n, avg_o
+
+    def _get_avg_necessary_expenses(self) -> float:
+        """Average monthly variable expenses from 'necessary' categories over the last N months."""
+        return self._compute_variable_averages()[0]
 
     def _get_avg_optional_expenses_historical(self) -> float:
         """Average monthly expenses from 'optional' categories over the last N months.
 
         Used only as a historical reference in the optional expenses card.
-        Only months with a positive total are included in the average.
         """
-        today = date.today()
-        necessary_ids = self.category_repo.get_necessary_category_ids()
-        optional_ids = self.category_repo.get_optional_category_ids()
-        totals = []
-
-        for i in range(1, _VARIABLE_LOOKBACK_MONTHS + 1):
-            month_date = today.replace(day=1) - relativedelta(months=i)
-            month_key = month_date.strftime("%Y-%m")
-            _, optional_variable = self._get_expense_split_for_month(
-                month_key, necessary_ids, optional_ids
-            )
-            if optional_variable > 0:
-                totals.append(optional_variable)
-
-        return sum(totals) / len(totals) if totals else 0.0
+        return self._compute_variable_averages()[1]
 
     def _get_pending_installments_by_month(self, months: int) -> dict:
         """Return {YYYY-MM: total_amount} for pending installments within the projection window.

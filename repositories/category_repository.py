@@ -218,33 +218,26 @@ class CategoryRepository(BaseRepository):
         )
         return cursor.rowcount > 0
 
-    def get_necessary_category_ids(self) -> set:
-        """Retorna IDs de todas as categorias cuja raiz tem expense_type='necessary'.
-
-        Inclui tanto as categorias-pai tagged diretamente quanto seus filhos.
-        """
-        cursor = self.execute_query("""
+    def _get_category_ids_by_expense_type(self, expense_type: str) -> set:
+        cursor = self.execute_query(
+            """
             SELECT c.id FROM categories c
             LEFT JOIN categories parent
                 ON c.parent_id = parent.id AND c.parent_id != c.id
-            WHERE c.expense_type = 'necessary'
-               OR parent.expense_type = 'necessary'
-        """)
+            WHERE c.expense_type = ?
+               OR parent.expense_type = ?
+            """,
+            (expense_type, expense_type),
+        )
         return {row["id"] for row in cursor.fetchall()}
+
+    def get_necessary_category_ids(self) -> set:
+        """Retorna IDs de todas as categorias cuja raiz tem expense_type='necessary'."""
+        return self._get_category_ids_by_expense_type("necessary")
 
     def get_optional_category_ids(self) -> set:
-        """Retorna IDs de todas as categorias cuja raiz tem expense_type='optional'.
-
-        Inclui tanto as categorias-pai tagged diretamente quanto seus filhos.
-        """
-        cursor = self.execute_query("""
-            SELECT c.id FROM categories c
-            LEFT JOIN categories parent
-                ON c.parent_id = parent.id AND c.parent_id != c.id
-            WHERE c.expense_type = 'optional'
-               OR parent.expense_type = 'optional'
-        """)
-        return {row["id"] for row in cursor.fetchall()}
+        """Retorna IDs de todas as categorias cuja raiz tem expense_type='optional'."""
+        return self._get_category_ids_by_expense_type("optional")
 
     def get_children_of(self, parent_id: str) -> List[Category]:
         """Retorna todas as categorias filhas de um dado parent_id."""

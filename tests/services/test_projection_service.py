@@ -159,7 +159,7 @@ class TestGetExpenseSplitForMonth(unittest.TestCase):
             _make_transaction("bank", -200.0, category_id=optional_id),
         ]
         svc.transaction_service.get_credit_transactions.return_value = []
-        necessary, optional = svc._get_expense_split_for_month(
+        _, _, necessary, optional = svc._get_expense_split_for_month(
             "2025-10", {necessary_id}, {optional_id}
         )
         self.assertAlmostEqual(necessary, 500.0)
@@ -179,9 +179,11 @@ class TestGetExpenseSplitForMonth(unittest.TestCase):
             _make_transaction("bank", -80.0, category_id=optional_id),
         ]
         svc.transaction_service.get_credit_transactions.return_value = []
-        necessary, optional = svc._get_expense_split_for_month(
+        fixed_total, installments_total, necessary, optional = svc._get_expense_split_for_month(
             "2025-10", {necessary_id}, {optional_id}
         )
+        self.assertAlmostEqual(fixed_total, 1050.0)
+        self.assertAlmostEqual(installments_total, 0.0)
         # necessary_gross(1500) - fixed(1000) - installments(0) = 500
         self.assertAlmostEqual(necessary, 500.0)
         # optional_gross(80) - fixed(50) - installments(0) = 30
@@ -195,7 +197,7 @@ class TestGetExpenseSplitForMonth(unittest.TestCase):
             _make_transaction("bank", -300.0, category_id="cat_uncategorized"),
         ]
         svc.transaction_service.get_credit_transactions.return_value = []
-        necessary, optional = svc._get_expense_split_for_month(
+        _, _, necessary, optional = svc._get_expense_split_for_month(
             "2025-10", {necessary_id}, set()
         )
         # Only necessary is counted; uncategorized is ignored
@@ -212,9 +214,10 @@ class TestGetExpenseSplitForMonth(unittest.TestCase):
             _make_transaction("bank", -1000.0, category_id=necessary_id),
         ]
         svc.transaction_service.get_credit_transactions.return_value = []
-        necessary, optional = svc._get_expense_split_for_month(
+        fixed_total, _, necessary, optional = svc._get_expense_split_for_month(
             "2025-10", {necessary_id}, set()
         )
+        self.assertAlmostEqual(fixed_total, 2000.0)
         # necessary_gross(1000) - fixed(2000) = -1000 → clamped to 0
         self.assertAlmostEqual(necessary, 0.0)
         self.assertAlmostEqual(optional, 0.0)
@@ -226,7 +229,7 @@ class TestGetExpenseSplitForMonth(unittest.TestCase):
             _make_transaction("bank", -500.0, category_id=necessary_id, excluded=True),
         ]
         svc.transaction_service.get_credit_transactions.return_value = []
-        necessary, optional = svc._get_expense_split_for_month(
+        _, _, necessary, optional = svc._get_expense_split_for_month(
             "2025-10", {necessary_id}, set()
         )
         self.assertAlmostEqual(necessary, 0.0)

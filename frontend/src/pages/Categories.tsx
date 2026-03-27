@@ -52,7 +52,7 @@ export const Categories: React.FC = () => {
   const [editDescriptionTranslated, setEditDescriptionTranslated] = useState('');
   const [editParentId, setEditParentId] = useState<string>('');
   const [editParentDescription, setEditParentDescription] = useState<string>('');
-  const [editExpenseType, setEditExpenseType] = useState<string>('');
+  const [editExpenseType, setEditExpenseType] = useState<ExpenseType>(null);
 
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [isDeleteBulkModalOpen, setIsDeleteBulkModalOpen] = useState(false);
@@ -138,7 +138,7 @@ export const Categories: React.FC = () => {
     setEditDescriptionTranslated(category.description_translated ?? '');
     setEditParentId(category.parent_id ?? '');
     setEditParentDescription(category.parent_description ?? '');
-    setEditExpenseType(category.expense_type ?? '');
+    setEditExpenseType(category.expense_type ?? null);
     setIsEditModalOpen(true);
   };
 
@@ -177,7 +177,7 @@ export const Categories: React.FC = () => {
       setEditDescriptionTranslated('');
       setEditParentId('');
       setEditParentDescription('');
-      setEditExpenseType('');
+      setEditExpenseType(null);
       setIsEditModalOpen(false);
     } catch (err) {
       console.error('Erro ao editar categoria:', err);
@@ -761,8 +761,8 @@ export const Categories: React.FC = () => {
                     </label>
                     <select
                       id="editExpenseType"
-                      value={editExpenseType}
-                      onChange={(e) => setEditExpenseType(e.target.value)}
+                      value={editExpenseType ?? ''}
+                      onChange={(e) => setEditExpenseType((e.target.value as ExpenseType) || null)}
                       className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500"
                     >
                       <option value="">Sem classificacao (opcional por padrao)</option>
