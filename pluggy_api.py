@@ -342,7 +342,7 @@ class PluggyAPI:
             except Exception as e:
                 print(f"[WARN] Bill date recalculation failed: {e}")
 
-            # 7. Recurrence detection
+            # 5. Recurrence detection
             svc = RecurrenceDetectorService()
             try:
                 summary["recurrences_synced"] = svc.detect_and_store()

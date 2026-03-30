@@ -79,9 +79,16 @@ docker-compose up
 docker-compose up --build
 ```
 
+## Atualizando de uma versão anterior
+
+Se você já usava o app e armazenava as credenciais Pluggy em um arquivo `.env`, elas **não são migradas automaticamente**. Ao atualizar, acesse o app e siga o assistente de configuração novamente para inserir seu **Client ID** e **Client Secret** via onboarding.
+
 ## Desenvolvimento local
 
 ```bash
+# Copiar variáveis de ambiente (opcional)
+cp .env.example .env
+
 # Backend (Python 3.11+)
 pip install -r requirements.txt
 python app.py

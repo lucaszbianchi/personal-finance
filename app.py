@@ -24,9 +24,10 @@ from api.routes.automation_routes import bp as automations_bp
 from api.routes.onboarding_routes import bp as onboarding_bp
 from api.routes.projection_routes import bp as projection_bp
 
-init_db()
-
 app = Flask(__name__)
+
+with app.app_context():
+    init_db()
 
 # Registra os blueprints
 app.register_blueprint(transactions_bp, url_prefix="/api/transactions")

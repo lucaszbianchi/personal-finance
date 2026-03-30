@@ -32,7 +32,7 @@ def _make_history(month, expenses):
 
 
 def _make_service(bank_cur=None, credit_cur=None, bank_prev=None, credit_prev=None,
-                  history=None, goal=None):  # goal param kept for signature compat
+                  history=None):
     """Build a SpendingPaceService with all external calls mocked."""
     with patch("services.spending_pace_service.FinanceSummaryService"), \
          patch("services.spending_pace_service.FinanceHistoryRepository"):
@@ -60,9 +60,9 @@ def _make_service(bank_cur=None, credit_cur=None, bank_prev=None, credit_prev=No
 class TestSpendingPaceService(unittest.TestCase):
 
     def _run(self, month, bank_cur=None, credit_cur=None, bank_prev=None, credit_prev=None,
-             history=None, goal=None):
+             history=None):
         """Helper: creates service with all external calls mocked, calls get_spending_pace."""
-        svc = _make_service(bank_cur, credit_cur, bank_prev, credit_prev, history, goal)
+        svc = _make_service(bank_cur, credit_cur, bank_prev, credit_prev, history)
         return svc.get_spending_pace(month)
 
     # ── 1. Series length == last day of month ────────────────────────────────

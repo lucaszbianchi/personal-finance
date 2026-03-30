@@ -129,6 +129,7 @@ class TransactionRepository(BaseRepository):
                 description,
                 amount,
                 category_id,
+                type,
                 operation_type,
                 payment_data
             FROM bank_transactions
@@ -146,6 +147,7 @@ class TransactionRepository(BaseRepository):
             description=row["description"],
             amount=row["amount"],
             category_id=row["category_id"],
+            type_=row["type"],
             operation_type=row["operation_type"],
             payment_data=(
                 json.loads(row["payment_data"]) if row["payment_data"] else None
