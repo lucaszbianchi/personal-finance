@@ -10,10 +10,8 @@ from repositories.pluggy_item_repository import PluggyItemRepository
 from repositories.rate_limit_repository import RateLimitRepository
 from repositories.transaction_repository import TransactionRepository
 from repositories.investment_repository import InvestmentRepository
-from repositories.splitwise_repository import SplitwiseRepository
 from services.finance_history_service import FinanceHistoryService
 from services.pluggy_auth_service import get_api_key as _get_api_key
-from repositories.settings_repository import SettingsRepository
 from services.recurrence_detector_service import RecurrenceDetectorService
 
 INCREMENTAL_DAYS = 6
@@ -193,7 +191,6 @@ class PluggyAPI:
 
         transaction_repo = TransactionRepository()
         investment_repo = InvestmentRepository()
-        splitwise_repo = SplitwiseRepository()
         rate_limit_repo = RateLimitRepository()
         accounts_snapshot_repo = AccountsSnapshotRepository()
         bill_repo = BillRepository()
@@ -206,8 +203,6 @@ class PluggyAPI:
             "credit_transactions_updated": 0,
             "investments_inserted": 0,
             "investments_updated": 0,
-            "splitwise_inserted": 0,
-            "splitwise_updated": 0,
             "categories_synced": 0,
             "bills_synced": 0,
             "accounts_snapshots_saved": 0,
@@ -340,35 +335,14 @@ class PluggyAPI:
                 fh_service.update_finance_history_from_sync(month)
                 print(f"[OK] Snapshot mensal gravado para {month}")
 
-            # 4. Splitwise
-            print("Processando transações Splitwise...")
-            splitwise_transactions = self.fetch_splitwise_data()
-            for transaction in splitwise_transactions:
-                result = splitwise_repo.upsert_splitwise_transaction(transaction)
-                if result["success"]:
-                    if result["action"] == "inserted":
-                        summary["splitwise_inserted"] += 1
-                    elif result["action"] == "updated":
-                        summary["splitwise_updated"] += 1
-                else:
-                    print(
-                        f"Erro ao processar Splitwise {transaction['id']}: "
-                        f"{result.get('error', 'Erro desconhecido')}"
-                    )
-            if splitwise_transactions:
-                self._save_incremental_json(
-                    "data/splitwise_transactions.json", splitwise_transactions
-                )
-                print(f"Processadas {len(splitwise_transactions)} transações Splitwise")
-
-            # 6. Recalculate bill close/open dates from installment transactions
+            # 4. Recalculate bill close/open dates from installment transactions
             try:
                 bill_repo.recalculate_all_close_dates()
                 print("[OK] Bill close/open dates recalculated")
             except Exception as e:
                 print(f"[WARN] Bill date recalculation failed: {e}")
 
-            # 7. Recurrence detection
+            # 5. Recurrence detection
             svc = RecurrenceDetectorService()
             try:
                 summary["recurrences_synced"] = svc.detect_and_store()
@@ -384,7 +358,6 @@ class PluggyAPI:
         finally:
             transaction_repo.close()
             investment_repo.close()
-            splitwise_repo.close()
             rate_limit_repo.close()
             accounts_snapshot_repo.close()
             bill_repo.close()
@@ -408,15 +381,6 @@ class PluggyAPI:
         finally:
             repo.close()
 
-    def _get_splitwise_item_id(self) -> str | None:
-        """Retorna o item_id de role 'splitwise' do banco."""
-        repo = PluggyItemRepository()
-        try:
-            items = repo.get_items_by_role("splitwise")
-            return items[0]["item_id"] if items else None
-        finally:
-            repo.close()
-
     def fetch_investments_data(self) -> list:
         """Busca investimentos de todos os items de role 'bank'."""
         headers = {"accept": "application/json", "X-API-KEY": f"{self.api_key}"}
@@ -426,27 +390,6 @@ class PluggyAPI:
             response = requests.get(url, headers=headers, timeout=30)
             investments.extend(json.loads(response.content).get("results", []))
         return investments
-
-    def fetch_splitwise_data(self) -> list:
-        """Busca dados do Splitwise da API para a janela incremental."""
-        splitwise_item_id = self._get_splitwise_item_id()
-        if not splitwise_item_id:
-            return []
-
-        repo = SettingsRepository()
-        try:
-            account_name = repo.get_value("splitwise_account_name")
-        finally:
-            repo.close()
-        if not account_name:
-            return []
-
-        from_date, to_date = self._incremental_date_range()
-        accounts = self.list_accounts(splitwise_item_id).get("results", [])
-        for account in accounts:
-            if account.get("name") == account_name:
-                return self._fetch_all_pages(account.get("id"), from_date, to_date)
-        return []
 
     def _initialize_database(self):
         """Inicializa o banco de dados com as tabelas necessárias."""

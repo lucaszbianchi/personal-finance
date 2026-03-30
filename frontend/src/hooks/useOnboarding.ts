@@ -17,7 +17,6 @@ export function useSaveCredentials() {
     mutationFn: (data: {
       client_id: string;
       client_secret: string;
-      splitwise_account_name?: string;
     }) => onboardingService.saveCredentials(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['onboarding', 'status'] });

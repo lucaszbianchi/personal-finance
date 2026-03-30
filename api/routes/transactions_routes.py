@@ -49,7 +49,6 @@ def get_bank_transactions():
                 "amount": t.amount,
                 "category": _get_category_name(t.category_id),
                 "operation_type": t.operation_type,
-                "split_info": t.split_info,
                 "payment_data": t.payment_data,
                 "type": t.type_,
                 "excluded": t.excluded,
@@ -80,7 +79,6 @@ def get_credit_transactions():
                 "amount": t.amount,
                 "category": _get_category_name(t.category_id),
                 "status": t.status,
-                "split_info": t.split_info,
                 "excluded": t.excluded,
                 "account_alias": alias_map.get(t.item_id),
             }
@@ -132,62 +130,6 @@ def bulk_update_category(transaction_type):
         return jsonify({"error": str(e)}), 400
 
 
-@bp.route("/<transaction_type>/<transaction_id>/share", methods=["POST"])
-def add_person_to_share_transaction(transaction_type, transaction_id):
-    """Adiciona pessoas para compartilhar uma transação."""
-    data = request.get_json()
-    partners = data.get("partners", {})
-
-    if not partners:
-        return jsonify({"error": "partners é obrigatório"}), 400
-
-    if transaction_type not in ["bank", "credit"]:
-        return jsonify({"error": "transaction_type deve ser 'bank' ou 'credit'"}), 400
-
-    success = transaction_service.add_person_to_share_transaction(
-        transaction_type, transaction_id, partners
-    )
-
-    if success:
-        return jsonify({"message": "Compartilhamento adicionado com sucesso"})
-    return jsonify({"error": "Erro ao adicionar compartilhamento"}), 400
-
-
-@bp.route("/<transaction_id>/settle", methods=["POST"])
-def settle_up_split(transaction_id):
-    """Configura uma transação como liquidação de split."""
-    success = transaction_service.settle_up_split(transaction_id)
-
-    if success:
-        return jsonify({"message": "Transação configurada como liquidação com sucesso"})
-    return jsonify({"error": "Erro ao configurar transação como liquidação"}), 400
-
-
-@bp.route("/<transaction_id>/settle/category", methods=["POST"])
-def add_category_to_settle_up(transaction_id):
-    """Adiciona uma categoria a uma transação de liquidação."""
-    data = request.get_json()
-    category_id = data.get("category_id")
-
-    if not category_id:
-        return jsonify({"error": "category_id é obrigatório"}), 400
-
-    success = transaction_service.add_category_to_settle_up_transaction(
-        transaction_id, category_id
-    )
-
-    if success:
-        return jsonify({"message": "Categoria adicionada com sucesso"})
-    return jsonify({"error": "Erro ao adicionar categoria"}), 400
-
-
-@bp.route("/check-split-settle", methods=["GET"])
-def check_split_settle():
-    """Verifica o estado atual dos splits e settle ups."""
-    result = transaction_service.check_split_settle_up()
-    return jsonify(result)
-
-
 @bp.route("/bank", methods=["POST"])
 def create_bank_transaction():
     """Cria uma nova transação bancária."""
@@ -218,7 +160,6 @@ def create_bank_transaction():
                     "amount": transaction.amount,
                     "category": _get_category_name(transaction.category_id),
                     "operation_type": transaction.operation_type,
-                    "split_info": transaction.split_info,
                     "payment_data": transaction.payment_data,
                     "type": transaction.type_,
                 }

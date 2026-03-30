@@ -1,8 +1,6 @@
 from typing import List
 from repositories.transaction_repository import TransactionRepository
-from repositories.person_repository import PersonRepository
 from repositories.category_repository import CategoryRepository
-from repositories.splitwise_repository import SplitwiseRepository
 from repositories.finance_history_repository import FinanceHistoryRepository
 from services.transaction_service import TransactionService
 
@@ -20,9 +18,7 @@ class FinanceSummaryService:
     def __init__(self):
         self.transaction_service = TransactionService()
         self.transaction_repository = TransactionRepository()
-        self.person_repository = PersonRepository()
         self.category_repository = CategoryRepository()
-        self.splitwise_repository = SplitwiseRepository()
 
     @staticmethod
     def _is_income(t) -> bool:

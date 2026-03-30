@@ -3,10 +3,6 @@
 import os
 import sqlite3
 
-import dotenv
-
-dotenv.load_dotenv()
-
 DB_PATH = os.getenv("DB_PATH", "finance.db")
 
 TABLES_SQL = [
@@ -23,8 +19,7 @@ TABLES_SQL = [
     """
     CREATE TABLE IF NOT EXISTS persons (
         id TEXT PRIMARY KEY,
-        name TEXT NOT NULL,
-        split_info TEXT
+        name TEXT NOT NULL
     )
     """,
     """
@@ -36,7 +31,6 @@ TABLES_SQL = [
         category_id TEXT,
         type TEXT,
         operation_type TEXT,
-        split_info TEXT,
         payment_data TEXT,
         excluded INTEGER DEFAULT 0,
         item_id TEXT,
@@ -57,20 +51,6 @@ TABLES_SQL = [
         total_amount REAL,  -- DEPRECATED: written by sync but never read; kept for backward compat
         item_id TEXT,
         FOREIGN KEY (category_id) REFERENCES categories(id)
-    )
-    """,
-    """
-    CREATE TABLE IF NOT EXISTS splitwise (
-        id TEXT PRIMARY KEY,
-        amount REAL,
-        date TEXT,
-        description TEXT,
-        category_id TEXT,
-        transaction_id TEXT,
-        is_invalid INTEGER DEFAULT 0,
-        match_type TEXT,
-        FOREIGN KEY (category_id) REFERENCES categories(id),
-        FOREIGN KEY (transaction_id) REFERENCES bank_transactions(id)
     )
     """,
     """
@@ -144,18 +124,6 @@ TABLES_SQL = [
         count       INTEGER DEFAULT 0,
         limit_value INTEGER NOT NULL,
         UNIQUE(item_id, call_type, year_month)
-    )
-    """,
-    """
-    CREATE TABLE IF NOT EXISTS user_goals (
-        id          INTEGER PRIMARY KEY AUTOINCREMENT,
-        category_id TEXT,
-        type        TEXT,
-        amount      REAL,
-        period      TEXT,
-        created_at  TEXT DEFAULT (datetime('now')),
-        updated_at  TEXT DEFAULT (datetime('now')),
-        UNIQUE(category_id, type)
     )
     """,
     """
@@ -235,8 +203,6 @@ INDEXES_SQL = [
     "CREATE INDEX IF NOT EXISTS idx_credit_transactions_category_id ON credit_transactions(category_id)",
     "CREATE INDEX IF NOT EXISTS idx_credit_transactions_status ON credit_transactions(status)",
     "CREATE INDEX IF NOT EXISTS idx_credit_transactions_excluded_date ON credit_transactions(excluded, date)",
-    "CREATE INDEX IF NOT EXISTS idx_splitwise_date ON splitwise(date)",
-    "CREATE INDEX IF NOT EXISTS idx_splitwise_transaction_id ON splitwise(transaction_id)",
     "CREATE INDEX IF NOT EXISTS idx_investments_date ON investments(date)",
     "CREATE INDEX IF NOT EXISTS idx_investments_type ON investments(type)",
     "CREATE INDEX IF NOT EXISTS idx_accounts_snapshot_snapshotted_at ON accounts_snapshot(snapshotted_at)",
@@ -247,7 +213,7 @@ INDEXES_SQL = [
 ]
 
 # Tabelas preservadas no reset (configuracao do usuario):
-#   settings, persons, user_goals, automation_rules,
+#   settings, persons, automation_rules,
 #   income_sources, recurrent_expenses
 RESET_SQL = [
     "DROP TABLE IF EXISTS pluggy_book_categories",
@@ -257,7 +223,6 @@ RESET_SQL = [
     "DROP TABLE IF EXISTS bills",
     "DROP TABLE IF EXISTS pluggy_items",
     "DROP TABLE IF EXISTS investments",
-    "DROP TABLE IF EXISTS splitwise",
     "DROP TABLE IF EXISTS credit_transactions",
     "DROP TABLE IF EXISTS bank_transactions",
     "DROP TABLE IF EXISTS categories",
@@ -284,12 +249,6 @@ def reset_db():
 
 
 def init_db():
-    # Para bases existentes, rodar migrations pendentes em scripts/:
-    #   python scripts/migrate_remove_meal_allowance.py
-    #   python scripts/migrate_income_sources_add_columns.py
-    #   python scripts/migrate_add_item_alias_and_transaction_item_id.py
-    #   python scripts/migrate_add_rate_limit_item_id.py
-    #   python scripts/migrate_add_category_expense_type.py
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     for sql in TABLES_SQL:
@@ -301,34 +260,5 @@ def init_db():
     print(f"Banco de dados '{DB_PATH}' inicializado com sucesso.")
 
 
-def seed_pluggy_items():
-    """Insere os items do .env na tabela pluggy_items (ignora se já existirem)."""
-    items = [
-        (os.getenv("ITEM_ID"), "bank"),
-        (os.getenv("ITEM_ID_SPLITWISE"), "splitwise"),
-    ]
-
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
-    inserted = 0
-    for item_id, role in items:
-        if not item_id:
-            print(f"  [AVISO] {role.upper()} item_id não encontrado no .env, pulando.")
-            continue
-        cursor.execute(
-            "INSERT OR IGNORE INTO pluggy_items (item_id, role) VALUES (?, ?)",
-            (item_id, role),
-        )
-        if cursor.rowcount > 0:
-            print(f"  [OK] Inserido: {item_id} (role={role})")
-            inserted += 1
-        else:
-            print(f"  [--] Já existe: {item_id} (role={role})")
-    conn.commit()
-    conn.close()
-    print(f"Seed concluído: {inserted} item(s) inserido(s).")
-
-
 if __name__ == "__main__":
     init_db()
-    seed_pluggy_items()

@@ -4,7 +4,6 @@ from dateutil.relativedelta import relativedelta
 from repositories.accounts_snapshot_repository import AccountsSnapshotRepository
 from repositories.finance_history_repository import FinanceHistoryRepository
 from repositories.investment_repository import InvestmentRepository
-from repositories.user_goals_repository import UserGoalsRepository
 from services.finance_summary_service import FinanceSummaryService
 
 
@@ -15,7 +14,6 @@ class NetWorthService:
         self.accounts_snapshot_repo = AccountsSnapshotRepository()
         self.investment_repo = InvestmentRepository()
         self.finance_history_repo = FinanceHistoryRepository()
-        self.user_goals_repo = UserGoalsRepository()
         self.finance_summary_service = FinanceSummaryService()
 
     def get_net_worth(self) -> dict:
@@ -61,8 +59,8 @@ class NetWorthService:
         - income_so_far: receitas acumuladas no mes atual.
         - expenses_so_far: despesas acumuladas no mes atual.
         - partial_balance: income_so_far - expenses_so_far.
-        - monthly_balance_goal: meta mensal de saldo (user_goals, category_id IS NULL).
-        - goal_pct: percentual da meta atingido (None se meta nao configurada).
+        - monthly_balance_goal: sempre None (funcionalidade de metas removida).
+        - goal_pct: sempre None.
         """
         today = date.today()
         month_start = today.replace(day=1)
@@ -77,15 +75,10 @@ class NetWorthService:
         )
         partial_balance = round(income_so_far - expenses_so_far, 2)
 
-        monthly_balance_goal = self.user_goals_repo.get_total_monthly_goal()
-        goal_pct = None
-        if monthly_balance_goal and monthly_balance_goal > 0:
-            goal_pct = round(partial_balance / monthly_balance_goal * 100, 1)
-
         return {
             "income_so_far": income_so_far,
             "expenses_so_far": expenses_so_far,
             "partial_balance": partial_balance,
-            "monthly_balance_goal": monthly_balance_goal,
-            "goal_pct": goal_pct,
+            "monthly_balance_goal": None,
+            "goal_pct": None,
         }

@@ -131,9 +131,6 @@ class CategoryRepository(BaseRepository):
         )
         self.execute_query(credit_query, (new_id, old_id))
 
-        splitwise_query = "UPDATE splitwise SET category_id = ? WHERE category_id = ?"
-        self.execute_query(splitwise_query, (new_id, old_id))
-
         # Propagar novo parent_id e novo nome para todos os filhos da categoria renomeada
         self.update_children_parent(old_id, new_id, new_name)
 

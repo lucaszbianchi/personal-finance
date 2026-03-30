@@ -113,14 +113,12 @@ export const SyncPage: React.FC = () => {
   const totalNew = counts
     ? counts.bank_transactions_inserted +
       counts.credit_transactions_inserted +
-      counts.investments_inserted +
-      counts.splitwise_inserted
+      counts.investments_inserted
     : 0;
   const totalUpdated = counts
     ? counts.bank_transactions_updated +
       counts.credit_transactions_updated +
-      counts.investments_updated +
-      counts.splitwise_updated
+      counts.investments_updated
     : 0;
 
   const bankItems = items.filter((item) => item.role === 'bank');
@@ -276,12 +274,6 @@ export const SyncPage: React.FC = () => {
                     inserted={counts.investments_inserted}
                     updated={counts.investments_updated}
                     colorScheme="amber"
-                  />
-                  <SyncCountCard
-                    title="Splitwise"
-                    inserted={counts.splitwise_inserted}
-                    updated={counts.splitwise_updated}
-                    colorScheme="violet"
                   />
                 </div>
               )}

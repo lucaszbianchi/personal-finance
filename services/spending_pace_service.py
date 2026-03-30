@@ -5,14 +5,12 @@ from datetime import date
 
 from services.finance_summary_service import FinanceSummaryService
 from repositories.finance_history_repository import FinanceHistoryRepository
-from repositories.user_goals_repository import UserGoalsRepository
 
 
 class SpendingPaceService:
     def __init__(self):
         self._summary = FinanceSummaryService()
         self._history_repo = FinanceHistoryRepository()
-        self._goals_repo = UserGoalsRepository()
 
     def _daily_cumulative(self, transactions: list, last_day: int) -> list[float]:
         """Build a cumulative expense series for days 1..last_day."""
@@ -98,12 +96,9 @@ class SpendingPaceService:
         if past:
             monthly_avg = round(sum(past) / len(past), 2)
 
-        # Monthly goal
-        monthly_goal = self._goals_repo.get_total_monthly_goal()
-
         return {
             "daily_series": daily_series,
-            "monthly_goal": monthly_goal,
+            "monthly_goal": None,
             "monthly_avg": monthly_avg,
             "unavoidable_avg": None,
         }

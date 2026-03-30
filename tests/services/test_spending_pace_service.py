@@ -32,11 +32,10 @@ def _make_history(month, expenses):
 
 
 def _make_service(bank_cur=None, credit_cur=None, bank_prev=None, credit_prev=None,
-                  history=None, goal=None):
+                  history=None):
     """Build a SpendingPaceService with all external calls mocked."""
     with patch("services.spending_pace_service.FinanceSummaryService"), \
-         patch("services.spending_pace_service.FinanceHistoryRepository"), \
-         patch("services.spending_pace_service.UserGoalsRepository"):
+         patch("services.spending_pace_service.FinanceHistoryRepository"):
         svc = SpendingPaceService()
 
     mock_ts = MagicMock()
@@ -55,19 +54,15 @@ def _make_service(bank_cur=None, credit_cur=None, bank_prev=None, credit_prev=No
     mock_history_repo.get_all.return_value = history or []
     svc._history_repo = mock_history_repo
 
-    mock_goals_repo = MagicMock()
-    mock_goals_repo.get_total_monthly_goal.return_value = goal
-    svc._goals_repo = mock_goals_repo
-
     return svc
 
 
 class TestSpendingPaceService(unittest.TestCase):
 
     def _run(self, month, bank_cur=None, credit_cur=None, bank_prev=None, credit_prev=None,
-             history=None, goal=None):
+             history=None):
         """Helper: creates service with all external calls mocked, calls get_spending_pace."""
-        svc = _make_service(bank_cur, credit_cur, bank_prev, credit_prev, history, goal)
+        svc = _make_service(bank_cur, credit_cur, bank_prev, credit_prev, history)
         return svc.get_spending_pace(month)
 
     # ── 1. Series length == last day of month ────────────────────────────────
@@ -128,14 +123,10 @@ class TestSpendingPaceService(unittest.TestCase):
         final = result["daily_series"][-1]["cumulative_amount"]
         self.assertAlmostEqual(final, 80.0)
 
-    # ── 5. monthly_goal from repo / None when unset ───────────────────────────
+    # ── 5. monthly_goal is always None (user_goals removed) ──────────────────
 
-    def test_monthly_goal_returned(self):
-        result = self._run("2026-03", goal=3000.0)
-        self.assertEqual(result["monthly_goal"], 3000.0)
-
-    def test_monthly_goal_none_when_unset(self):
-        result = self._run("2026-03", goal=None)
+    def test_monthly_goal_always_none(self):
+        result = self._run("2026-03")
         self.assertIsNone(result["monthly_goal"])
 
     # ── 6. monthly_avg uses last 6 months, excludes current month ─────────────

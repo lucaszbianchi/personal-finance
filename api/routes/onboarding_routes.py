@@ -22,7 +22,6 @@ def save_credentials():
         onboarding_service.save_credentials(
             client_id=data.get("client_id", ""),
             client_secret=data.get("client_secret", ""),
-            splitwise_account_name=data.get("splitwise_account_name"),
         )
         return jsonify({"status": "success"})
     except ValueError as e:

@@ -105,7 +105,7 @@ export const ConnectStep: React.FC<Props> = ({ onNext }) => {
             >
               Conexoes <ExternalLink size={12} />
             </a>
-            , crie suas conexoes (contas bancarias, corretoras, splitwise)
+            , crie suas conexoes (contas bancarias, corretoras)
           </li>
           <li>Clique em <strong>"Conectar conta"</strong> abaixo para abrir o widget</li>
           <li>Faca login com sua conta do <strong>meu.pluggy.ai</strong></li>

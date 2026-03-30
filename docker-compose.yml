@@ -5,7 +5,6 @@ services:
       - "5000:5000"
     volumes:
       - ./data:/app/data
-      - ./.env:/app/.env:ro
     environment:
       - DB_PATH=/app/data/finance.db
       - FLASK_HOST=0.0.0.0

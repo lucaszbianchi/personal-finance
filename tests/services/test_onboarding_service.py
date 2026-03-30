@@ -100,16 +100,11 @@ class TestOnboardingService(unittest.TestCase):
     # ── save_credentials ──
 
     def test_save_credentials_success(self):
-        self.service.save_credentials("my-id", "my-secret", "Splitwise")
+        self.service.save_credentials("my-id", "my-secret")
 
         calls = self.mock_settings_repo.set_value.call_args_list
         self.assertEqual(calls[0].args, ("pluggy_client_id", "my-id"))
         self.assertEqual(calls[1].args, ("pluggy_client_secret", "my-secret"))
-        self.assertEqual(calls[2].args, ("splitwise_account_name", "Splitwise"))
-
-    def test_save_credentials_without_splitwise(self):
-        self.service.save_credentials("my-id", "my-secret")
-
         self.assertEqual(self.mock_settings_repo.set_value.call_count, 2)
 
     def test_save_credentials_raises_on_empty_client_id(self):
