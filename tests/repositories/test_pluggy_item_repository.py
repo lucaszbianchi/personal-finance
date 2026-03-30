@@ -45,11 +45,11 @@ class TestPluggyItemRepository(unittest.TestCase):
 
     def test_upsert_item_preserves_role_on_update(self):
         """role não é atualizado no ON CONFLICT — deve manter o valor original."""
-        self.repo.upsert_item("item-1", role="splitwise")
+        self.repo.upsert_item("item-1", role="credit")
         self.repo.upsert_item("item-1", role="bank")
 
         rows = self.repo.list_all()
-        self.assertEqual(rows[0]["role"], "splitwise")
+        self.assertEqual(rows[0]["role"], "credit")
 
     def test_upsert_item_nullable_fields(self):
         self.repo.upsert_item("item-1")
@@ -63,7 +63,7 @@ class TestPluggyItemRepository(unittest.TestCase):
 
     def test_get_items_by_role_returns_matching(self):
         self.repo.upsert_item("item-bank", role="bank")
-        self.repo.upsert_item("item-split", role="splitwise")
+        self.repo.upsert_item("item-split", role="credit")
 
         result = self.repo.get_items_by_role("bank")
         self.assertEqual(len(result), 1)
@@ -76,7 +76,7 @@ class TestPluggyItemRepository(unittest.TestCase):
     def test_get_items_by_role_multiple(self):
         self.repo.upsert_item("item-1", role="bank")
         self.repo.upsert_item("item-2", role="bank")
-        self.repo.upsert_item("item-3", role="splitwise")
+        self.repo.upsert_item("item-3", role="credit")
 
         result = self.repo.get_items_by_role("bank")
         self.assertEqual(len(result), 2)
@@ -90,7 +90,7 @@ class TestPluggyItemRepository(unittest.TestCase):
 
     def test_list_all_returns_all_roles(self):
         self.repo.upsert_item("item-1", role="bank")
-        self.repo.upsert_item("item-2", role="splitwise")
+        self.repo.upsert_item("item-2", role="credit")
 
         result = self.repo.list_all()
         self.assertEqual(len(result), 2)

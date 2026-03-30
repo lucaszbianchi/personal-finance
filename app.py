@@ -1,13 +1,13 @@
 import os
 
 from flask import Flask, send_from_directory
+from init_db import init_db
 
 # Importação dos blueprints
 from api.routes.transactions_routes import bp as transactions_bp
 from api.routes.categories_routes import bp as categories_bp
 from api.routes.summary_routes import bp as summary_bp
 from api.routes.import_routes import bp as import_bp
-from api.routes.splitwise_routes import bp as splitwise_bp
 from api.routes.person_routes import bp as person_bp
 from api.routes.dashboard_routes import bp as dashboard_bp
 from api.routes.overview_routes import bp as overview_bp
@@ -24,6 +24,8 @@ from api.routes.automation_routes import bp as automations_bp
 from api.routes.onboarding_routes import bp as onboarding_bp
 from api.routes.projection_routes import bp as projection_bp
 
+init_db()
+
 app = Flask(__name__)
 
 # Registra os blueprints
@@ -31,7 +33,6 @@ app.register_blueprint(transactions_bp, url_prefix="/api/transactions")
 app.register_blueprint(categories_bp, url_prefix="/api/categories")
 app.register_blueprint(summary_bp, url_prefix="/api/summary")
 app.register_blueprint(import_bp, url_prefix="/api/import")
-app.register_blueprint(splitwise_bp, url_prefix="/api/splitwise")
 app.register_blueprint(person_bp, url_prefix="/api/persons")
 app.register_blueprint(settings_bp, url_prefix="/api/settings")
 app.register_blueprint(dashboard_bp, url_prefix="/api/dashboard")
@@ -48,31 +49,6 @@ app.register_blueprint(automations_bp, url_prefix="/api/automations")
 app.register_blueprint(onboarding_bp, url_prefix="/api/onboarding")
 app.register_blueprint(projection_bp, url_prefix="/api/projection")
 
-
-def _migrate_credentials_from_env():
-    """Migra credenciais do .env para o banco na primeira execucao."""
-    client_id = os.getenv("CLIENT_ID")
-    client_secret = os.getenv("CLIENT_SECRET")
-    if not client_id or not client_secret:
-        return
-    from repositories.settings_repository import SettingsRepository
-
-    repo = SettingsRepository()
-    try:
-        if repo.get_value("pluggy_client_id") is None:
-            repo.set_value("pluggy_client_id", client_id)
-            repo.set_value("pluggy_client_secret", client_secret)
-            print("[INFO] Credenciais Pluggy migradas do .env para o banco")
-        splitwise_name = os.getenv("SPLITWISE_ACCOUNT_NAME")
-        if splitwise_name and repo.get_value("splitwise_account_name") is None:
-            repo.set_value("splitwise_account_name", splitwise_name)
-    except Exception as e:
-        print(f"[WARNING] Falha ao migrar credenciais do .env: {e}")
-    finally:
-        repo.close()
-
-
-_migrate_credentials_from_env()
 
 
 @app.route("/")

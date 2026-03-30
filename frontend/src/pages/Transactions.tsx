@@ -16,7 +16,6 @@ interface Transaction {
   operation_type?: string;
   status?: string;
   type?: string;
-  split_info?: any;
   payment_data?: any;
   excluded?: number;
   account_alias?: string;

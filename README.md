@@ -1,199 +1,117 @@
-# Personal Finance Management System
+# Personal Finance
 
-Sistema completo de gestão financeira pessoal com backend em Python/Flask e frontend em React/TypeScript.
-
-## Estrutura do Projeto
-
-```
-personal-finance/
-├── frontend/               # Frontend React + TypeScript
-├── api/                   # Rotas da API Flask
-├── models/                # Modelos de dados
-├── repositories/          # Camada de acesso aos dados
-├── services/             # Lógica de negócio
-├── static/               # Frontend atual (HTML/JS)
-├── tests/                # Testes unitários
-├── app.py                # Aplicação Flask principal
-├── pluggy_api.py         # Sincronização de dados
-└── finance.db            # Banco SQLite
-```
-
-## Tecnologias
-
-### Backend
-- **Python 3.8+** - Linguagem principal
-- **Flask** - Framework web
-- **SQLite** - Banco de dados
-- **Pluggy API** - Integração bancária
-- **Splitwise** - Gestão de gastos compartilhados
-
-### Frontend Novo (React)
-- **React 18** - Framework frontend
-- **TypeScript** - Tipagem estática
-- **Vite** - Build tool
-- **Tailwind CSS** - Framework de estilos
-- **TanStack Query** - Gerenciamento de estado
-
-### Frontend Atual (Mantido)
-- **HTML/CSS/JavaScript** - Interface atual
-- **Bootstrap** - Framework CSS
-- **Chart.js** - Gráficos
-
-## Configuração de Desenvolvimento
-
-### 1. Configurar Backend
-
-1. Instalar dependências Python:
-```bash
-pip install -r requirements.txt
-```
-
-2. Configurar variáveis de ambiente:
-```bash
-cp .env.example .env
-# Editar .env com suas credenciais da Pluggy
-```
-
-3. Iniciar o backend:
-```bash
-python app.py
-```
-
-### 2. Configurar Frontend React
-
-1. Instalar dependências do Node.js:
-```bash
-npm run setup
-```
-
-2. Iniciar o frontend:
-```bash
-npm run frontend:dev
-```
-
-### 3. Desenvolvimento Simultâneo
-
-Para rodar backend e frontend simultaneamente:
-```bash
-npm run dev
-```
-
-## Scripts Disponíveis
-
-### Gerais
-- `npm run dev` - Roda backend e frontend simultaneamente
-- `npm run setup` - Instala dependências do frontend
-
-### Backend
-- `npm run backend:dev` - Inicia servidor Flask
-- `npm run backend:sync` - Sincroniza dados da Pluggy
-
-### Frontend React
-- `npm run frontend:dev` - Servidor de desenvolvimento
-- `npm run frontend:build` - Build para produção
-- `npm run frontend:preview` - Preview da build
-
-## API Endpoints
-
-### Transações
-- `GET /api/transactions` - Listar transações
-- `POST /api/transactions` - Criar transação
-- `PUT /api/transactions/{id}` - Atualizar transação
-- `DELETE /api/transactions/{id}` - Deletar transação
-
-### Categorias
-- `GET /api/categories` - Listar categorias
-- `POST /api/categories` - Criar categoria
-
-### Resumo Financeiro
-- `GET /api/summary/finance` - Resumo financeiro
-- `GET /api/dashboard` - Dados do dashboard
-
-### Importação
-- `POST /api/import/sync` - Sincronizar dados bancários
+Sistema de gestão financeira pessoal integrado com a [Pluggy API](https://pluggy.ai) para importação automática de transações bancárias e de investimentos.
 
 ## Funcionalidades
 
-### ✅ Implementado
-- Dashboard com métricas financeiras
-- Gestão de transações bancárias e cartão
-- Sistema de categorização
-- Integração com Splitwise
-- Resumos e relatórios financeiros
-- Interface web responsiva
+- Dashboard com resumo mensal (receitas, despesas, saldo)
+- Importação automática de transações bancárias e de cartão de crédito
+- Portfólio de investimentos com histórico
+- Categorização e automações de categorização
+- Histórico financeiro mensal e projeções
+- Ritmo de gastos diário (spending pace)
+- Gestão de recorrências e parcelas
 
-### 🚧 Em Desenvolvimento (React)
-- Interface React moderna
-- Gráficos interativos
-- Filtros avançados
-- Formulários otimizados
-- Performance melhorada
+## Pré-requisitos
 
-### 📋 Roadmap
-- Módulo de investimentos completo
-- Projeções financeiras
-- Relatórios em PDF
-- Aplicativo mobile
-- Dashboard executivo
+- [Docker](https://www.docker.com/) e Docker Compose
+- Conta de desenvolvedor na [Pluggy](https://dashboard.pluggy.ai) (gratuita)
+- Conta no [meu.pluggy.ai](https://meu.pluggy.ai) para conectar suas instituições financeiras
 
-## Arquitetura
+## Instalação e uso
 
-O sistema segue uma arquitetura em camadas:
+### 1. Obter o código
 
-1. **Camada de Apresentação**: Frontend React/HTML
-2. **Camada de API**: Flask com blueprints
-3. **Camada de Serviço**: Lógica de negócio
-4. **Camada de Repositório**: Acesso aos dados
-5. **Camada de Dados**: SQLite com thread safety
-
-### Padrões Utilizados
-- Repository Pattern para acesso aos dados
-- Service Layer para lógica de negócio
-- Dependency Injection nos serviços
-- Upsert inteligente para sincronização
-
-## Dados e Integrações
-
-### Pluggy API
-- Sincronização automática de dados bancários
-- Suporte a múltiplas instituições
-- Histórico de até 1 ano
-
-### Splitwise
-- Importação de gastos compartilhados
-- Matching automático com transações
-- Controle de liquidação
-
-## Testing
-
+**Opção A — Git:**
 ```bash
-# Executar todos os testes
-python -m unittest discover tests
-
-# Testes específicos
-python -m unittest tests.repositories
-python -m unittest tests.services
+git clone https://github.com/<seu-usuario>/personal-finance.git
+cd personal-finance
 ```
 
-## Deployment
+**Opção B — ZIP:**
 
-### Desenvolvimento
-O sistema roda localmente com Flask dev server e Vite dev server.
+Clique em **Code → Download ZIP** na página do repositório, extraia o arquivo e abra um terminal na pasta extraída.
 
-### Produção (Planejado)
-- Docker containerization
-- PostgreSQL/MySQL
-- Nginx reverse proxy
-- CI/CD pipeline
+### 2. Subir o container
 
-## Contribuição
+```bash
+docker-compose up --build
+```
 
-1. Fork o projeto
-2. Crie uma branch para sua feature
-3. Commit suas mudanças
-4. Push para a branch
-5. Abra um Pull Request
+O app ficará disponível em `http://localhost:5000`.
 
-## Licença
+Na primeira vez, a build do frontend React leva alguns minutos.
 
-Este projeto é de uso pessoal e educacional.
+### 3. Configuração inicial (onboarding)
+
+Ao acessar o app pela primeira vez, o assistente de configuração vai guiar você por três etapas:
+
+**Etapa 1 — Credenciais Pluggy**
+
+1. Acesse [dashboard.pluggy.ai](https://dashboard.pluggy.ai) e crie uma aplicação
+2. Em *Customization > Connectors > Personal > Direct Connectors*, habilite o conector **MeuPluggy**
+3. Cole o **Client ID** e **Client Secret** no formulário
+
+**Etapa 2 — Conectar contas**
+
+1. Acesse [meu.pluggy.ai](https://meu.pluggy.ai) e crie suas conexões (contas bancárias, corretoras)
+2. Clique em "Conectar conta" no app e faça login com sua conta do meu.pluggy.ai
+3. Repita para cada instituição que quiser importar
+
+**Etapa 3 — Sincronização inicial**
+
+Clique em "Sincronizar tudo" para importar até 1 ano de histórico. Isso pode levar alguns minutos.
+
+### 4. Sincronizações futuras
+
+Após a configuração inicial, use a página **Sincronizar** para atualizar os dados periodicamente. A sincronização incremental importa apenas os últimos 6 dias.
+
+## Persistência dos dados
+
+O banco de dados SQLite fica salvo em `./data/finance.db` no host. O diretório `data/` é montado como volume no container, então seus dados sobrevivem a reinicializações e rebuilds.
+
+```bash
+# Reiniciar sem perder dados
+docker-compose down
+docker-compose up
+
+# Rebuild da imagem (atualização do código) sem perder dados
+docker-compose up --build
+```
+
+## Desenvolvimento local
+
+```bash
+# Backend (Python 3.11+)
+pip install -r requirements.txt
+python app.py
+
+# Frontend (Node 18+), em outro terminal
+cd frontend
+npm install
+npm run dev
+```
+
+O frontend de desenvolvimento roda em `http://localhost:5173` com proxy para o backend em `http://localhost:5000`.
+
+### Testes
+
+```bash
+pytest tests/ --cov=services --cov=repositories --cov=utils --cov-report=term-missing
+```
+
+## Estrutura do projeto
+
+```
+personal-finance/
+├── api/routes/        # Endpoints Flask (blueprints)
+├── services/          # Lógica de negócio
+├── repositories/      # Acesso ao banco de dados (SQLite)
+├── models/            # Entidades de dados
+├── frontend/          # React + TypeScript (Vite)
+├── tests/             # Testes unitários
+├── app.py             # Entry point Flask
+├── init_db.py         # Schema do banco de dados
+├── pluggy_api.py      # Integração com a Pluggy API
+└── docker-compose.yml
+```

@@ -46,12 +46,6 @@ class TestSchemaIndexes(unittest.TestCase):
         plan = " ".join(row[-1] for row in cursor.fetchall())
         self.assertIn("idx_credit_transactions_excluded_date", plan)
 
-    def test_explain_uses_index_splitwise_transaction_id(self):
-        cursor = self.conn.cursor()
-        cursor.execute("EXPLAIN QUERY PLAN SELECT * FROM splitwise WHERE transaction_id = 'abc'")
-        plan = " ".join(row[-1] for row in cursor.fetchall())
-        self.assertIn("idx_splitwise_transaction_id", plan)
-
     def test_explain_uses_index_investments_date(self):
         cursor = self.conn.cursor()
         cursor.execute("EXPLAIN QUERY PLAN SELECT * FROM investments WHERE date = '2025-01-01'")

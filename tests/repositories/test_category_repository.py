@@ -33,7 +33,6 @@ class TestCategoryRepository(unittest.TestCase):
                 category_id TEXT,
                 type TEXT,
                 operation_type TEXT,
-                split_info TEXT,
                 payment_data TEXT
             )
         """
@@ -46,23 +45,7 @@ class TestCategoryRepository(unittest.TestCase):
                 description TEXT,
                 amount REAL,
                 category_id TEXT,
-                status TEXT,
-                split_info TEXT
-            )
-        """
-        )
-        self.repo.execute_query(
-            """
-            CREATE TABLE splitwise (
-                id TEXT PRIMARY KEY,
-                amount REAL,
-                date TEXT,
-                description TEXT,
-                category_id TEXT,
-                persons TEXT,
-                paid_by TEXT,
-                split_info TEXT,
-                transaction_id TEXT
+                status TEXT
             )
         """
         )

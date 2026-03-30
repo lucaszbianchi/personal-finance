@@ -26,7 +26,6 @@ class TransactionRepository(BaseRepository):
                 category_id,
                 type,
                 operation_type,
-                split_info,
                 payment_data,
                 excluded,
                 item_id
@@ -43,9 +42,6 @@ class TransactionRepository(BaseRepository):
                 category_id=row["category_id"],
                 type_=row["type"],
                 operation_type=row["operation_type"],
-                split_info=(
-                    json.loads(row["split_info"]) if row["split_info"] else None
-                ),
                 payment_data=(
                     json.loads(row["payment_data"]) if row["payment_data"] else None
                 ),
@@ -127,14 +123,13 @@ class TransactionRepository(BaseRepository):
     def get_bank_transaction_by_id(self, transaction_id: str) -> BankTransaction:
         """Retorna uma transação bancária específica pelo ID."""
         query = """
-            SELECT 
+            SELECT
                 bank_transactions.id AS id,
                 date,
                 description,
                 amount,
                 category_id,
                 operation_type,
-                split_info,
                 payment_data
             FROM bank_transactions
             WHERE bank_transactions.id = ?
@@ -151,9 +146,7 @@ class TransactionRepository(BaseRepository):
             description=row["description"],
             amount=row["amount"],
             category_id=row["category_id"],
-            type_=row["type"] if "type" in row.keys() else None,
             operation_type=row["operation_type"],
-            split_info=(json.loads(row["split_info"]) if row["split_info"] else None),
             payment_data=(
                 json.loads(row["payment_data"]) if row["payment_data"] else None
             ),
@@ -191,8 +184,8 @@ class TransactionRepository(BaseRepository):
         """Adiciona uma nova transação bancária."""
         query = """
             INSERT OR IGNORE INTO bank_transactions
-            (id, date, description, amount, category_id, type, operation_type, split_info, payment_data)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            (id, date, description, amount, category_id, type, operation_type, payment_data)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         """
         values = (
             bank_transaction.transaction_id,
@@ -202,11 +195,6 @@ class TransactionRepository(BaseRepository):
             bank_transaction.category_id,
             bank_transaction.type_,
             bank_transaction.operation_type,
-            (
-                json.dumps(bank_transaction.split_info)
-                if bank_transaction.split_info
-                else None
-            ),
             (
                 json.dumps(bank_transaction.payment_data)
                 if bank_transaction.payment_data
@@ -253,7 +241,6 @@ class TransactionRepository(BaseRepository):
             "category_id": lambda x: x,
             "operation_type": lambda x: x,
             "type": lambda x: x,
-            "split_info": lambda x: json.dumps(x) if x else None,
         }
 
         fields_to_update = []
@@ -337,29 +324,6 @@ class TransactionRepository(BaseRepository):
         cursor = self.execute_query(query, values)
         row = cursor.fetchone()
         return row["count"] > 0
-
-    def get_unlinked_transactions(self) -> List[BankTransaction]:
-        """Retorna transações bancárias que não estão vinculadas a nenhum splitwise (split_info vazio ou None)."""
-        query = """
-            SELECT id, date, description, amount, category_id, operation_type, split_info, payment_data
-            FROM bank_transactions
-            WHERE split_info IS NULL OR split_info = ''
-            ORDER BY date DESC
-        """
-        cursor = self.execute_query(query)
-        return [
-            BankTransaction(
-                transaction_id=row["id"],
-                date=self.date_helper.format_date(row["date"]),
-                description=row["description"],
-                amount=row["amount"],
-                category_id=row["category_id"],
-                operation_type=row["operation_type"],
-                split_info=None,
-                payment_data=json.loads(row["payment_data"]),
-            )
-            for row in cursor.fetchall()
-        ]
 
     # Métodos de Upsert usando a nova funcionalidade do BaseRepository
 
@@ -621,25 +585,6 @@ class TransactionRepository(BaseRepository):
                 f"Transação bancária com ID {transaction_id} não encontrada"
             ) from exc
 
-        # Verifica se a transação está sendo referenciada no splitwise
-        query_check_splitwise = """
-            SELECT COUNT(*) as count
-            FROM splitwise
-            WHERE transaction_id = ?
-        """
-        cursor = self.execute_query(query_check_splitwise, (transaction_id,))
-        if cursor.fetchone()["count"] > 0:
-            raise ValueError(
-                f"Não é possível deletar transação '{transaction.description}'. Ela está vinculada a entradas do Splitwise."
-            )
-
-        # Verifica se faz parte de alguma divisão (split_info)
-        if transaction.split_info:
-            raise ValueError(
-                f"Não é possível deletar transação '{transaction.description}'. Ela possui informações de divisão."
-            )
-
-        # Deleta a transação
         query = "DELETE FROM bank_transactions WHERE id = ?"
         cursor = self.execute_query(query, (transaction_id,))
         return cursor.rowcount > 0
@@ -668,19 +613,6 @@ class TransactionRepository(BaseRepository):
                 f"Transação de crédito com ID {transaction_id} não encontrada"
             ) from exc
 
-        # Verifica se a transação está sendo referenciada no splitwise
-        query_check_splitwise = """
-            SELECT COUNT(*) as count
-            FROM splitwise
-            WHERE transaction_id = ?
-        """
-        cursor = self.execute_query(query_check_splitwise, (transaction_id,))
-        if cursor.fetchone()["count"] > 0:
-            raise ValueError(
-                f"Não é possível deletar transação '{transaction.description}'. Ela está vinculada a entradas do Splitwise."
-            )
-
-        # Deleta a transação
         query = "DELETE FROM credit_transactions WHERE id = ?"
         cursor = self.execute_query(query, (transaction_id,))
         return cursor.rowcount > 0

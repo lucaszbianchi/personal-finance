@@ -7,7 +7,6 @@ export interface Transaction {
   date: string;
   category_id?: string;
   subcategory?: string;
-  split_info?: SplitInfo;
   created_at: string;
   updated_at: string;
 }
@@ -21,14 +20,6 @@ export interface CreditTransaction extends Transaction {
   type: 'credit';
   installments?: number;
   installment_number?: number;
-}
-
-export interface SplitInfo {
-  partners: Array<{
-    person_id: string;
-    share: number;
-  }>;
-  settled_up: boolean;
 }
 
 export interface Category {
@@ -116,7 +107,6 @@ export interface CreateBankTransactionRequest {
   category_id?: string;
   type?: string;
   operation_type?: string;
-  split_info?: any;
   payment_data?: any;
 }
 

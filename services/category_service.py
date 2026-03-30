@@ -1,7 +1,6 @@
 from typing import List
 from repositories.category_repository import CategoryRepository
 from repositories.transaction_repository import TransactionRepository
-from repositories.splitwise_repository import SplitwiseRepository
 from models.category import Category
 
 
@@ -13,7 +12,6 @@ class CategoryService:
     def __init__(self):
         self.category_repo = CategoryRepository()
         self.transaction_repo = TransactionRepository()
-        self.splitwise_repo = SplitwiseRepository()
 
     def get_all_categories(self) -> List[dict]:
         """Retorna todas as categorias com suas respectivas contagens de transações."""
@@ -85,15 +83,13 @@ class CategoryService:
         if not category:
             raise ValueError(f"Categoria '{category_name}' não encontrada")
 
-        if self.transaction_repo.category_in_use(
-            category.id
-        ) or self.splitwise_repo.category_in_use(category.id):
+        if self.transaction_repo.category_in_use(category.id):
             raise ValueError(
                 f"Categoria '{category_name}' está em uso e não pode ser deletada"
             )
 
         # Verificar se algum filho está em uso por transações.
-        # Custo: 1 query (get_children_of) + 2 queries por filho (transaction + splitwise).
+        # Custo: 1 query (get_children_of) + 1 query por filho.
         # Aceitável dado que categorias têm cardinalidade baixa. Refatorar para JOIN
         # caso o número de filhos por categoria cresça significativamente.
         children = self.category_repo.get_children_of(category.id)
@@ -101,7 +97,6 @@ class CategoryService:
             child.description
             for child in children
             if self.transaction_repo.category_in_use(child.id)
-            or self.splitwise_repo.category_in_use(child.id)
         ]
         if children_in_use:
             raise ValueError(

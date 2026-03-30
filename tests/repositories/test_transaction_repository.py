@@ -31,7 +31,6 @@ class TestTransactionRepository(unittest.TestCase):
                 category_id TEXT,
                 type TEXT,
                 operation_type TEXT,
-                split_info TEXT,
                 payment_data TEXT,
                 excluded INTEGER DEFAULT 0,
                 item_id TEXT,
@@ -87,17 +86,6 @@ class TestTransactionRepository(unittest.TestCase):
         """
         )
 
-        # Tabela splitwise
-        self.repo.execute_query(
-            """
-            CREATE TABLE splitwise (
-                id TEXT PRIMARY KEY,
-                transaction_id TEXT,
-                amount REAL
-            )
-        """
-        )
-
         # Tabela persons
         self.repo.execute_query(
             """
@@ -129,7 +117,6 @@ class TestTransactionRepository(unittest.TestCase):
             category_id="cat123",
             type_="debit",
             operation_type="PIX",
-            split_info={"split": True},
             payment_data={"method": "pix"},
         )
         self.repo.add_bank_transaction(txn)
@@ -212,7 +199,6 @@ class TestTransactionRepository(unittest.TestCase):
             category_id="cat123",
             type_="debit",
             operation_type="PIX",
-            split_info=None,
             payment_data=None,
         )
         self.repo.add_bank_transaction(bank_txn)
@@ -330,7 +316,6 @@ class TestTransactionRepository(unittest.TestCase):
             category_id="cat123",
             type_="debit",
             operation_type="PIX",
-            split_info=None,
             payment_data=None,
         )
         self.repo.add_bank_transaction(txn)
@@ -340,47 +325,6 @@ class TestTransactionRepository(unittest.TestCase):
 
         # Categoria não usada deve retornar False
         self.assertFalse(self.repo.category_in_use("cat999"))
-
-    # Testes para linhas 326-333: get_unlinked_transactions
-    def test_get_unlinked_transactions(self):
-        """Testa get_unlinked_transactions - linhas 326-333"""
-        self._create_test_category()
-
-        # Transação sem split_info (não vinculada)
-        unlinked_txn = BankTransaction(
-            transaction_id="unlinked-123",
-            amount=100.0,
-            date="2023-01-07",
-            description="Unlinked Transaction",
-            category_id="cat123",
-            type_="debit",
-            operation_type="PIX",
-            split_info=None,  # Sem informação de divisão
-            payment_data={"test": "data"},
-        )
-        self.repo.add_bank_transaction(unlinked_txn)
-
-        # Transação com split_info (vinculada)
-        linked_txn = BankTransaction(
-            transaction_id="linked-123",
-            amount=200.0,
-            date="2023-01-08",
-            description="Linked Transaction",
-            category_id="cat123",
-            type_="debit",
-            operation_type="PIX",
-            split_info={"split": True},  # Com informação de divisão
-            payment_data={"test": "data"},
-        )
-        self.repo.add_bank_transaction(linked_txn)
-
-        unlinked = self.repo.get_unlinked_transactions()
-        self.assertIsInstance(unlinked, list)
-
-        # Verificar se apenas a transação não vinculada está na lista
-        unlinked_ids = [t.transaction_id for t in unlinked]
-        self.assertIn("unlinked-123", unlinked_ids)
-        self.assertNotIn("linked-123", unlinked_ids)
 
     # Testes para linhas 334-341: set_excluded
     def test_set_excluded_marks_bank_transaction(self):
@@ -806,57 +750,6 @@ class TestTransactionRepository(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.repo.delete_bank_transaction("")
 
-    def test_delete_bank_transaction_with_splitwise_reference(self):
-        """Testa deleção de transação bancária vinculada ao Splitwise"""
-        self._create_test_category()
-
-        # Criar transação
-        transaction = BankTransaction(
-            transaction_id="split-ref-123",
-            amount=120.0,
-            date="2023-01-14",
-            description="With Splitwise Ref",
-            category_id="cat123",
-            type_="debit",
-            operation_type="PIX",
-        )
-        self.repo.add_bank_transaction(transaction)
-
-        # Adicionar referência no splitwise
-        self.repo.execute_query(
-            "INSERT INTO splitwise (id, transaction_id, amount) VALUES (?, ?, ?)",
-            ("split-123", "split-ref-123", 60.0),
-        )
-
-        # Tentar deletar deve falhar
-        with self.assertRaises(ValueError) as context:
-            self.repo.delete_bank_transaction("split-ref-123")
-
-        self.assertIn("vinculada a entradas do Splitwise", str(context.exception))
-
-    def test_delete_bank_transaction_with_split_info(self):
-        """Testa deleção de transação bancária com split_info"""
-        self._create_test_category()
-
-        # Criar transação com split_info
-        transaction = BankTransaction(
-            transaction_id="split-info-123",
-            amount=120.0,
-            date="2023-01-14",
-            description="With Split Info",
-            category_id="cat123",
-            type_="debit",
-            operation_type="PIX",
-            split_info={"split": True},
-        )
-        self.repo.add_bank_transaction(transaction)
-
-        # Tentar deletar deve falhar
-        with self.assertRaises(ValueError) as context:
-            self.repo.delete_bank_transaction("split-info-123")
-
-        self.assertIn("possui informações de divisão", str(context.exception))
-
     # Testes para linhas 607-633: delete_credit_transaction
     def test_delete_credit_transaction(self):
         """Testa delete_credit_transaction - linhas 607-633"""
@@ -881,34 +774,8 @@ class TestTransactionRepository(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.repo.get_credit_transaction_by_id("delete-credit-123")
 
-    def test_delete_credit_transaction_with_splitwise_reference(self):
-        """Testa deleção de transação de crédito vinculada ao Splitwise"""
-        self._create_test_category()
-
-        # Criar transação de crédito
-        transaction = CreditTransaction(
-            transaction_id="credit-split-123",
-            amount=90.0,
-            date="2023-01-15",
-            description="Credit with Splitwise",
-            category_id="cat123",
-            status="POSTED",
-        )
-        self.repo.add_credit_transaction(transaction)
-
-        # Adicionar referência no splitwise
-        self.repo.execute_query(
-            "INSERT INTO splitwise (id, transaction_id, amount) VALUES (?, ?, ?)",
-            ("credit-split", "credit-split-123", 45.0),
-        )
-
-        # Tentar deletar deve falhar
-        with self.assertRaises(ValueError) as context:
-            self.repo.delete_credit_transaction("credit-split-123")
-
-        self.assertIn("vinculada a entradas do Splitwise", str(context.exception))
-
-        # Testar validação de ID vazio para crédito
+    def test_delete_credit_transaction_invalid_id(self):
+        """Testa delete_credit_transaction com ID vazio."""
         with self.assertRaises(ValueError):
             self.repo.delete_credit_transaction("")
 

@@ -1,7 +1,6 @@
 """Testes para TransactionService"""
 
 import unittest
-from datetime import datetime
 from unittest.mock import MagicMock, patch
 from services.transaction_service import TransactionService
 
@@ -12,15 +11,13 @@ class TestTransactionService(unittest.TestCase):
     def setUp(self):
         with patch("services.transaction_service.TransactionRepository"), patch(
             "services.transaction_service.CategoryRepository"
-        ), patch("services.transaction_service.PersonRepository"):
+        ):
             self.service = TransactionService()
 
         self.mock_repo = MagicMock()
         self.mock_cat_repo = MagicMock()
-        self.mock_person_repo = MagicMock()
         self.service.transaction_repository = self.mock_repo
         self.service.category_repository = self.mock_cat_repo
-        self.service.person_repository = self.mock_person_repo
 
     def test_get_bank_transactions(self):
         """Testa get_bank_transactions sem filtros"""
@@ -108,238 +105,6 @@ class TestTransactionService(unittest.TestCase):
         self.mock_repo.bulk_update_category.return_value = 2
         result = self.service.bulk_update_category("bank", ["id1", "id2"], None)
         self.assertEqual(result, 2)
-
-    def test_add_person_to_share_transaction_bank(self):
-        """Testa add_person_to_share_transaction com banco"""
-        partners = {"p1": 50.0, "p2": 50.0}
-        self.mock_repo.update_bank_transaction.return_value = True
-        result = self.service.add_person_to_share_transaction("bank", "txid", partners)
-        self.mock_repo.update_bank_transaction.assert_called_once()
-        self.assertTrue(result)
-
-    def test_add_person_to_share_transaction_credit(self):
-        """Testa add_person_to_share_transaction com crédito - linhas 120-124"""
-        partners = {"p1": 30.0, "p2": 70.0}
-        self.mock_repo.update_credit_transaction.return_value = True
-        result = self.service.add_person_to_share_transaction(
-            "credit", "txid", partners
-        )
-
-        self.mock_repo.update_credit_transaction.assert_called_once()
-        self.assertTrue(result)
-
-    def test_add_person_to_share_transaction_invalid_type(self):
-        """Testa add_person_to_share_transaction com tipo inválido"""
-        partners = {"p1": 50.0}
-        result = self.service.add_person_to_share_transaction(
-            "invalid", "txid", partners
-        )
-        self.assertFalse(result)
-
-    def test_settle_up_split_invalid_document_type(self):
-        """Testa settle_up_split com tipo de documento inválido - linha 135"""
-        mock_transaction = MagicMock(
-            payment_data={"payer": {"documentNumber": {"type": "CNPJ", "value": "123"}}}
-        )
-        self.mock_repo.get_bank_transaction_by_id.return_value = mock_transaction
-
-        with self.assertRaises(ValueError) as context:
-            self.service.settle_up_split("txid")
-
-        self.assertIn("Apenas CPFs são suportados", str(context.exception))
-
-    def test_settle_up_split_success(self):
-        """Testa settle_up_split com sucesso"""
-        mock_transaction = MagicMock(
-            payment_data={
-                "payer": {"documentNumber": {"type": "CPF", "value": "12345678901"}}
-            }
-        )
-        self.mock_repo.get_bank_transaction_by_id.return_value = mock_transaction
-        self.mock_repo.update_bank_transaction.return_value = True
-
-        result = self.service.settle_up_split("txid")
-
-        self.mock_repo.update_bank_transaction.assert_called_with(
-            "txid", {"split_info": {"settle_up": True, "partner_id": "12345678901"}}
-        )
-        self.assertTrue(result)
-
-    def test_add_category_to_settle_up_transaction_not_settle_up(self):
-        """Testa add_category_to_settle_up_transaction quando não é settle up - linha 153"""
-        mock_transaction = MagicMock(split_info={"settle_up": False})
-        self.mock_repo.get_bank_transaction_by_id.return_value = mock_transaction
-
-        with self.assertRaises(ValueError) as context:
-            self.service.add_category_to_settle_up_transaction("txid", "catid")
-
-        self.assertIn("não é uma transação de 'settle up'", str(context.exception))
-
-    def test_add_category_to_settle_up_transaction_no_split_info(self):
-        """Testa add_category_to_settle_up_transaction sem split_info"""
-        mock_transaction = MagicMock(split_info=None)
-        self.mock_repo.get_bank_transaction_by_id.return_value = mock_transaction
-
-        with self.assertRaises(ValueError) as context:
-            self.service.add_category_to_settle_up_transaction("txid", "catid")
-
-        self.assertIn("não é uma transação de 'settle up'", str(context.exception))
-
-    def test_add_category_to_settle_up_transaction_success(self):
-        """Testa add_category_to_settle_up_transaction com sucesso"""
-        mock_transaction = MagicMock(split_info={"settle_up": True, "partner_id": "p1"})
-        self.mock_repo.get_bank_transaction_by_id.return_value = mock_transaction
-        self.mock_repo.update_bank_transaction.return_value = True
-        result = self.service.add_category_to_settle_up_transaction("txid", "catid")
-        self.mock_repo.update_bank_transaction.assert_called_once()
-        self.assertTrue(result)
-
-    def test_check_split_settle_up_no_partner_id(self):
-        """Testa check_split_settle_up com transação sem partner_id - linha 183"""
-        mock_transaction = MagicMock(
-            split_info={"settle_up": True, "partner_id": None},
-            transaction_id="txid",
-            amount=100.0,
-            description="settle up",
-        )
-        self.mock_repo.get_bank_transactions.return_value = [mock_transaction]
-        self.mock_person_repo.get_all_people.return_value = []
-
-        result = self.service.check_split_settle_up()
-        self.assertEqual(result, [])
-
-    def test_check_split_settle_up_with_partner_creation(self):
-        """Testa check_split_settle_up criando novo partner no result - linhas 188-196"""
-        mock_transaction = MagicMock(
-            split_info={
-                "settle_up": True,
-                "partner_id": "new_partner",
-                "category": "cat1",
-            },
-            transaction_id="txid",
-            date=datetime.strptime("2025-01-01", "%Y-%m-%d"),
-            amount=100.0,
-            description="settle up",
-        )
-        self.mock_repo.get_bank_transactions.return_value = [mock_transaction]
-        self.mock_person_repo.get_all_people.return_value = [
-            MagicMock(id="new_partner", name="New Partner")
-        ]
-
-        result = self.service.check_split_settle_up()
-        self.assertEqual(len(result), 1)
-        self.assertEqual(result[0]["person_id"], "new_partner")
-        self.assertEqual(result[0]["total_settle_up"], 100.0)
-
-    def test_check_split_settle_up_with_category(self):
-        """Testa check_split_settle_up com categoria - linhas 208-213"""
-        mock_transaction = MagicMock(
-            split_info={"settle_up": True, "partner_id": "p1", "category": "cat1"},
-            transaction_id="txid",
-            date=datetime.strptime("2025-01-01", "%Y-%m-%d"),
-            amount=100.0,
-            description="settle up with category",
-        )
-        self.mock_repo.get_bank_transactions.return_value = [mock_transaction]
-        self.mock_person_repo.get_all_people.return_value = [
-            MagicMock(id="p1", name="Partner 1")
-        ]
-
-        result = self.service.check_split_settle_up()
-        self.assertEqual(len(result), 1)
-        self.assertIn("cat1", result[0]["categories"])
-
-    def test_check_split_settle_up_with_splits(self):
-        """Testa check_split_settle_up com partners - linhas 222-254"""
-        # Transação com partners no split_info
-        mock_transaction = MagicMock(
-            split_info={
-                "partners": [
-                    {"person_id": "p1", "share": 50.0},
-                    {"person_id": "p2", "share": 30.0},
-                ]
-            },
-            transaction_id="txid",
-            date=datetime.strptime("2025-01-01", "%Y-%m-%d"),
-            amount=100.0,
-            description="split transaction",
-            category_id="cat1",
-        )
-        self.mock_repo.get_bank_transactions.return_value = [mock_transaction]
-        self.mock_person_repo.get_all_people.return_value = [
-            MagicMock(id="p1", name="Partner 1"),
-            MagicMock(id="p2", name="Partner 2"),
-        ]
-
-        result = self.service.check_split_settle_up()
-
-        # Verifica se p1 e p2 estão no resultado
-        partner_ids = [r["person_id"] for r in result]
-        self.assertIn("p1", partner_ids)
-        self.assertIn("p2", partner_ids)
-
-        # Verifica valores
-        p1_result = next(r for r in result if r["person_id"] == "p1")
-        self.assertEqual(p1_result["total_splits"], 50.0)
-
-    def test_check_split_settle_up_with_splits_no_person_id(self):
-        """Testa check_split_settle_up com partner sem person_id"""
-        mock_transaction = MagicMock(
-            split_info={
-                "partners": [
-                    {"person_id": None, "share": 50.0}  # Partner sem person_id
-                ]
-            },
-            transaction_id="txid",
-        )
-        self.mock_repo.get_bank_transactions.return_value = [mock_transaction]
-        self.mock_person_repo.get_all_people.return_value = []
-
-        result = self.service.check_split_settle_up()
-        self.assertEqual(result, [])
-
-    def test_check_split_settle_up_person_not_in_result(self):
-        """Testa check_split_settle_up com pessoa não no resultado - linha 262"""
-        self.mock_repo.get_bank_transactions.return_value = []
-        self.mock_person_repo.get_all_people.return_value = [
-            MagicMock(id="p_without_transactions", name="Person Without Transactions")
-        ]
-
-        result = self.service.check_split_settle_up()
-        self.assertEqual(result, [])
-
-    def test_check_split_settle_up_categories_diff(self):
-        """Testa check_split_settle_up com diferenças por categoria - linha 271"""
-        # Transação settle up
-        settle_up_transaction = MagicMock(
-            split_info={"settle_up": True, "partner_id": "p1", "category": "cat1"},
-            transaction_id="settle_txid",
-            date=datetime.strptime("2025-01-01", "%Y-%m-%d"),
-            amount=100.0,
-            description="settle up",
-        )
-
-        # Transação split
-        split_transaction = MagicMock(
-            split_info={"partners": [{"person_id": "p1", "share": 60.0}]},
-            transaction_id="split_txid",
-            date=datetime.strptime("2025-01-02", "%Y-%m-%d"),
-            amount=120.0,
-            description="split transaction",
-            category_id="cat1",
-        )
-
-        self.mock_repo.get_bank_transactions.return_value = [
-            settle_up_transaction,
-            split_transaction,
-        ]
-        self.mock_person_repo.get_all_people.return_value = [
-            MagicMock(id="p1", name="Partner 1")
-        ]
-
-        result = self.service.check_split_settle_up()
-        self.assertEqual(len(result), 1)
-        self.assertEqual(result[0]["categories"]["cat1"], 40.0)  # 100 - 60
 
     def test_create_bank_transaction_missing_id(self):
         """Testa create_bank_transaction sem ID - linha 300-301"""
@@ -438,7 +203,6 @@ class TestTransactionService(unittest.TestCase):
             "category_id": "cat1",
             "type": "debit",
             "operation_type": "PIX",
-            "split_info": {"test": True},
             "payment_data": {"method": "pix"},
         }
 
@@ -579,25 +343,9 @@ class TestTransactionService(unittest.TestCase):
             "Não é possível deletar transação de investimento", str(context.exception)
         )
 
-    @patch("builtins.print")
-    def test_delete_bank_transaction_with_split_info_warning(self, mock_print):
-        """Testa delete_bank_transaction com split_info (aviso) - linhas 424-425"""
-        mock_transaction = MagicMock(
-            description="Normal Transaction",
-            split_info={"partners": [{"person_id": "p1", "share": 50.0}]},
-        )
-        self.mock_repo.get_bank_transaction_by_id.return_value = mock_transaction
-        self.mock_repo.delete_bank_transaction.return_value = True
-
-        result = self.service.delete_bank_transaction("txid")
-
-        mock_print.assert_called_once()
-        self.assertIn("Aviso: Deletando transação", mock_print.call_args[0][0])
-        self.assertTrue(result)
-
     def test_delete_bank_transaction_success(self):
-        """Testa delete_bank_transaction com sucesso - linha 428"""
-        mock_transaction = MagicMock(description="Normal Transaction", split_info=None)
+        """Testa delete_bank_transaction com sucesso"""
+        mock_transaction = MagicMock(description="Normal Transaction")
         self.mock_repo.get_bank_transaction_by_id.return_value = mock_transaction
         self.mock_repo.delete_bank_transaction.return_value = True
 

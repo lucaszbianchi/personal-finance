@@ -6,7 +6,6 @@ export const API_ENDPOINTS = {
   SUMMARY: '/api/summary',
   DASHBOARD: '/api/dashboard',
   IMPORT: '/api/import',
-  SPLITWISE: '/api/splitwise',
 } as const;
 
 export const TRANSACTION_TYPES = {

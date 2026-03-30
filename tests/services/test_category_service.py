@@ -12,19 +12,16 @@ class TestCategoryService(unittest.TestCase):
     def setUp(self):
         # Patch all repository dependencies
         with patch("services.category_service.CategoryRepository"), \
-             patch("services.category_service.TransactionRepository"), \
-             patch("services.category_service.SplitwiseRepository"):
+             patch("services.category_service.TransactionRepository"):
             self.service = CategoryService()
 
         # Create mocks for all repositories
         self.mock_category_repo = MagicMock()
         self.mock_transaction_repo = MagicMock()
-        self.mock_splitwise_repo = MagicMock()
 
         # Assign mocks to service
         self.service.category_repo = self.mock_category_repo
         self.service.transaction_repo = self.mock_transaction_repo
-        self.service.splitwise_repo = self.mock_splitwise_repo
 
     def test_get_all_categories(self):
         """Testa obtenção de todas as categorias"""
@@ -179,7 +176,6 @@ class TestCategoryService(unittest.TestCase):
 
         self.mock_category_repo.get_category_by_name.return_value = mock_category
         self.mock_transaction_repo.category_in_use.return_value = False
-        self.mock_splitwise_repo.category_in_use.return_value = False
         self.mock_category_repo.get_children_of.return_value = []
         self.mock_category_repo.delete_category.return_value = True
 
@@ -206,7 +202,6 @@ class TestCategoryService(unittest.TestCase):
         self.assertEqual(str(context.exception), f"Categoria '{category_name}' não encontrada")
         self.mock_category_repo.get_category_by_name.assert_called_once_with(category_name)
         self.mock_transaction_repo.category_in_use.assert_not_called()
-        self.mock_splitwise_repo.category_in_use.assert_not_called()
         self.mock_category_repo.delete_category.assert_not_called()
 
     def test_delete_category_in_use_by_transactions(self):
@@ -218,7 +213,6 @@ class TestCategoryService(unittest.TestCase):
 
         self.mock_category_repo.get_category_by_name.return_value = mock_category
         self.mock_transaction_repo.category_in_use.return_value = True
-        self.mock_splitwise_repo.category_in_use.return_value = False
 
         # Act & Assert
         with self.assertRaises(ValueError) as context:
@@ -263,28 +257,6 @@ class TestCategoryService(unittest.TestCase):
         self.assertIn(category_id, str(context.exception))
         self.mock_category_repo.update_category_fields.assert_called_once()
 
-    def test_delete_category_in_use_by_splitwise(self):
-        """Testa tentativa de exclusão de categoria em uso por Splitwise"""
-        # Arrange
-        category_name = "Categoria em Uso"
-        mock_category = MagicMock()
-        mock_category.id = "cat123"
-
-        self.mock_category_repo.get_category_by_name.return_value = mock_category
-        self.mock_transaction_repo.category_in_use.return_value = False
-        self.mock_splitwise_repo.category_in_use.return_value = True
-
-        # Act & Assert
-        with self.assertRaises(ValueError) as context:
-            self.service.delete_category(category_name)
-
-        expected_message = f"Categoria '{category_name}' está em uso e não pode ser deletada"
-        self.assertEqual(str(context.exception), expected_message)
-        self.mock_category_repo.get_category_by_name.assert_called_once_with(category_name)
-        self.mock_transaction_repo.category_in_use.assert_called_once_with("cat123")
-        self.mock_splitwise_repo.category_in_use.assert_called_once_with("cat123")
-        self.mock_category_repo.delete_category.assert_not_called()
-
     def test_delete_parent_category_clears_children_refs(self):
         """Deletar categoria pai limpa parent_id/parent_description dos filhos"""
         # Arrange
@@ -301,7 +273,6 @@ class TestCategoryService(unittest.TestCase):
 
         self.mock_category_repo.get_category_by_name.return_value = mock_parent
         self.mock_transaction_repo.category_in_use.return_value = False
-        self.mock_splitwise_repo.category_in_use.return_value = False
         self.mock_category_repo.get_children_of.return_value = [mock_child1, mock_child2]
         self.mock_category_repo.delete_category.return_value = True
 
@@ -328,7 +299,6 @@ class TestCategoryService(unittest.TestCase):
         self.mock_category_repo.get_category_by_name.return_value = mock_parent
         # O próprio pai não está em uso
         self.mock_transaction_repo.category_in_use.side_effect = lambda id_: id_ == "01010000"
-        self.mock_splitwise_repo.category_in_use.return_value = False
         self.mock_category_repo.get_children_of.return_value = [mock_child]
 
         # Act & Assert
@@ -348,7 +318,6 @@ class TestCategoryService(unittest.TestCase):
 
         self.mock_category_repo.get_category_by_name.return_value = mock_category
         self.mock_transaction_repo.category_in_use.return_value = False
-        self.mock_splitwise_repo.category_in_use.return_value = False
         self.mock_category_repo.get_children_of.return_value = []
         self.mock_category_repo.delete_category.return_value = True
 

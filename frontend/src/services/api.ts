@@ -257,8 +257,6 @@ export interface SyncResponse {
     credit_transactions_updated: number;
     investments_inserted: number;
     investments_updated: number;
-    splitwise_inserted: number;
-    splitwise_updated: number;
     rate_limit_usage: RateLimitUsage[];
   };
 }
@@ -277,10 +275,6 @@ export const importService = {
     return response.data.usage;
   },
 
-  importSplitwise: async (): Promise<ApiResponse<void>> => {
-    const response = await api.post('/import/splitwise');
-    return response.data;
-  },
 };
 
 export const databaseService = {
@@ -386,7 +380,6 @@ export const onboardingService = {
   saveCredentials: async (data: {
     client_id: string;
     client_secret: string;
-    splitwise_account_name?: string;
   }) => {
     const response = await api.post('/onboarding/credentials', data);
     return response.data;

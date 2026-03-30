@@ -30,9 +30,7 @@ class TestFinanceSummaryService(unittest.TestCase):
     def setUp(self):
         with patch("services.finance_summary_service.TransactionService"), \
              patch("services.finance_summary_service.TransactionRepository"), \
-             patch("services.finance_summary_service.PersonRepository"), \
-             patch("services.finance_summary_service.CategoryRepository"), \
-             patch("services.finance_summary_service.SplitwiseRepository"):
+             patch("services.finance_summary_service.CategoryRepository"):
             self.service = FinanceSummaryService()
 
         self.mock_transaction_service = MagicMock()

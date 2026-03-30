@@ -35,12 +35,7 @@ class OnboardingService:
         self.settings_repo.delete_value("onboarding_completed")
         return self.get_status()
 
-    def save_credentials(
-        self,
-        client_id: str,
-        client_secret: str,
-        splitwise_account_name: str | None = None,
-    ) -> None:
+    def save_credentials(self, client_id: str, client_secret: str) -> None:
         """Salva credenciais Pluggy na tabela settings."""
         if not client_id or not client_id.strip():
             raise ValueError("client_id e obrigatorio")
@@ -49,11 +44,6 @@ class OnboardingService:
 
         self.settings_repo.set_value("pluggy_client_id", client_id.strip())
         self.settings_repo.set_value("pluggy_client_secret", client_secret.strip())
-
-        if splitwise_account_name and splitwise_account_name.strip():
-            self.settings_repo.set_value(
-                "splitwise_account_name", splitwise_account_name.strip()
-            )
 
     def _has_credentials(self) -> bool:
         client_id = self.settings_repo.get_value("pluggy_client_id")
