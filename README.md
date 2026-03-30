@@ -23,6 +23,7 @@ Sistema de gestão financeira pessoal integrado com a [Pluggy API](https://plugg
 ### 1. Obter o código
 
 **Opção A — Git:**
+
 ```bash
 git clone https://github.com/<seu-usuario>/personal-finance.git
 cd personal-finance
@@ -49,7 +50,7 @@ Ao acessar o app pela primeira vez, o assistente de configuração vai guiar voc
 **Etapa 1 — Credenciais Pluggy**
 
 1. Acesse [dashboard.pluggy.ai](https://dashboard.pluggy.ai) e crie uma aplicação
-2. Em *Customization > Connectors > Personal > Direct Connectors*, habilite o conector **MeuPluggy**
+2. Em _Customization > Connectors > Personal > Direct Connectors_, habilite o conector **MeuPluggy**
 3. Cole o **Client ID** e **Client Secret** no formulário
 
 **Etapa 2 — Conectar contas**
@@ -79,15 +80,9 @@ docker-compose up
 docker-compose up --build
 ```
 
-## Atualizando de uma versão anterior
-
-Se você já usava o app e armazenava as credenciais Pluggy em um arquivo `.env`, elas **não são migradas automaticamente**. Ao atualizar, acesse o app e siga o assistente de configuração novamente para inserir seu **Client ID** e **Client Secret** via onboarding.
-
 ## Desenvolvimento local
 
 ```bash
-# Copiar variáveis de ambiente (opcional)
-cp .env.example .env
 
 # Backend (Python 3.11+)
 pip install -r requirements.txt
