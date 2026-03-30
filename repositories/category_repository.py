@@ -1,12 +1,12 @@
 from typing import List
-from repositories.base_repository import BaseRepository
+from repositories.base_repository import BaseRepository, DEFAULT_DB_PATH
 from models.category import Category
 
 
 class CategoryRepository(BaseRepository):
     """Repositório para gerenciar operações de banco de dados relacionadas a categorias."""
 
-    def __init__(self, db_path: str = "finance.db"):
+    def __init__(self, db_path: str = DEFAULT_DB_PATH):
         super().__init__(db_path=db_path)
 
     def get_all_categories(self) -> List[dict]:

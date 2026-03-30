@@ -2,7 +2,7 @@ from typing import List
 import json
 from utils.date_helper import DateHelper
 from utils.installment_helper import INSTALLMENT_RE as _INSTALLMENT_RE
-from repositories.base_repository import BaseRepository
+from repositories.base_repository import BaseRepository, DEFAULT_DB_PATH
 from models.transaction import BankTransaction, CreditTransaction
 from models.investment import Investment
 from repositories.investment_repository import InvestmentRepository
@@ -11,7 +11,7 @@ from repositories.investment_repository import InvestmentRepository
 class TransactionRepository(BaseRepository):
     """Repositório para gerenciar operações de banco de dados relacionadas a transações."""
 
-    def __init__(self, db_path: str = "finance.db"):
+    def __init__(self, db_path: str = DEFAULT_DB_PATH):
         super().__init__(db_path=db_path)
         self.date_helper = DateHelper()
 

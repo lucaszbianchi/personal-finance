@@ -1,7 +1,7 @@
 """Repository for automation rules."""
 
 import json
-from repositories.base_repository import BaseRepository
+from repositories.base_repository import BaseRepository, DEFAULT_DB_PATH
 
 _FIELD_TO_COL = {
     "description": "description",
@@ -18,7 +18,7 @@ _AMOUNT_OPERATORS = {"equals": "=", "gt": ">", "lt": "<"}
 
 
 class AutomationRepository(BaseRepository):
-    def __init__(self, db_path: str = "finance.db"):
+    def __init__(self, db_path: str = DEFAULT_DB_PATH):
         super().__init__(db_path)
 
     def _row_to_dict(self, row) -> dict:

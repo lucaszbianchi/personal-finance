@@ -1,10 +1,10 @@
 from typing import Any, Optional
 import json
-from repositories.base_repository import BaseRepository
+from repositories.base_repository import BaseRepository, DEFAULT_DB_PATH
 
 
 class SettingsRepository(BaseRepository):
-    def __init__(self, db_path: str = "finance.db"):
+    def __init__(self, db_path: str = DEFAULT_DB_PATH):
         super().__init__(db_path=db_path)
 
     def set_value(self, key: str, value: Any) -> None:

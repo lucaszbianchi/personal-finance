@@ -8,3 +8,4 @@ services:
     environment:
       - DB_PATH=/app/data/finance.db
       - FLASK_HOST=0.0.0.0
+      - FLASK_USE_RELOADER=false

@@ -1,10 +1,10 @@
 """Repository for category visualization queries (expense history & distribution)."""
 
-from repositories.base_repository import BaseRepository
+from repositories.base_repository import BaseRepository, DEFAULT_DB_PATH
 
 
 class CategoryVisualizationRepository(BaseRepository):
-    def __init__(self, db_path: str = "finance.db"):
+    def __init__(self, db_path: str = DEFAULT_DB_PATH):
         super().__init__(db_path)
 
     def get_expenses_by_month_and_category(self, start_date: str) -> list[dict]:

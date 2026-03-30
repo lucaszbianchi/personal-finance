@@ -3,7 +3,7 @@ Repository para gerenciar operações de banco de dados relacionadas a investime
 """
 
 from typing import List, Dict, Any
-from repositories.base_repository import BaseRepository
+from repositories.base_repository import BaseRepository, DEFAULT_DB_PATH
 from models.investment import Investment
 from utils.date_helper import DateHelper
 
@@ -11,7 +11,7 @@ from utils.date_helper import DateHelper
 class InvestmentRepository(BaseRepository):
     """Repositório para gerenciar operações de banco de dados relacionadas a investimentos."""
 
-    def __init__(self, db_path: str = "finance.db"):
+    def __init__(self, db_path: str = DEFAULT_DB_PATH):
         super().__init__(db_path=db_path)
         self.date_helper = DateHelper()
 

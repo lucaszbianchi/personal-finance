@@ -54,7 +54,7 @@ app.register_blueprint(projection_bp, url_prefix="/api/projection")
 
 @app.route("/")
 def index():
-    return send_from_directory("static", "home.html")
+    return send_from_directory("static", "index.html")
 
 
 @app.route("/<path:path>")
@@ -63,4 +63,5 @@ def serve_static(path):
 
 
 if __name__ == "__main__":
-    app.run(host=os.getenv("FLASK_HOST", "127.0.0.1"), debug=True)
+    use_reloader = os.getenv("FLASK_USE_RELOADER", "true").lower() == "true"
+    app.run(host=os.getenv("FLASK_HOST", "127.0.0.1"), debug=True, use_reloader=use_reloader)

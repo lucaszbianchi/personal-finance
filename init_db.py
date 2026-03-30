@@ -249,6 +249,8 @@ def reset_db():
 
 
 def init_db():
+    db_dir = os.path.dirname(os.path.abspath(DB_PATH))
+    os.makedirs(db_dir, exist_ok=True)
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     for sql in TABLES_SQL:

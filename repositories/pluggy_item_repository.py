@@ -1,10 +1,10 @@
-from repositories.base_repository import BaseRepository
+from repositories.base_repository import BaseRepository, DEFAULT_DB_PATH
 
 
 class PluggyItemRepository(BaseRepository):
     """Repositório para gerenciar os itens Pluggy conectados pelo usuário."""
 
-    def __init__(self, db_path: str = "finance.db"):
+    def __init__(self, db_path: str = DEFAULT_DB_PATH):
         super().__init__(db_path=db_path)
 
     def upsert_item(
